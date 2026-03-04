@@ -7,12 +7,11 @@ interface ClipProps {
 }
 
 function Clip({ clip, trackId }: ClipProps) {
-  const { 
-    pixelsPerSecond, 
-    removeClip, 
+  const {
+    pixelsPerSecond,
+    removeClip,
     setSelectedClip,
     selectedClipId,
-    currentTime,
     splitClipAtTime,
     updateClip,
   } = useTimelineStore();
@@ -84,7 +83,7 @@ function Clip({ clip, trackId }: ClipProps) {
 
   const handleSplit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    splitClipAtTime(trackId, clip.id, currentTime);
+    splitClipAtTime(trackId, clip.id, useTimelineStore.getState().currentTime);
     setShowContextMenu(false);
   };
 

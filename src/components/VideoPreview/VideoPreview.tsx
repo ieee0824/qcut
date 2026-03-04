@@ -16,6 +16,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const loadedVideoUrl = useRef<string | null>(null);
   const currentTimeRef = useRef(0);
+  const rafIdRef = useRef<number | null>(null);
   const {
     isPlaying,
     currentTime,
@@ -26,13 +27,14 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     setCurrentTime,
     setDuration,
   } = useVideoPreviewStore();
-  
+
   // タイムラインとの同期
   const timelineStore = useTimelineStore();
 
   // タイムライン位置に対応するクリップを見つける
   const findClipAtTime = useCallback((time: number) => {
-    for (const track of timelineStore.tracks) {
+    const tracks = useTimelineStore.getState().tracks;
+    for (const track of tracks) {
       if (track.type === 'video') {
         for (const clip of track.clips) {
           if (time >= clip.startTime && time < clip.startTime + clip.duration) {
@@ -42,33 +44,60 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       }
     }
     return null;
-  }, [timelineStore.tracks]);
-  
+  }, []);
+
+  // 指定クリップの直後のクリップを見つける
+  const findNextClip = useCallback((clipEndTime: number) => {
+    const tracks = useTimelineStore.getState().tracks;
+    for (const track of tracks) {
+      if (track.type === 'video') {
+        for (const clip of track.clips) {
+          if (clip.startTime >= clipEndTime && clip.startTime < clipEndTime + 0.05) {
+            return clip;
+          }
+        }
+      }
+    }
+    return null;
+  }, []);
+
   // タイムライン時間から動画ソース時間に変換
   const timelineTimeToSourceTime = useCallback((timelineTime: number) => {
     const clip = findClipAtTime(timelineTime);
     if (!clip) return 0;
-    
+
     const relativeTime = timelineTime - clip.startTime;
     return clip.sourceStartTime + relativeTime;
   }, [findClipAtTime]);
-  
-  // 動画ソース時間をタイムライン時間に変換
-  const sourceTimeToTimelineTime = useCallback((sourceTime: number, clip: any) => {
-    if (!clip) return sourceTime;
-    const relativeTime = sourceTime - clip.sourceStartTime;
-    return clip.startTime + relativeTime;
-  }, []);
 
   // currentTime を ref で追跡（src切り替え時に最新値を使うため）
   useEffect(() => {
     currentTimeRef.current = currentTime;
   }, [currentTime]);
 
+  // RAF クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        window.cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
+
   // 現在のタイムライン位置に対応するクリップ
+  // tracks の変更時にも再計算する（ファイル読み込み時にクリップが追加されるため）
   const currentClip = useMemo(() => {
-    return findClipAtTime(currentTime);
-  }, [currentTime, findClipAtTime]);
+    for (const track of timelineStore.tracks) {
+      if (track.type === 'video') {
+        for (const clip of track.clips) {
+          if (currentTime >= clip.startTime && currentTime < clip.startTime + clip.duration) {
+            return clip;
+          }
+        }
+      }
+    }
+    return null;
+  }, [currentTime, timelineStore.tracks]);
 
   // 現在のクリップの動画URL（filePath → objectURL マップから取得）
   const currentVideoUrl = useMemo(() => {
@@ -165,58 +194,46 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   };
 
   const handleTimeUpdate = useCallback(() => {
-    if (!videoRef.current) return;
-    
-    const currentClip = findClipAtTime(currentTime);
-    if (!currentClip) {
-      // クリップがない場合は停止
-      setIsPlaying(false);
-      timelineStore.setIsPlaying(false);
-      videoRef.current.pause();
-      return;
-    }
-    
-    const videoSourceTime = videoRef.current.currentTime;
-    const timelineTime = sourceTimeToTimelineTime(videoSourceTime, currentClip);
-    
-    // クリップの終わりを超えた場合
-    const clipEndTime = currentClip.startTime + currentClip.duration;
-    if (timelineTime >= clipEndTime) {
-      // 次のクリップを探す
-      const nextClip = findClipAtTime(clipEndTime + 0.01);
-      if (nextClip) {
-        // 次のクリップの開始位置に移動
-        videoRef.current.currentTime = nextClip.sourceStartTime;
-        setCurrentTime(nextClip.startTime);
-        timelineStore.setCurrentTime(nextClip.startTime);
-      } else {
-        // 次のクリップがない場合は停止
+    if (rafIdRef.current !== null) return; // 既にRAFがスケジュール済み
+
+    rafIdRef.current = window.requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      if (!videoRef.current) return;
+
+      const videoSourceTime = videoRef.current.currentTime;
+      const clip = findClipAtTime(currentTimeRef.current);
+
+      if (!clip) {
         setIsPlaying(false);
         timelineStore.setIsPlaying(false);
         videoRef.current.pause();
+        return;
       }
-      return;
-    }
-    
-    // クリップの範囲外の場合（sourceEndTimeを超えた）
-    if (videoSourceTime >= currentClip.sourceEndTime) {
-      // 次のクリップを探す
-      const nextClip = findClipAtTime(clipEndTime + 0.01);
-      if (nextClip) {
-        videoRef.current.currentTime = nextClip.sourceStartTime;
-        setCurrentTime(nextClip.startTime);
-        timelineStore.setCurrentTime(nextClip.startTime);
-      } else {
-        setIsPlaying(false);
-        timelineStore.setIsPlaying(false);
-        videoRef.current.pause();
+
+      // ソース時間からタイムライン時間を算出
+      const relativeTime = videoSourceTime - clip.sourceStartTime;
+      const timelineTime = clip.startTime + relativeTime;
+      const clipEndTime = clip.startTime + clip.duration;
+
+      // クリップの終端を超えた、またはソース終端を超えた場合
+      if (timelineTime >= clipEndTime || videoSourceTime >= clip.sourceEndTime) {
+        const nextClip = findNextClip(clipEndTime);
+        if (nextClip) {
+          videoRef.current.currentTime = nextClip.sourceStartTime;
+          setCurrentTime(nextClip.startTime);
+          timelineStore.setCurrentTime(nextClip.startTime);
+        } else {
+          setIsPlaying(false);
+          timelineStore.setIsPlaying(false);
+          videoRef.current.pause();
+        }
+        return;
       }
-      return;
-    }
-    
-    setCurrentTime(timelineTime);
-    timelineStore.setCurrentTime(timelineTime);
-  }, [currentTime, findClipAtTime, sourceTimeToTimelineTime, setCurrentTime, setIsPlaying, timelineStore]);
+
+      setCurrentTime(timelineTime);
+      timelineStore.setCurrentTime(timelineTime);
+    });
+  }, [findClipAtTime, findNextClip, setCurrentTime, setIsPlaying, timelineStore]);
 
   const handleEnded = () => {
     setIsPlaying(false);
