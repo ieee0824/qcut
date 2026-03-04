@@ -4,9 +4,13 @@ import { useTimelineStore } from '../store/timelineStore';
 describe('timelineStore', () => {
   beforeEach(() => {
     // Reset store before each test
-    const state = useTimelineStore.getState();
-    state.tracks.forEach(track => {
-      track.clips = [];
+    useTimelineStore.setState({
+      tracks: [],
+      selectedClipId: null,
+      selectedTrackId: null,
+      currentTime: 0,
+      isPlaying: false,
+      pixelsPerSecond: 50,
     });
   });
 
@@ -15,17 +19,27 @@ describe('timelineStore', () => {
     expect(state.pixelsPerSecond).toBe(50);
     expect(state.currentTime).toBe(0);
     expect(state.isPlaying).toBe(false);
-    expect(state.tracks).toHaveLength(3);
+    expect(state.tracks).toHaveLength(0);
   });
 
   it('should add clip to track', () => {
-    const { addClip } = useTimelineStore.getState();
+    const { addClip, addTrack } = useTimelineStore.getState();
+
+    addTrack({
+      id: 'video-1',
+      type: 'video',
+      name: 'Video 1',
+      clips: [],
+    });
     
     addClip('video-1', {
       id: 'test-clip',
       name: 'Test Clip',
       startTime: 0,
       duration: 5,
+      filePath: 'test.mp4',
+      sourceStartTime: 0,
+      sourceEndTime: 5,
     });
 
     const state = useTimelineStore.getState();
@@ -35,20 +49,30 @@ describe('timelineStore', () => {
   });
 
   it('should remove clip from track', () => {
-    const { addClip, removeClip } = useTimelineStore.getState();
+    const { addClip, addTrack, removeClip } = useTimelineStore.getState();
+
+    addTrack({
+      id: 'video-1',
+      type: 'video',
+      name: 'Video 1',
+      clips: [],
+    });
     
     addClip('video-1', {
       id: 'test-clip',
       name: 'Test Clip',
       startTime: 0,
       duration: 5,
+      filePath: 'test.mp4',
+      sourceStartTime: 0,
+      sourceEndTime: 5,
     });
 
     removeClip('video-1', 'test-clip');
 
     const state = useTimelineStore.getState();
     const track = state.tracks.find(t => t.id === 'video-1');
-    expect(track.clips).toHaveLength(0);
+    expect(track).toBeUndefined();
   });
 
   it('should zoom in', () => {

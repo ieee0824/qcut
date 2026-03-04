@@ -59,6 +59,14 @@
   background-color: #252525;
   border-right: 1px solid #3a3a3a;
   flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.timeline-track-header-spacer {
+  height: 30px;
+  border-bottom: 1px solid #3a3a3a;
+  flex-shrink: 0;
 }
 
 .timeline-track-header {

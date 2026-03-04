@@ -14,12 +14,14 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const loadedVideoUrl = useRef<string | null>(null);
+  const currentTimeRef = useRef(0);
   const {
     isPlaying,
     currentTime,
     duration,
     volume,
-    videoUrl,
+    videoUrls,
     setIsPlaying,
     setCurrentTime,
     setDuration,
@@ -58,10 +60,50 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return clip.startTime + relativeTime;
   }, []);
 
+  // currentTime を ref で追跡（src切り替え時に最新値を使うため）
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+
+  // 現在のタイムライン位置に対応するクリップ
+  const currentClip = useMemo(() => {
+    return findClipAtTime(currentTime);
+  }, [currentTime, findClipAtTime]);
+
+  // 現在のクリップの動画URL（filePath → objectURL マップから取得）
+  const currentVideoUrl = useMemo(() => {
+    if (!currentClip) return null;
+    return videoUrls[currentClip.filePath] ?? null;
+  }, [currentClip, videoUrls]);
+
   // 現在のタイムライン位置に対応するクリップが存在するかチェック
   const hasCurrentClip = useMemo(() => {
-    return findClipAtTime(currentTime) !== null;
-  }, [currentTime, findClipAtTime]);
+    return currentClip !== null && currentVideoUrl !== null;
+  }, [currentClip, currentVideoUrl]);
+
+  // 動画ファイルが切り替わったとき src を更新してシーク
+  useEffect(() => {
+    if (!videoRef.current) return;
+    if (currentVideoUrl === loadedVideoUrl.current) return;
+
+    loadedVideoUrl.current = currentVideoUrl;
+    if (!currentVideoUrl) return;
+
+    const targetSourceTime = timelineTimeToSourceTime(currentTimeRef.current);
+    videoRef.current.src = currentVideoUrl;
+    videoRef.current.load();
+
+    videoRef.current.addEventListener(
+      'loadedmetadata',
+      () => {
+        if (videoRef.current) {
+          videoRef.current.currentTime = targetSourceTime;
+          setDuration(videoRef.current.duration);
+        }
+      },
+      { once: true },
+    );
+  }, [currentVideoUrl, timelineTimeToSourceTime, setDuration]);
 
   // 再生を停止する関数
   const stopPlayback = useCallback(() => {
@@ -226,10 +268,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       }}
     >
       {/* ビデオプレイヤー */}
-      {videoUrl ? (
+      {currentVideoUrl ? (
         <video
           ref={videoRef}
-          src={videoUrl}
           onLoadedMetadata={handleMetadata}
           onTimeUpdate={handleTimeUpdate}
           onEnded={handleEnded}
@@ -269,12 +310,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       >
         <button
           onClick={handlePlayPause}
-          disabled={!videoUrl}
+          disabled={Object.keys(videoUrls).length === 0}
           style={{
             padding: '6px 12px',
             fontSize: '14px',
-            cursor: videoUrl ? 'pointer' : 'not-allowed',
-            backgroundColor: videoUrl ? '#007bff' : '#ccc',
+            cursor: Object.keys(videoUrls).length > 0 ? 'pointer' : 'not-allowed',
+            backgroundColor: Object.keys(videoUrls).length > 0 ? '#007bff' : '#ccc',
             color: '#fff',
             border: 'none',
             borderRadius: '4px',
@@ -289,7 +330,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       </div>
 
       {/* シークバー */}
-      {videoUrl && (
+      {Object.keys(videoUrls).length > 0 && (
         <input
           type="range"
           min="0"

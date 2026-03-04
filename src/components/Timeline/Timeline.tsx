@@ -20,6 +20,7 @@ function Timeline() {
   
   const videoPreviewStore = useVideoPreviewStore();
   const timelineContainerRef = useRef<HTMLDivElement>(null);
+  const trackHeadersRef = useRef<HTMLDivElement>(null);
   const [isPanning, setIsPanning] = useState(false);
   const panStartX = useRef(0);
   const panStartScrollLeft = useRef(0);
@@ -88,6 +89,12 @@ function Timeline() {
     videoPreviewStore.setCurrentTime(time);
   };
 
+  const handleTracksScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (trackHeadersRef.current) {
+      trackHeadersRef.current.scrollTop = e.currentTarget.scrollTop;
+    }
+  };
+
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -109,13 +116,21 @@ function Timeline() {
       </div>
       
       <div className="timeline-content">
-        <div className="timeline-track-headers">
-          {tracks.map(track => (
-            <div key={track.id} className="timeline-track-header" data-track-type={track.type}>
-              <span className="track-name">{track.name}</span>
-              <span className="track-type">{track.type}</span>
-            </div>
-          ))}
+        <div className="timeline-track-headers" ref={trackHeadersRef}>
+          <div className="timeline-track-header-spacer" />
+          {tracks.map((track) => {
+            const primaryClipName = track.clips[0]?.name;
+            const displayName = primaryClipName
+              ? `${track.name}: ${primaryClipName}`
+              : track.name;
+
+            return (
+              <div key={track.id} className="timeline-track-header" data-track-type={track.type}>
+                <span className="track-name">{displayName}</span>
+                <span className="track-type">{track.type}</span>
+              </div>
+            );
+          })}
         </div>
         
         <div 
@@ -123,6 +138,7 @@ function Timeline() {
           ref={timelineContainerRef}
           onClick={handleTimelineClick}
           onMouseDown={handleTimelineMouseDown}
+          onScroll={handleTracksScroll}
         >
           <div 
             className="timeline-tracks"

@@ -10,6 +10,7 @@ export interface VideoPreviewState {
   // 動画ファイル情報
   videoFile: File | null;
   videoUrl: string | null;
+  videoUrls: Record<string, string>; // filePath → objectURL のマップ
 
   // 操作メソッド
   setIsPlaying: (playing: boolean) => void;
@@ -18,6 +19,7 @@ export interface VideoPreviewState {
   setVolume: (volume: number) => void;
   setVideoFile: (file: File) => void;
   setVideoUrl: (url: string) => void;
+  registerVideoUrl: (filePath: string, url: string) => void;
   resetPreview: () => void;
 }
 
@@ -28,6 +30,7 @@ export const useVideoPreviewStore = create<VideoPreviewState>((set) => ({
   volume: 100,
   videoFile: null,
   videoUrl: null,
+  videoUrls: {},
 
   setIsPlaying: (playing) => set({ isPlaying: playing }),
   setCurrentTime: (time) => set({ currentTime: time }),
@@ -35,9 +38,15 @@ export const useVideoPreviewStore = create<VideoPreviewState>((set) => ({
   setVolume: (volume) => set({ volume: Math.max(0, Math.min(100, volume)) }),
   setVideoFile: (file) => {
     const url = URL.createObjectURL(file);
-    set({ videoFile: file, videoUrl: url });
+    set((state) => ({
+      videoFile: file,
+      videoUrl: url,
+      videoUrls: { ...state.videoUrls, [file.name]: url },
+    }));
   },
   setVideoUrl: (url) => set({ videoUrl: url }),
+  registerVideoUrl: (filePath, url) =>
+    set((state) => ({ videoUrls: { ...state.videoUrls, [filePath]: url } })),
   resetPreview: () =>
     set({
       isPlaying: false,
@@ -45,5 +54,6 @@ export const useVideoPreviewStore = create<VideoPreviewState>((set) => ({
       duration: 0,
       videoFile: null,
       videoUrl: null,
+      videoUrls: {},
     }),
 }));

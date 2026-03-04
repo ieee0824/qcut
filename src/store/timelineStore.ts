@@ -60,11 +60,7 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   isPlaying: false, // 再生中かどうか
   
   // トラック
-  tracks: [
-    { id: 'video-1', type: 'video', name: 'Video 1', clips: [] },
-    { id: 'video-2', type: 'video', name: 'Video 2', clips: [] },
-    { id: 'audio-1', type: 'audio', name: 'Audio 1', clips: [] },
-  ],
+  tracks: [],
   
   // 選択状態
   selectedClipId: null,
@@ -85,13 +81,23 @@ export const useTimelineStore = create<TimelineState>((set) => ({
     ),
   })),
   
-  removeClip: (trackId, clipId) => set((state) => ({
-    tracks: state.tracks.map(track =>
-      track.id === trackId
-        ? { ...track, clips: track.clips.filter(c => c.id !== clipId) }
-        : track
-    ),
-  })),
+  removeClip: (trackId, clipId) => set((state) => {
+    const tracks = state.tracks
+      .map((track) =>
+        track.id === trackId
+          ? { ...track, clips: track.clips.filter((clip) => clip.id !== clipId) }
+          : track
+      )
+      .filter((track) => track.clips.length > 0);
+
+    const isSelectedClipRemoved = state.selectedTrackId === trackId && state.selectedClipId === clipId;
+
+    return {
+      tracks,
+      selectedTrackId: isSelectedClipRemoved ? null : state.selectedTrackId,
+      selectedClipId: isSelectedClipRemoved ? null : state.selectedClipId,
+    };
+  }),
   
   updateClip: (trackId, clipId, updates) => set((state) => ({
     tracks: state.tracks.map(track =>
@@ -176,16 +182,18 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   
   deleteSelectedClip: () => set((state) => {
     if (!state.selectedClipId || !state.selectedTrackId) return state;
-    
+
     return {
-      tracks: state.tracks.map(track =>
-        track.id === state.selectedTrackId
-          ? {
-              ...track,
-              clips: track.clips.filter(c => c.id !== state.selectedClipId),
-            }
-          : track
-      ),
+      tracks: state.tracks
+        .map((track) =>
+          track.id === state.selectedTrackId
+            ? {
+                ...track,
+                clips: track.clips.filter((clip) => clip.id !== state.selectedClipId),
+              }
+            : track
+        )
+        .filter((track) => track.clips.length > 0),
       selectedClipId: null,
       selectedTrackId: null,
     };
