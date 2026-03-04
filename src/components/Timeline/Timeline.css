@@ -59,15 +59,30 @@
   background-color: #252525;
   border-right: 1px solid #3a3a3a;
   flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.timeline-track-header-spacer {
+  height: 30px;
+  border-bottom: 1px solid #3a3a3a;
+  flex-shrink: 0;
 }
 
 .timeline-track-header {
-  height: 60px;
   padding: 0.5rem;
   border-bottom: 1px solid #3a3a3a;
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+.timeline-track-header[data-track-type="video"] {
+  height: 80px;
+}
+
+.timeline-track-header[data-track-type="audio"] {
+  height: 50px;
 }
 
 .track-name {
@@ -90,6 +105,8 @@
 .timeline-tracks {
   position: relative;
   min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .timeline-ruler {
@@ -97,6 +114,13 @@
   background-color: #1f1f1f;
   border-bottom: 1px solid #3a3a3a;
   position: relative;
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.timeline-ruler.panning {
+  cursor: grabbing;
 }
 
 .timeline-marker {
@@ -115,9 +139,17 @@
 }
 
 .timeline-track {
-  height: 60px;
-  border-bottom: 1px solid #3a3a3a;
   position: relative;
+  border-bottom: 1px solid #3a3a3a;
+  flex-shrink: 0;
+}
+
+.timeline-track[data-track-type="video"] {
+  height: 80px;
+}
+
+.timeline-track[data-track-type="audio"] {
+  height: 50px;
 }
 
 .timeline-track-content {
@@ -142,8 +174,9 @@
 
 .timeline-clip.dragging,
 .timeline-clip.resizing {
-  opacity: 0.8;
+  opacity: 0.9;
   z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .clip-content {
@@ -235,3 +268,50 @@
   top: 0;
   left: 0;
 }
+
+/* クリップ選択状態 */
+.timeline-clip.selected {
+  border: 2px solid #4a9eff;
+  box-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+  z-index: 5;
+}
+
+/* コンテキストメニュー */
+.context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999;
+}
+
+.context-menu {
+  position: fixed;
+  background-color: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  min-width: 150px;
+  padding: 4px 0;
+}
+
+.context-menu-item {
+  width: 100%;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-menu-item:hover {
+  background-color: #3a3a3a;
+}
+
