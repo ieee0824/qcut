@@ -94,7 +94,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         <video
           ref={videoRef}
           src={videoUrl}
-          onMetadata={handleMetadata}
+          onLoadedMetadata={handleMetadata}
           onTimeUpdate={handleTimeUpdate}
           onEnded={handleEnded}
           style={{
