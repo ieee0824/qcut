@@ -3,9 +3,14 @@ import { create } from 'zustand';
 export interface Clip {
   id: string;
   name: string;
-  startTime: number;
-  duration: number;
+  startTime: number; // タイムライン上の開始位置（秒）
+  duration: number; // タイムライン上の表示時間（秒）
   color?: string;
+  
+  // 動画ファイル情報
+  filePath: string; // 動画ファイルのパス
+  sourceStartTime: number; // 元動画の開始位置（秒）
+  sourceEndTime: number; // 元動画の終了位置（秒）
 }
 
 export interface Track {
@@ -144,6 +149,7 @@ export const useTimelineStore = create<TimelineState>((set) => ({
       ...clip,
       id: `${clip.id}-1`,
       duration: relativeTime,
+      sourceEndTime: clip.sourceStartTime + relativeTime,
     };
     
     const secondClip: Clip = {
@@ -151,6 +157,7 @@ export const useTimelineStore = create<TimelineState>((set) => ({
       id: `${clip.id}-2`,
       startTime: clip.startTime + relativeTime,
       duration: clip.duration - relativeTime,
+      sourceStartTime: clip.sourceStartTime + relativeTime,
     };
     
     return {

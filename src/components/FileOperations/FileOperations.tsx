@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFileOperationsStore } from '@/store/fileOperationsStore';
 import { useVideoPreviewStore } from '@/store/videoPreviewStore';
+import { useTimelineStore } from '@/store/timelineStore';
 
 export const FileOperations: React.FC = () => {
   const { t } = useTranslation();
@@ -16,6 +17,7 @@ export const FileOperations: React.FC = () => {
   } = useFileOperationsStore();
 
   const { setVideoFile } = useVideoPreviewStore();
+  const { addClip } = useTimelineStore();
 
   const [showMenu, setShowMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -25,7 +27,7 @@ export const FileOperations: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     setIsLoading(true);
     try {
       const file = event.target.files?.[0];
@@ -40,8 +42,25 @@ export const FileOperations: React.FC = () => {
         setCurrentFile(fileInfo);
         addRecentFile(fileInfo);
         setVideoFile(file); // VideoPreview に動画ファイルを渡す
+        
+        // 動画の長さを取得してタイムラインにクリップを追加
+        const videoDuration = await getVideoDuration(file);
+        const clipId = `clip-${Date.now()}`;
+        
+        addClip('video-1', {
+          id: clipId,
+          name: file.name,
+          startTime: 0, // タイムラインの先頭に配置
+          duration: videoDuration,
+          filePath: file.name,
+          sourceStartTime: 0,
+          sourceEndTime: videoDuration,
+          color: '#4a9eff',
+        });
+        
         setShowMenu(false); // ファイル選択後にメニューを閉じる
         console.log('ファイルを選択しました:', fileInfo);
+        console.log('クリップを追加しました:', clipId, 'duration:', videoDuration);
       }
     } catch (error) {
       console.error('ファイル選択エラー:', error);
@@ -52,6 +71,26 @@ export const FileOperations: React.FC = () => {
         fileInputRef.current.value = '';
       }
     }
+  };
+
+  // 動画の長さを取得するヘルパー関数
+  const getVideoDuration = (file: File): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve(video.duration);
+      };
+      
+      video.onerror = () => {
+        window.URL.revokeObjectURL(video.src);
+        reject(new Error('動画のメタデータ読み込みに失敗しました'));
+      };
+      
+      video.src = URL.createObjectURL(file);
+    });
   };
 
   const handleOpenRecentFile = async (path: string) => {
