@@ -13,6 +13,8 @@ pub fn run() {
     })
     .invoke_handler(tauri::generate_handler![
       commands::video::get_video_info,
+      commands::files::get_file_info,
+      commands::files::open_file_dialog,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

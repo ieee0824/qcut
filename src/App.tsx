@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import './App.css';
 import Timeline from './components/Timeline/Timeline';
 import { VideoPreview } from './components/VideoPreview/VideoPreview';
+import { FileOperations } from './components/FileOperations/FileOperations';
 import { useTimelineStore } from './store/timelineStore';
 
 function App() {
@@ -41,7 +42,8 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1>qcut - Video Editor</h1>
-        <div className="header-controls">
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <FileOperations />
           <button onClick={togglePlay} className="play-btn">
             {isPlaying ? '⏸' : '▶'}
           </button>
