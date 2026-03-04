@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { open } from '@tauri-apps/plugin-dialog';
+import React, { useState, useRef } from 'react';
 import { useFileOperationsStore } from '@/store/fileOperationsStore';
 
 export const FileOperations: React.FC = () => {
@@ -14,37 +13,37 @@ export const FileOperations: React.FC = () => {
   } = useFileOperationsStore();
 
   const [showMenu, setShowMenu] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // showRecentMenu は将来的なサブメニュー実装時に使用
 
-  const handleOpenFile = async () => {
+  const handleOpenFile = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     setIsLoading(true);
     try {
-      const selected = await open({
-        filters: [{ name: 'ビデオファイル', extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', '3gp'] }, { name: 'すべてのファイル', extensions: ['*'] }],
-        title: 'ビデオファイルを開く',
-      });
+      const file = event.target.files?.[0];
+      if (file) {
+        const fileInfo = {
+          name: file.name,
+          path: file.name, // ブラウザのセキュリティ制約でフルパスは取得不可
+          size: file.size,
+          lastModified: file.lastModified,
+        };
 
-      if (selected && typeof selected === 'string') {
-        // ファイル情報を取得
-        try {
-          const fileInfo = {
-            name: selected.split('/').pop() || 'unknown',
-            path: selected,
-            size: 0, // TODO: Tauri コマンドで取得
-            lastModified: Date.now(),
-          };
-
-          // store に追加
-          setCurrentFile(fileInfo);
-          addRecentFile(fileInfo);
-        } catch (error) {
-          console.error('ファイル情報の取得に失敗:', error);
-        }
+        setCurrentFile(fileInfo);
+        addRecentFile(fileInfo);
+        console.log('ファイルを選択しました:', fileInfo);
       }
     } catch (error) {
-      console.error('ファイルダイアログのエラー:', error);
+      console.error('ファイル選択エラー:', error);
     } finally {
       setIsLoading(false);
+      // input をリセット（同じファイルを再度選択可能にするため）
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -265,6 +264,15 @@ export const FileOperations: React.FC = () => {
           </div>
         </div>
       )}
+      
+      {/* 隠れたファイル入力 */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm,video/x-flv,video/x-ms-wmv,video/3gpp"
+        onChange={handleFileSelected}
+        style={{ display: 'none' }}
+      />
     </div>
   );
 };

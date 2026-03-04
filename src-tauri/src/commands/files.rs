@@ -45,14 +45,8 @@ pub fn get_file_info(path: String) -> Result<FileInfo, String> {
 
 /// ファイルダイアログを開く（ビデオファイル選択）
 /// 
-/// # 注意
-/// 現在は雛形です。実装時に Tauri の dialog プラグインで実装
+/// 注意: フロントエンド側で dialog API を直接使用するため、このコマンドは現在使用されていません。
 #[tauri::command]
 pub fn open_file_dialog() -> Result<Option<String>, String> {
-  // TODO: Tauri dialog プラグインで実装
-  // let result = tauri::api::dialog::FileDialogBuilder::new()
-  //   .add_filter("ビデオファイル", &["mp4", "mov", "avi", "mkv"])
-  //   .add_filter("すべてのファイル", &["*"])
-  //   .pick_file();
   Ok(None)
 }
