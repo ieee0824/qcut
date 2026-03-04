@@ -1,6 +1,11 @@
+import { Track as TrackType } from '../../store/timelineStore';
 import Clip from './Clip';
 
-function Track({ track }) {
+interface TrackProps {
+  track: TrackType;
+}
+
+function Track({ track }: TrackProps) {
   return (
     <div className="timeline-track" data-track-id={track.id}>
       <div className="timeline-track-content">
