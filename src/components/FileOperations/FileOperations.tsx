@@ -34,6 +34,7 @@ export const FileOperations: React.FC = () => {
 
         setCurrentFile(fileInfo);
         addRecentFile(fileInfo);
+        setShowMenu(false); // ファイル選択後にメニューを閉じる
         console.log('ファイルを選択しました:', fileInfo);
       }
     } catch (error) {
