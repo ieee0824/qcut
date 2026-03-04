@@ -1,5 +1,5 @@
 import { useTimelineStore, Clip as ClipType } from '../../store/timelineStore';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface ClipProps {
   clip: ClipType;
@@ -14,11 +14,14 @@ function Clip({ clip, trackId }: ClipProps) {
     selectedClipId,
     currentTime,
     splitClipAtTime,
+    updateClip,
   } = useTimelineStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
+  const dragStartX = useRef(0);
+  const dragStartTime = useRef(0);
 
   const left = clip.startTime * pixelsPerSecond;
   const width = clip.duration * pixelsPerSecond;
@@ -29,13 +32,46 @@ function Clip({ clip, trackId }: ClipProps) {
       setIsResizing(true);
     } else {
       setIsDragging(true);
+      dragStartX.current = e.clientX;
+      dragStartTime.current = clip.startTime;
     }
     // クリップを選択
     setSelectedClip(trackId, clip.id);
     e.stopPropagation();
   };
 
+  // ドラッグ処理
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: globalThis.MouseEvent) => {
+      const deltaX = e.clientX - dragStartX.current;
+      const deltaTime = deltaX / pixelsPerSecond;
+      let newStartTime = dragStartTime.current + deltaTime;
+      
+      // 負の値にならないようにする
+      newStartTime = Math.max(0, newStartTime);
+      
+      updateClip(trackId, clip.id, { startTime: newStartTime });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, pixelsPerSecond, trackId, clip.id, updateClip]);
+
   const handleContextMenu = (e: React.MouseEvent) => {
+    // ドラッグ中はコンテキストメニューを表示しない
+    if (isDragging) return;
+    
     e.preventDefault();
     e.stopPropagation();
     setContextMenuPos({ x: e.clientX, y: e.clientY });

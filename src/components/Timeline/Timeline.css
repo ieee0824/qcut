@@ -142,8 +142,9 @@
 
 .timeline-clip.dragging,
 .timeline-clip.resizing {
-  opacity: 0.8;
+  opacity: 0.9;
   z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .clip-content {
