@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 
 interface VideoPreviewProps {
@@ -10,6 +11,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   width = '100%',
   height = '400px',
 }) => {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const {
     isPlaying,
@@ -118,7 +120,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             fontSize: '14px',
           }}
         >
-          動画を読み込んでください
+          {t('fileOperations.noFile')}
         </div>
       )}
 
