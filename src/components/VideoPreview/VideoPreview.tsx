@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTimelineStore } from '../../store/timelineStore';
@@ -57,6 +57,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     const relativeTime = sourceTime - clip.sourceStartTime;
     return clip.startTime + relativeTime;
   }, []);
+
+  // 現在のタイムライン位置に対応するクリップが存在するかチェック
+  const hasCurrentClip = useMemo(() => {
+    return findClipAtTime(currentTime) !== null;
+  }, [currentTime, findClipAtTime]);
 
   // 再生/停止の同期
   useEffect(() => {
@@ -206,6 +211,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             height: '300px',
             backgroundColor: '#000',
             borderRadius: '4px',
+            visibility: hasCurrentClip ? 'visible' : 'hidden',
           }}
         />
       ) : (
