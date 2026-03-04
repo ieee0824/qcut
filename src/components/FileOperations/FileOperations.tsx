@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { open } from '@tauri-apps/plugin-dialog';
 import { useFileOperationsStore } from '@/store/fileOperationsStore';
 
 export const FileOperations: React.FC = () => {
@@ -6,8 +7,8 @@ export const FileOperations: React.FC = () => {
     currentFile,
     isLoading,
     recentFiles,
-    // setCurrentFile は将来的にファイルを開く際に使用
-    // addRecentFile は将来的にファイルを開く際に使用
+    setCurrentFile,
+    addRecentFile,
     setIsLoading,
     clearRecentFiles,
   } = useFileOperationsStore();
@@ -18,14 +19,30 @@ export const FileOperations: React.FC = () => {
   const handleOpenFile = async () => {
     setIsLoading(true);
     try {
-      // TODO: Tauri ダイアログで動画ファイル選択
-      // const selected = await open_file_dialog();
-      // if (selected) {
-      //   const fileInfo = await get_file_info(selected);
-      //   setCurrentFile(fileInfo);
-      //   addRecentFile(fileInfo);
-      // }
-      console.log('Open file dialog (to be implemented with Tauri)');
+      const selected = await open({
+        filters: [{ name: 'ビデオファイル', extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', '3gp'] }, { name: 'すべてのファイル', extensions: ['*'] }],
+        title: 'ビデオファイルを開く',
+      });
+
+      if (selected && typeof selected === 'string') {
+        // ファイル情報を取得
+        try {
+          const fileInfo = {
+            name: selected.split('/').pop() || 'unknown',
+            path: selected,
+            size: 0, // TODO: Tauri コマンドで取得
+            lastModified: Date.now(),
+          };
+
+          // store に追加
+          setCurrentFile(fileInfo);
+          addRecentFile(fileInfo);
+        } catch (error) {
+          console.error('ファイル情報の取得に失敗:', error);
+        }
+      }
+    } catch (error) {
+      console.error('ファイルダイアログのエラー:', error);
     } finally {
       setIsLoading(false);
     }
