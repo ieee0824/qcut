@@ -16,9 +16,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const loadedVideoUrl = useRef<string | null>(null);
   const currentTimeRef = useRef(0);
-  const rafIdRef = useRef<number | null>(null);
+  const playbackRafRef = useRef<number | null>(null);
+  const lastTimestampRef = useRef(0);
   const timeDisplayRef = useRef<globalThis.HTMLSpanElement>(null);
   const seekBarRef = useRef<HTMLInputElement>(null);
+  // 動画ファイル切替中フラグ（load〜loadedmetadata 間）
+  const isLoadingVideoRef = useRef(false);
 
   const {
     isPlaying,
@@ -95,14 +98,184 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   }, [formatTime]);
 
+  // 動画ファイルを切り替えてシーク・再生する
+  const switchVideo = useCallback((url: string, sourceTime: number, autoPlay: boolean) => {
+    if (!videoRef.current) return;
+    if (url === loadedVideoUrl.current) {
+      // 同じファイル → シークのみ
+      videoRef.current.currentTime = sourceTime;
+      if (autoPlay && videoRef.current.paused) {
+        videoRef.current.play();
+      }
+      return;
+    }
+    // 別ファイル → src 切替
+    isLoadingVideoRef.current = true;
+    loadedVideoUrl.current = url;
+    videoRef.current.src = url;
+    videoRef.current.load();
+    videoRef.current.addEventListener(
+      'loadedmetadata',
+      () => {
+        isLoadingVideoRef.current = false;
+        if (!videoRef.current) return;
+        videoRef.current.currentTime = sourceTime;
+        setDuration(videoRef.current.duration);
+        if (autoPlay) {
+          videoRef.current.play();
+        }
+      },
+      { once: true },
+    );
+  }, [setDuration]);
+
+  // 再生ループを停止するヘルパー
+  const stopPlaybackLoop = useCallback(() => {
+    if (playbackRafRef.current !== null) {
+      window.cancelAnimationFrame(playbackRafRef.current);
+      playbackRafRef.current = null;
+    }
+  }, []);
+
+  // 統一再生ループ（クリップ中もギャップ中も同一のRAFで駆動）
+  const startPlaybackLoop = useCallback(() => {
+    stopPlaybackLoop();
+    lastTimestampRef.current = globalThis.performance.now();
+
+    const tick = (timestamp: number) => {
+      const delta = (timestamp - lastTimestampRef.current) / 1000;
+      lastTimestampRef.current = timestamp;
+
+      if (!videoRef.current) {
+        playbackRafRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      const clip = findClipAtTime(currentTimeRef.current);
+
+      if (clip) {
+        // --- クリップ区間 ---
+        const url = useVideoPreviewStore.getState().videoUrls[clip.filePath];
+
+        if (isLoadingVideoRef.current) {
+          // 動画ロード中: delta で時間を進める（映像はまだ出ないがタイムラインは進む）
+          const newTime = currentTimeRef.current + delta;
+          const clipEnd = clip.startTime + clip.duration;
+          if (newTime >= clipEnd) {
+            currentTimeRef.current = clipEnd;
+          } else {
+            currentTimeRef.current = newTime;
+          }
+          useTimelineStore.getState().setCurrentTime(currentTimeRef.current);
+          updateTimeDisplay(currentTimeRef.current);
+          playbackRafRef.current = window.requestAnimationFrame(tick);
+          return;
+        }
+
+        // 正しい動画がロードされていなければ切り替え
+        if (url && url !== loadedVideoUrl.current) {
+          const sourceTime = clip.sourceStartTime + (currentTimeRef.current - clip.startTime);
+          switchVideo(url, sourceTime, true);
+          playbackRafRef.current = window.requestAnimationFrame(tick);
+          return;
+        }
+
+        // 動画が一時停止していれば再開
+        if (videoRef.current.paused && url) {
+          const sourceTime = clip.sourceStartTime + (currentTimeRef.current - clip.startTime);
+          videoRef.current.currentTime = sourceTime;
+          videoRef.current.play();
+        }
+
+        // 動画の実時間からタイムライン時間を算出
+        const videoSourceTime = videoRef.current.currentTime;
+        // シーク完了前はdeltaで仮進行
+        if (videoSourceTime < clip.sourceStartTime - 0.15) {
+          const newTime = currentTimeRef.current + delta;
+          useTimelineStore.getState().setCurrentTime(newTime);
+          updateTimeDisplay(newTime);
+          playbackRafRef.current = window.requestAnimationFrame(tick);
+          return;
+        }
+
+        const relativeTime = videoSourceTime - clip.sourceStartTime;
+        const timelineTime = clip.startTime + relativeTime;
+        const clipEndTime = clip.startTime + clip.duration;
+
+        if (timelineTime >= clipEndTime || videoSourceTime >= clip.sourceEndTime) {
+          // クリップ終端 → 次のクリップまたはギャップへ
+          currentTimeRef.current = clipEndTime;
+          useTimelineStore.getState().setCurrentTime(clipEndTime);
+          updateTimeDisplay(clipEndTime);
+
+          // 隣接クリップを探す
+          const adjacentClip = findClipAtTime(clipEndTime + 0.01);
+          if (adjacentClip) {
+            const isContinuous = adjacentClip.filePath === clip.filePath
+              && Math.abs(adjacentClip.sourceStartTime - clip.sourceEndTime) < 0.05;
+            if (!isContinuous) {
+              const adjUrl = useVideoPreviewStore.getState().videoUrls[adjacentClip.filePath];
+              if (adjUrl) {
+                switchVideo(adjUrl, adjacentClip.sourceStartTime, true);
+              }
+            }
+            // continuous の場合は動画はそのまま再生し続ける
+          } else {
+            // ギャップに入る → 動画を一時停止（次のtickでギャップ処理）
+            videoRef.current.pause();
+          }
+        } else {
+          // 通常再生: タイムラインを更新
+          currentTimeRef.current = timelineTime;
+          useTimelineStore.getState().setCurrentTime(timelineTime);
+          updateTimeDisplay(timelineTime);
+        }
+      } else {
+        // --- ギャップ区間 ---
+        // delta で時間を進める（黒画面）
+        const newTime = currentTimeRef.current + delta;
+
+        // 次のクリップを探す
+        const nextClip = findNextClipAfter(currentTimeRef.current);
+        if (!nextClip) {
+          // タイムライン終端 → 再生停止
+          setIsPlaying(false);
+          useTimelineStore.getState().setIsPlaying(false);
+          if (videoRef.current) videoRef.current.pause();
+          playbackRafRef.current = null;
+          return;
+        }
+
+        if (newTime >= nextClip.startTime) {
+          // ギャップ終了 → 次のクリップへ
+          currentTimeRef.current = nextClip.startTime;
+          useTimelineStore.getState().setCurrentTime(nextClip.startTime);
+          updateTimeDisplay(nextClip.startTime);
+
+          const url = useVideoPreviewStore.getState().videoUrls[nextClip.filePath];
+          if (url) {
+            switchVideo(url, nextClip.sourceStartTime, true);
+          }
+        } else {
+          // ギャップ内を進行中
+          currentTimeRef.current = newTime;
+          useTimelineStore.getState().setCurrentTime(newTime);
+          updateTimeDisplay(newTime);
+        }
+      }
+
+      playbackRafRef.current = window.requestAnimationFrame(tick);
+    };
+
+    playbackRafRef.current = window.requestAnimationFrame(tick);
+  }, [stopPlaybackLoop, findClipAtTime, findNextClipAfter, switchVideo, updateTimeDisplay, setIsPlaying]);
+
   // RAF クリーンアップ
   useEffect(() => {
     return () => {
-      if (rafIdRef.current !== null) {
-        window.cancelAnimationFrame(rafIdRef.current);
-      }
+      stopPlaybackLoop();
     };
-  }, []);
+  }, [stopPlaybackLoop]);
 
   // timelineStore の currentTime 変更を監視して表示を更新（シーク等の外部変更に対応）
   useEffect(() => {
@@ -155,9 +328,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return currentClip !== null && currentVideoUrl !== null;
   }, [currentClip, currentVideoUrl]);
 
-  // 動画ファイルが切り替わったとき src を更新してシーク
+  // 動画ファイルが切り替わったとき src を更新してシーク（停止中のみ）
   useEffect(() => {
     if (!videoRef.current) return;
+    // 再生中は playback loop が switchVideo で処理する
+    if (useVideoPreviewStore.getState().isPlaying) return;
     if (currentVideoUrl === loadedVideoUrl.current) return;
 
     loadedVideoUrl.current = currentVideoUrl;
@@ -174,58 +349,24 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         if (!videoRef.current) return;
         videoRef.current.currentTime = targetSourceTime;
         setDuration(videoRef.current.duration);
-        // load() で一時停止されるため、再生中なら再開
-        if (useVideoPreviewStore.getState().isPlaying) {
-          videoRef.current.play();
-        }
       },
       { once: true },
     );
   }, [currentVideoUrl, timelineTimeToSourceTime, setDuration]);
-
-  // 再生を停止する関数
-  const stopPlayback = useCallback(() => {
-    if (videoRef.current) {
-      videoRef.current.pause();
-    }
-    setIsPlaying(false);
-    useTimelineStore.getState().setIsPlaying(false);
-  }, [setIsPlaying]);
 
   // 再生/停止の同期
   useEffect(() => {
     if (!videoRef.current) return;
 
     if (isPlaying) {
-      // 削除済み部分では再生を開始しない
-      if (!hasCurrentClip) {
-        stopPlayback();
-        return;
-      }
-
-      // 再生開始時にタイムライン位置に対応する動画ソース位置に移動
-      const sourceTime = timelineTimeToSourceTime(currentTimeRef.current);
-      videoRef.current.currentTime = sourceTime;
-      videoRef.current.play();
+      startPlaybackLoop();
     } else {
+      stopPlaybackLoop();
       videoRef.current.pause();
       // 停止時にストアを同期
-      const time = currentTimeRef.current;
-      setVideoPreviewCurrentTime(time);
+      setVideoPreviewCurrentTime(currentTimeRef.current);
     }
-  }, [isPlaying, hasCurrentClip, stopPlayback, timelineTimeToSourceTime, setVideoPreviewCurrentTime]);
-
-  // 再生中に削除済み部分に移動したら停止
-  // ただしクリップ遷移中の一時的な null は無視する
-  useEffect(() => {
-    if (!isPlaying || hasCurrentClip) return;
-
-    // 次のクリップが存在する場合は遷移中なので停止しない
-    const nextClip = findNextClipAfter(currentTimeRef.current);
-    if (nextClip) return;
-
-    stopPlayback();
-  }, [hasCurrentClip, isPlaying, stopPlayback, findNextClipAfter]);
+  }, [isPlaying, startPlaybackLoop, stopPlaybackLoop, setVideoPreviewCurrentTime]);
 
   // 音量の同期
   useEffect(() => {
@@ -253,73 +394,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   };
 
-  const handleTimeUpdate = useCallback(() => {
-    if (rafIdRef.current !== null) return; // 既にRAFがスケジュール済み
-
-    rafIdRef.current = window.requestAnimationFrame(() => {
-      rafIdRef.current = null;
-      if (!videoRef.current) return;
-
-      const videoSourceTime = videoRef.current.currentTime;
-      const clip = findClipAtTime(currentTimeRef.current);
-
-      if (!clip) {
-        setIsPlaying(false);
-        useTimelineStore.getState().setIsPlaying(false);
-        videoRef.current.pause();
-        return;
-      }
-
-      // ソース時間からタイムライン時間を算出
-      const relativeTime = videoSourceTime - clip.sourceStartTime;
-      const timelineTime = clip.startTime + relativeTime;
-      const clipEndTime = clip.startTime + clip.duration;
-
-      // クリップの終端を超えた、またはソース終端を超えた場合
-      if (timelineTime >= clipEndTime || videoSourceTime >= clip.sourceEndTime) {
-        // まず隣接クリップを探し、なければギャップを飛ばして次のクリップを探す
-        const nextClip = findClipAtTime(clipEndTime + 0.01) ?? findNextClipAfter(clipEndTime);
-        if (nextClip) {
-          // 同じファイルでソース時間が連続している場合はシーク不要（分割クリップ等）
-          const isContinuous = nextClip.filePath === clip.filePath
-            && Math.abs(nextClip.sourceStartTime - clip.sourceEndTime) < 0.05;
-
-          let nextTimelineTime: number;
-          if (isContinuous) {
-            // 連続クリップ: 現在のソース位置からタイムライン時間を再計算
-            const nextRelative = videoSourceTime - nextClip.sourceStartTime;
-            nextTimelineTime = nextClip.startTime + Math.max(0, nextRelative);
-          } else {
-            // 非連続: 次クリップの先頭にシーク
-            videoRef.current.currentTime = nextClip.sourceStartTime;
-            nextTimelineTime = nextClip.startTime;
-          }
-
-          useTimelineStore.getState().setCurrentTime(nextTimelineTime);
-          updateTimeDisplay(nextTimelineTime);
-        } else {
-          setIsPlaying(false);
-          useTimelineStore.getState().setIsPlaying(false);
-          videoRef.current.pause();
-        }
-        return;
-      }
-
-      // timelineStore のみ更新（Playhead, Timecode が subscribe で反映）
-      // videoPreviewStore は再生停止時にまとめて同期
-      useTimelineStore.getState().setCurrentTime(timelineTime);
-      updateTimeDisplay(timelineTime);
-    });
-  }, [findClipAtTime, findNextClipAfter, setIsPlaying, updateTimeDisplay]);
-
-  const handleEnded = () => {
-    setIsPlaying(false);
-    useTimelineStore.getState().setIsPlaying(false);
-  };
-
   const handlePlayPause = () => {
-    // 削除済み部分では再生を開始しない
-    if (!isPlaying && !findClipAtTime(currentTimeRef.current)) {
+    // 再生開始時: クリップもギャップ先のクリップもなければ開始しない
+    if (!isPlaying && !findClipAtTime(currentTimeRef.current) && !findNextClipAfter(currentTimeRef.current)) {
       return;
     }
 
@@ -355,38 +432,40 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         backgroundColor: '#f9f9f9',
       }}
     >
-      {/* ビデオプレイヤー */}
-      {currentVideoUrl ? (
+      {/* ビデオプレイヤー（常にDOMに存在させ、ギャップ中に消えないようにする） */}
+      <div style={{ position: 'relative', width: '100%', height: '300px' }}>
         <video
           ref={videoRef}
           onLoadedMetadata={handleMetadata}
-          onTimeUpdate={handleTimeUpdate}
-          onEnded={handleEnded}
           style={{
             width: '100%',
-            height: '300px',
+            height: '100%',
             backgroundColor: '#000',
             borderRadius: '4px',
             visibility: hasCurrentClip ? 'visible' : 'hidden',
           }}
         />
-      ) : (
-        <div
-          style={{
-            width: '100%',
-            height: '300px',
-            backgroundColor: '#000',
-            borderRadius: '4px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontSize: '14px',
-          }}
-        >
-          {t('fileOperations.noFile')}
-        </div>
-      )}
+        {!hasCurrentClip && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundColor: '#000',
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              fontSize: '14px',
+            }}
+          >
+            {!Object.keys(videoUrls).length && t('fileOperations.noFile')}
+          </div>
+        )}
+      </div>
 
       {/* コントロール */}
       <div
