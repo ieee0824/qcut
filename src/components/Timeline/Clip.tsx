@@ -69,9 +69,6 @@ function Clip({ clip, trackId }: ClipProps) {
   }, [isDragging, pixelsPerSecond, trackId, clip.id, updateClip]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
-    // ドラッグ中はコンテキストメニューを表示しない
-    if (isDragging) return;
-    
     e.preventDefault();
     e.stopPropagation();
     setContextMenuPos({ x: e.clientX, y: e.clientY });
