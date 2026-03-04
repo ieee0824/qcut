@@ -31,6 +31,10 @@ export default [
         React: 'readonly',
         HTMLElement: 'readonly',
         HTMLDivElement: 'readonly',
+        HTMLVideoElement: 'readonly',
+        HTMLInputElement: 'readonly',
+        File: 'readonly',
+        URL: 'readonly',
       },
     },
     plugins: {

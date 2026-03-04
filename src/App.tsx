@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import './App.css';
 import Timeline from './components/Timeline/Timeline';
+import { VideoPreview } from './components/VideoPreview/VideoPreview';
 import { useTimelineStore } from './store/timelineStore';
 
 function App() {
@@ -48,7 +49,7 @@ function App() {
       </header>
       <main className="app-main">
         <div className="preview-container">
-          <p>プレビューエリア</p>
+          <VideoPreview />
         </div>
         <div className="timeline-container">
           <Timeline />
