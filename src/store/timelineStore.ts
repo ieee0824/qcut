@@ -1,6 +1,44 @@
 import { create } from 'zustand';
 
-export const useTimelineStore = create((set) => ({
+export interface Clip {
+  id: string;
+  name: string;
+  startTime: number;
+  duration: number;
+  color?: string;
+}
+
+export interface Track {
+  id: string;
+  type: 'video' | 'audio';
+  name: string;
+  clips: Clip[];
+}
+
+export interface TimelineState {
+  // タイムライン設定
+  pixelsPerSecond: number;
+  currentTime: number;
+  duration: number;
+  isPlaying: boolean;
+  
+  // トラック
+  tracks: Track[];
+  
+  // アクション
+  setPixelsPerSecond: (pps: number) => void;
+  setCurrentTime: (time: number) => void;
+  setIsPlaying: (playing: boolean) => void;
+  addClip: (trackId: string, clip: Clip) => void;
+  removeClip: (trackId: string, clipId: string) => void;
+  updateClip: (trackId: string, clipId: string, updates: Partial<Clip>) => void;
+  addTrack: (track: Track) => void;
+  removeTrack: (trackId: string) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+}
+
+export const useTimelineStore = create<TimelineState>((set) => ({
   // タイムライン設定
   pixelsPerSecond: 50, // 1秒あたりのピクセル数（ズームレベル）
   currentTime: 0, // 現在の再生位置（秒）

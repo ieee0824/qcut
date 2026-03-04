@@ -16,14 +16,14 @@ function Timeline() {
 
   const timelineWidth = Math.max(3000, duration * pixelsPerSecond);
 
-  const handleTimelineClick = (e) => {
+  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left + e.currentTarget.scrollLeft;
     const time = x / pixelsPerSecond;
     setCurrentTime(time);
   };
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     const frames = Math.floor((seconds % 1) * 30);

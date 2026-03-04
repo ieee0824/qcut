@@ -1,7 +1,12 @@
-import { useTimelineStore } from '../../store/timelineStore';
+import { useTimelineStore, Clip as ClipType } from '../../store/timelineStore';
 import { useState } from 'react';
 
-function Clip({ clip, trackId }) {
+interface ClipProps {
+  clip: ClipType;
+  trackId: string;
+}
+
+function Clip({ clip, trackId }: ClipProps) {
   const { pixelsPerSecond, removeClip } = useTimelineStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -9,8 +14,8 @@ function Clip({ clip, trackId }) {
   const left = clip.startTime * pixelsPerSecond;
   const width = clip.duration * pixelsPerSecond;
 
-  const handleMouseDown = (e) => {
-    if (e.target.classList.contains('clip-resize-handle')) {
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).classList.contains('clip-resize-handle')) {
       setIsResizing(true);
     } else {
       setIsDragging(true);
@@ -18,7 +23,7 @@ function Clip({ clip, trackId }) {
     e.stopPropagation();
   };
 
-  const handleDelete = (e) => {
+  const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     removeClip(trackId, clip.id);
   };
