@@ -63,11 +63,26 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return findClipAtTime(currentTime) !== null;
   }, [currentTime, findClipAtTime]);
 
+  // 再生を停止する関数
+  const stopPlayback = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+    setIsPlaying(false);
+    timelineStore.setIsPlaying(false);
+  }, [setIsPlaying, timelineStore]);
+
   // 再生/停止の同期
   useEffect(() => {
     if (!videoRef.current) return;
 
     if (isPlaying) {
+      // 削除済み部分では再生を開始しない
+      if (!hasCurrentClip) {
+        stopPlayback();
+        return;
+      }
+
       // 再生開始時にタイムライン位置に対応する動画ソース位置に移動
       const sourceTime = timelineTimeToSourceTime(currentTime);
       videoRef.current.currentTime = sourceTime;
@@ -75,7 +90,14 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     } else {
       videoRef.current.pause();
     }
-  }, [isPlaying, currentTime, timelineTimeToSourceTime]);
+  }, [isPlaying, currentTime, timelineTimeToSourceTime, hasCurrentClip, stopPlayback]);
+
+  // 再生中に削除済み部分に移動したら停止
+  useEffect(() => {
+    if (isPlaying && !hasCurrentClip) {
+      stopPlayback();
+    }
+  }, [hasCurrentClip, isPlaying, stopPlayback]);
 
   // 音量の同期
   useEffect(() => {
@@ -160,6 +182,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   };
 
   const handlePlayPause = () => {
+    // 削除済み部分では再生を開始しない
+    if (!isPlaying && !findClipAtTime(currentTime)) {
+      return;
+    }
+
     const newPlayingState = !isPlaying;
     setIsPlaying(newPlayingState);
     timelineStore.setIsPlaying(newPlayingState);
