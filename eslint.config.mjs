@@ -23,6 +23,7 @@ export default [
         document: 'readonly',
         navigator: 'readonly',
         console: 'readonly',
+        localStorage: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
         setInterval: 'readonly',
@@ -60,5 +61,20 @@ export default [
   },
   {
     ignores: ['dist/', 'node_modules/', 'src-tauri/target/'],
+  },
+  {
+    files: ['src/test/**/*.{ts,tsx}'],
+    languageOptions: {
+      globals: {
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        vi: 'readonly',
+      },
+    },
   },
 ];
