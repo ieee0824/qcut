@@ -1,0 +1,76 @@
+name: バグレポート
+description: バグや問題を報告する
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        バグレポートをありがとうございます。以下の情報を提供してください。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 問題の説明
+      description: 何が起きているか、簡潔に説明してください
+      placeholder: 動画をインポートすると...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: 問題を再現するための手順
+      placeholder: |
+        1. 動画ファイルを開く
+        2. タイムラインにドラッグ
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待される動作
+      description: 本来どうあるべきか
+      placeholder: 動画がタイムラインに正しく配置される
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の動作
+      description: 実際に何が起きたか
+      placeholder: アプリケーションがクラッシュする
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      description: 使用しているOS
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: qcutのバージョン
+      description: アプリのバージョン（メニュー > About から確認できます）
+      placeholder: v0.1.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 追加情報
+      description: スクリーンショット、エラーログなど
+      placeholder: エラーメッセージやスクリーンショットがあれば添付してください

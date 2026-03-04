@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: ディスカッション
+    url: https://github.com/ieee0824/qcut/discussions
+    about: 質問や議論はDiscussionsでお願いします

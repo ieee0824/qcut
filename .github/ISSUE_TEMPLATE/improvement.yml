@@ -1,0 +1,57 @@
+name: 改善提案
+description: 既存機能の改善提案
+title: "[Improvement] "
+labels: ["improvement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        改善提案をありがとうございます。
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: カテゴリ
+      description: どの領域の改善ですか？
+      options:
+        - UI/UX
+        - パフォーマンス
+        - ドキュメント
+        - コード品質
+        - その他
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: 現在の状態
+      description: 現在どのようになっていますか？
+      placeholder: 現在、タイムラインの操作が...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: 提案する改善
+      description: どのように改善すべきですか？
+      placeholder: タイムラインの操作を〜〜のように改善...
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefit
+    attributes:
+      label: 改善によるメリット
+      description: この改善で何が良くなりますか？
+      placeholder: より直感的に操作できるようになり...
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 追加情報
+      description: モックアップや参考例など
+      placeholder: デザインのモックアップがあれば添付してください
