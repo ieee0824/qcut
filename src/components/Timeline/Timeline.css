@@ -62,12 +62,19 @@
 }
 
 .timeline-track-header {
-  height: 60px;
   padding: 0.5rem;
   border-bottom: 1px solid #3a3a3a;
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+.timeline-track-header[data-track-type="video"] {
+  height: 80px;
+}
+
+.timeline-track-header[data-track-type="audio"] {
+  height: 50px;
 }
 
 .track-name {
@@ -90,6 +97,8 @@
 .timeline-tracks {
   position: relative;
   min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .timeline-ruler {
@@ -97,6 +106,13 @@
   background-color: #1f1f1f;
   border-bottom: 1px solid #3a3a3a;
   position: relative;
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.timeline-ruler.panning {
+  cursor: grabbing;
 }
 
 .timeline-marker {
@@ -115,9 +131,17 @@
 }
 
 .timeline-track {
-  height: 60px;
-  border-bottom: 1px solid #3a3a3a;
   position: relative;
+  border-bottom: 1px solid #3a3a3a;
+  flex-shrink: 0;
+}
+
+.timeline-track[data-track-type="video"] {
+  height: 80px;
+}
+
+.timeline-track[data-track-type="audio"] {
+  height: 50px;
 }
 
 .timeline-track-content {
@@ -241,6 +265,7 @@
 .timeline-clip.selected {
   border: 2px solid #4a9eff;
   box-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+  z-index: 5;
 }
 
 /* コンテキストメニュー */

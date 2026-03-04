@@ -17,7 +17,7 @@ export const FileOperations: React.FC = () => {
   } = useFileOperationsStore();
 
   const { setVideoFile } = useVideoPreviewStore();
-  const { addClip } = useTimelineStore();
+  const { addClip, addTrack, tracks } = useTimelineStore();
 
   const [showMenu, setShowMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -25,6 +25,38 @@ export const FileOperations: React.FC = () => {
 
   const handleOpenFile = () => {
     fileInputRef.current?.click();
+  };
+
+  const getNextVideoTrackId = (existingTracks: typeof tracks) => {
+    const indices = existingTracks
+      .filter((track) => track.type === 'video')
+      .map((track) => {
+        const match = track.id.match(/^video-(\d+)$/);
+        return match ? Number(match[1]) : 0;
+      })
+      .filter((value) => Number.isFinite(value));
+
+    const nextIndex = indices.length > 0 ? Math.max(...indices) + 1 : 1;
+    return `video-${nextIndex}`;
+  };
+
+  const getTargetVideoTrack = () => {
+    const videoTracks = tracks.filter((track) => track.type === 'video');
+    const emptyTrack = videoTracks.find((track) => track.clips.length === 0);
+
+    if (emptyTrack) {
+      return { trackId: emptyTrack.id, startTime: 0 };
+    }
+
+    const newTrackId = getNextVideoTrackId(tracks);
+    addTrack({
+      id: newTrackId,
+      type: 'video',
+      name: `Video ${newTrackId.replace('video-', '')}`,
+      clips: [],
+    });
+
+    return { trackId: newTrackId, startTime: 0 };
   };
 
   const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,10 +79,15 @@ export const FileOperations: React.FC = () => {
         const videoDuration = await getVideoDuration(file);
         const clipId = `clip-${Date.now()}`;
         
-        addClip('video-1', {
+        const target = getTargetVideoTrack();
+        if (!target) {
+          throw new Error('ビデオトラックが見つかりません');
+        }
+
+        addClip(target.trackId, {
           id: clipId,
           name: file.name,
-          startTime: 0, // タイムラインの先頭に配置
+          startTime: target.startTime,
           duration: videoDuration,
           filePath: file.name,
           sourceStartTime: 0,

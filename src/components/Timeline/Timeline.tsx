@@ -1,6 +1,6 @@
 import { useTimelineStore } from '../../store/timelineStore';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Track from './Track';
 import Playhead from './Playhead';
 import './Timeline.css';
@@ -19,6 +19,10 @@ function Timeline() {
   } = useTimelineStore();
   
   const videoPreviewStore = useVideoPreviewStore();
+  const timelineContainerRef = useRef<HTMLDivElement>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartX = useRef(0);
+  const panStartScrollLeft = useRef(0);
 
   const timelineWidth = Math.max(3000, duration * pixelsPerSecond);
 
@@ -34,7 +38,44 @@ function Timeline() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [deleteSelectedClip]);
 
+  // パンニング処理
+  useEffect(() => {
+    if (!isPanning || !timelineContainerRef.current) return;
+
+    const handleMouseMove = (e: globalThis.MouseEvent) => {
+      const deltaX = e.clientX - panStartX.current;
+      const newScrollLeft = panStartScrollLeft.current - deltaX;
+      if (timelineContainerRef.current) {
+        timelineContainerRef.current.scrollLeft = newScrollLeft;
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsPanning(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isPanning]);
+
+  const handleTimelineMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // ルーラー上でドラッグの場合はパンニング開始
+    if ((e.target as HTMLElement).closest('.timeline-ruler')) {
+      setIsPanning(true);
+      panStartX.current = e.clientX;
+      panStartScrollLeft.current = timelineContainerRef.current?.scrollLeft || 0;
+    }
+  };
+
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // パンニング中はクリック処理をしない
+    if (isPanning) return;
+
     // クリップ以外の場所をクリックした場合は選択解除
     if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.timeline-tracks')) {
       setSelectedClip(null, null);
@@ -70,7 +111,7 @@ function Timeline() {
       <div className="timeline-content">
         <div className="timeline-track-headers">
           {tracks.map(track => (
-            <div key={track.id} className="timeline-track-header">
+            <div key={track.id} className="timeline-track-header" data-track-type={track.type}>
               <span className="track-name">{track.name}</span>
               <span className="track-type">{track.type}</span>
             </div>
@@ -79,7 +120,9 @@ function Timeline() {
         
         <div 
           className="timeline-tracks-container"
+          ref={timelineContainerRef}
           onClick={handleTimelineClick}
+          onMouseDown={handleTimelineMouseDown}
         >
           <div 
             className="timeline-tracks"
