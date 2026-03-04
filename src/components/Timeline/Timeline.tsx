@@ -5,11 +5,37 @@ import Track from './Track';
 import Playhead from './Playhead';
 import './Timeline.css';
 
+// タイムコード表示を分離して、currentTime 更新時に Timeline 全体が再レンダーされないようにする
+function TimelineTimecode() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const formatTime = (seconds: number): string => {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      const frames = Math.floor((seconds % 1) * 30);
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}:${frames.toString().padStart(2, '0')}`;
+    };
+
+    // 初期値を設定
+    if (ref.current) {
+      ref.current.textContent = formatTime(useTimelineStore.getState().currentTime);
+    }
+
+    return useTimelineStore.subscribe((state) => {
+      if (ref.current) {
+        ref.current.textContent = formatTime(state.currentTime);
+      }
+    });
+  }, []);
+
+  return <div className="timeline-timecode" ref={ref} />;
+}
+
 function Timeline() {
   const {
     tracks,
     pixelsPerSecond,
-    currentTime,
     duration,
     zoomIn,
     zoomOut,
@@ -17,7 +43,7 @@ function Timeline() {
     setSelectedClip,
     deleteSelectedClip,
   } = useTimelineStore();
-  
+
   const videoPreviewStore = useVideoPreviewStore();
   const timelineContainerRef = useRef<HTMLDivElement>(null);
   const trackHeadersRef = useRef<HTMLDivElement>(null);
@@ -95,13 +121,6 @@ function Timeline() {
     }
   };
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    const frames = Math.floor((seconds % 1) * 30);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}:${frames.toString().padStart(2, '0')}`;
-  };
-
   return (
     <div className="timeline">
       <div className="timeline-header">
@@ -110,9 +129,7 @@ function Timeline() {
           <span className="timeline-zoom">{Math.round(pixelsPerSecond)}px/s</span>
           <button onClick={zoomIn} className="timeline-btn">+</button>
         </div>
-        <div className="timeline-timecode">
-          {formatTime(currentTime)}
-        </div>
+        <TimelineTimecode />
       </div>
       
       <div className="timeline-content">
