@@ -17,24 +17,26 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const loadedVideoUrl = useRef<string | null>(null);
   const currentTimeRef = useRef(0);
   const rafIdRef = useRef<number | null>(null);
+  const timeDisplayRef = useRef<globalThis.HTMLSpanElement>(null);
+  const seekBarRef = useRef<HTMLInputElement>(null);
+
   const {
     isPlaying,
-    currentTime,
     duration,
     volume,
     videoUrls,
     setIsPlaying,
-    setCurrentTime,
+    setCurrentTime: setVideoPreviewCurrentTime,
     setDuration,
   } = useVideoPreviewStore();
 
-  // タイムラインとの同期
-  const timelineStore = useTimelineStore();
+  // timelineStore はセレクタで必要なものだけ subscribe
+  const tracks = useTimelineStore((s) => s.tracks);
 
   // タイムライン位置に対応するクリップを見つける
   const findClipAtTime = useCallback((time: number) => {
-    const tracks = useTimelineStore.getState().tracks;
-    for (const track of tracks) {
+    const currentTracks = useTimelineStore.getState().tracks;
+    for (const track of currentTracks) {
       if (track.type === 'video') {
         for (const clip of track.clips) {
           if (time >= clip.startTime && time < clip.startTime + clip.duration) {
@@ -48,8 +50,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   // 指定クリップの直後のクリップを見つける
   const findNextClip = useCallback((clipEndTime: number) => {
-    const tracks = useTimelineStore.getState().tracks;
-    for (const track of tracks) {
+    const currentTracks = useTimelineStore.getState().tracks;
+    for (const track of currentTracks) {
       if (track.type === 'video') {
         for (const clip of track.clips) {
           if (clip.startTime >= clipEndTime && clip.startTime < clipEndTime + 0.05) {
@@ -70,10 +72,25 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return clip.sourceStartTime + relativeTime;
   }, [findClipAtTime]);
 
-  // currentTime を ref で追跡（src切り替え時に最新値を使うため）
-  useEffect(() => {
-    currentTimeRef.current = currentTime;
-  }, [currentTime]);
+  // 時間表示のフォーマット
+  const formatTime = useCallback((seconds: number): string => {
+    if (!Number.isFinite(seconds)) return '00:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }, []);
+
+  // 時間表示とシークバーを DOM 直接更新
+  const updateTimeDisplay = useCallback((time: number) => {
+    currentTimeRef.current = time;
+    if (timeDisplayRef.current) {
+      const dur = useVideoPreviewStore.getState().duration;
+      timeDisplayRef.current.textContent = `${formatTime(time)} / ${formatTime(dur)}`;
+    }
+    if (seekBarRef.current) {
+      seekBarRef.current.value = String(time);
+    }
+  }, [formatTime]);
 
   // RAF クリーンアップ
   useEffect(() => {
@@ -84,20 +101,33 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     };
   }, []);
 
+  // timelineStore の currentTime 変更を監視して表示を更新（シーク等の外部変更に対応）
+  useEffect(() => {
+    return useTimelineStore.subscribe((state) => {
+      updateTimeDisplay(state.currentTime);
+    });
+  }, [updateTimeDisplay]);
+
+  // duration 変更時に表示を更新
+  useEffect(() => {
+    updateTimeDisplay(currentTimeRef.current);
+  }, [duration, updateTimeDisplay]);
+
   // 現在のタイムライン位置に対応するクリップ
   // tracks の変更時にも再計算する（ファイル読み込み時にクリップが追加されるため）
   const currentClip = useMemo(() => {
-    for (const track of timelineStore.tracks) {
+    const time = currentTimeRef.current;
+    for (const track of tracks) {
       if (track.type === 'video') {
         for (const clip of track.clips) {
-          if (currentTime >= clip.startTime && currentTime < clip.startTime + clip.duration) {
+          if (time >= clip.startTime && time < clip.startTime + clip.duration) {
             return clip;
           }
         }
       }
     }
     return null;
-  }, [currentTime, timelineStore.tracks]);
+  }, [tracks]);
 
   // 現在のクリップの動画URL（filePath → objectURL マップから取得）
   const currentVideoUrl = useMemo(() => {
@@ -140,8 +170,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       videoRef.current.pause();
     }
     setIsPlaying(false);
-    timelineStore.setIsPlaying(false);
-  }, [setIsPlaying, timelineStore]);
+    useTimelineStore.getState().setIsPlaying(false);
+  }, [setIsPlaying]);
 
   // 再生/停止の同期
   useEffect(() => {
@@ -155,13 +185,16 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       }
 
       // 再生開始時にタイムライン位置に対応する動画ソース位置に移動
-      const sourceTime = timelineTimeToSourceTime(currentTime);
+      const sourceTime = timelineTimeToSourceTime(currentTimeRef.current);
       videoRef.current.currentTime = sourceTime;
       videoRef.current.play();
     } else {
       videoRef.current.pause();
+      // 停止時にストアを同期
+      const time = currentTimeRef.current;
+      setVideoPreviewCurrentTime(time);
     }
-  }, [isPlaying, currentTime, timelineTimeToSourceTime, hasCurrentClip, stopPlayback]);
+  }, [isPlaying, hasCurrentClip, stopPlayback, timelineTimeToSourceTime, setVideoPreviewCurrentTime]);
 
   // 再生中に削除済み部分に移動したら停止
   useEffect(() => {
@@ -176,16 +209,19 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       videoRef.current.volume = volume / 100;
     }
   }, [volume]);
-  
+
   // タイムライン位置が外部から変更されたとき（シーク）に動画ソース位置も更新
   useEffect(() => {
-    if (!videoRef.current || isPlaying) return; // 再生中は handleTimeUpdate で処理
-    
-    const sourceTime = timelineTimeToSourceTime(currentTime);
-    if (Math.abs(videoRef.current.currentTime - sourceTime) > 0.1) {
-      videoRef.current.currentTime = sourceTime;
-    }
-  }, [currentTime, isPlaying, timelineTimeToSourceTime]);
+    if (!videoRef.current || isPlaying) return;
+
+    return useTimelineStore.subscribe((state) => {
+      if (!videoRef.current || useVideoPreviewStore.getState().isPlaying) return;
+      const sourceTime = timelineTimeToSourceTime(state.currentTime);
+      if (Math.abs(videoRef.current.currentTime - sourceTime) > 0.1) {
+        videoRef.current.currentTime = sourceTime;
+      }
+    });
+  }, [isPlaying, timelineTimeToSourceTime]);
 
   const handleMetadata = () => {
     if (videoRef.current) {
@@ -205,7 +241,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
       if (!clip) {
         setIsPlaying(false);
-        timelineStore.setIsPlaying(false);
+        useTimelineStore.getState().setIsPlaying(false);
         videoRef.current.pause();
         return;
       }
@@ -220,55 +256,51 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         const nextClip = findNextClip(clipEndTime);
         if (nextClip) {
           videoRef.current.currentTime = nextClip.sourceStartTime;
-          setCurrentTime(nextClip.startTime);
-          timelineStore.setCurrentTime(nextClip.startTime);
+          useTimelineStore.getState().setCurrentTime(nextClip.startTime);
+          updateTimeDisplay(nextClip.startTime);
         } else {
           setIsPlaying(false);
-          timelineStore.setIsPlaying(false);
+          useTimelineStore.getState().setIsPlaying(false);
           videoRef.current.pause();
         }
         return;
       }
 
-      setCurrentTime(timelineTime);
-      timelineStore.setCurrentTime(timelineTime);
+      // timelineStore のみ更新（Playhead, Timecode が subscribe で反映）
+      // videoPreviewStore は再生停止時にまとめて同期
+      useTimelineStore.getState().setCurrentTime(timelineTime);
+      updateTimeDisplay(timelineTime);
     });
-  }, [findClipAtTime, findNextClip, setCurrentTime, setIsPlaying, timelineStore]);
+  }, [findClipAtTime, findNextClip, setIsPlaying, updateTimeDisplay]);
 
   const handleEnded = () => {
     setIsPlaying(false);
-    timelineStore.setIsPlaying(false);
+    useTimelineStore.getState().setIsPlaying(false);
   };
 
   const handlePlayPause = () => {
     // 削除済み部分では再生を開始しない
-    if (!isPlaying && !findClipAtTime(currentTime)) {
+    if (!isPlaying && !findClipAtTime(currentTimeRef.current)) {
       return;
     }
 
     const newPlayingState = !isPlaying;
     setIsPlaying(newPlayingState);
-    timelineStore.setIsPlaying(newPlayingState);
-  };
-
-  const formatTime = (seconds: number): string => {
-    if (!Number.isFinite(seconds)) return '00:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    useTimelineStore.getState().setIsPlaying(newPlayingState);
   };
 
   const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const timelineTime = parseFloat(e.target.value);
     const sourceTime = timelineTimeToSourceTime(timelineTime);
-    
-    setCurrentTime(timelineTime);
-    timelineStore.setCurrentTime(timelineTime);
-    
+
+    setVideoPreviewCurrentTime(timelineTime);
+    useTimelineStore.getState().setCurrentTime(timelineTime);
+    updateTimeDisplay(timelineTime);
+
     if (videoRef.current) {
       videoRef.current.currentTime = sourceTime;
     }
-  }, [timelineTimeToSourceTime, setCurrentTime, timelineStore]);
+  }, [timelineTimeToSourceTime, setVideoPreviewCurrentTime, updateTimeDisplay]);
 
   return (
     <div
@@ -341,18 +373,19 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           {isPlaying ? '⏸️ 停止' : '▶️ 再生'}
         </button>
 
-        <span style={{ fontSize: '12px', color: '#666', minWidth: '100px' }}>
-          {formatTime(currentTime)} / {formatTime(duration)}
+        <span ref={timeDisplayRef} style={{ fontSize: '12px', color: '#666', minWidth: '100px' }}>
+          {formatTime(0)} / {formatTime(duration)}
         </span>
       </div>
 
       {/* シークバー */}
       {Object.keys(videoUrls).length > 0 && (
         <input
+          ref={seekBarRef}
           type="range"
           min="0"
           max={Number.isFinite(duration) ? duration : 0}
-          value={currentTime}
+          defaultValue={0}
           onChange={handleSeek}
           style={{
             width: '100%',
