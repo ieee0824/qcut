@@ -1,0 +1,40 @@
+{
+  "app": {
+    "title": "qcut - Video Editor",
+    "description": "Video editing software for students"
+  },
+  "menu": {
+    "file": "📁 File",
+    "open": "Open...",
+    "recent": "Recent Files",
+    "clear": "Clear History"
+  },
+  "button": {
+    "play": "▶",
+    "pause": "⏸",
+    "stop": "⏹"
+  },
+  "fileOperations": {
+    "currentFile": "Current File",
+    "size": "Size",
+    "lastModified": "Last Modified",
+    "noFile": "Please load a video",
+    "selectVideo": "Select a video file",
+    "videoFile": "Video File",
+    "allFiles": "All Files"
+  },
+  "videoPreview": {
+    "title": "Video Preview",
+    "noVideo": "Please select a video file",
+    "controls": {
+      "volume": "Volume",
+      "time": "Time"
+    }
+  },
+  "timeline": {
+    "title": "Timeline",
+    "videoTracks": "Video Tracks",
+    "audioTracks": "Audio Tracks",
+    "addTrack": "Add Track"
+  }
+}

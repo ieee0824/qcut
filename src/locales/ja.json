@@ -1,0 +1,40 @@
+{
+  "app": {
+    "title": "qcut - Video Editor",
+    "description": "学生向け動画編集ソフトウェア"
+  },
+  "menu": {
+    "file": "📁 ファイル",
+    "open": "開く...",
+    "recent": "最近のファイル",
+    "clear": "履歴をクリア"
+  },
+  "button": {
+    "play": "▶",
+    "pause": "⏸",
+    "stop": "⏹"
+  },
+  "fileOperations": {
+    "currentFile": "現在のファイル",
+    "size": "サイズ",
+    "lastModified": "変更日時",
+    "noFile": "動画を読み込んでください",
+    "selectVideo": "ビデオファイルを開く",
+    "videoFile": "ビデオファイル",
+    "allFiles": "すべてのファイル"
+  },
+  "videoPreview": {
+    "title": "ビデオプレビュー",
+    "noVideo": "動画ファイルを選択してください",
+    "controls": {
+      "volume": "音量",
+      "time": "時間"
+    }
+  },
+  "timeline": {
+    "title": "タイムライン",
+    "videoTracks": "ビデオトラック",
+    "audioTracks": "オーディオトラック",
+    "addTrack": "トラックを追加"
+  }
+}

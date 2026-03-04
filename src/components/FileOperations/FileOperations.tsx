@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useFileOperationsStore } from '@/store/fileOperationsStore';
 import { useVideoPreviewStore } from '@/store/videoPreviewStore';
 
 export const FileOperations: React.FC = () => {
+  const { t } = useTranslation();
   const {
     currentFile,
     isLoading,
@@ -90,7 +92,7 @@ export const FileOperations: React.FC = () => {
           opacity: isLoading ? 0.6 : 1,
         }}
       >
-        📁 ファイル
+        {t('menu.file')}
       </button>
 
       {/* ドロップダウンメニュー */}
@@ -135,7 +137,7 @@ export const FileOperations: React.FC = () => {
               (e.currentTarget.style.backgroundColor = 'transparent')
             }
           >
-            📂 ファイルを開く
+            📂 {t('menu.open')}
           </button>
 
           {/* 区切り線 */}
@@ -160,7 +162,7 @@ export const FileOperations: React.FC = () => {
                   fontWeight: 'bold',
                 }}
               >
-                最近のファイル
+                {t('menu.recent')}
               </div>
               {recentFiles.map((file) => (
                 <button
@@ -226,7 +228,7 @@ export const FileOperations: React.FC = () => {
                   (e.currentTarget.style.backgroundColor = 'transparent')
                 }
               >
-                🗑️ 履歴をクリア
+                🗑️ {t('menu.clear')}
               </button>
             </div>
           )}
@@ -246,7 +248,7 @@ export const FileOperations: React.FC = () => {
           }}
         >
           <div style={{ marginBottom: '8px' }}>
-            <span style={{ color: '#999' }}>現在のファイル:</span>
+            <span style={{ color: '#999' }}>{t('fileOperations.currentFile')}:</span>
             <div
               style={{
                 marginTop: '4px',
@@ -260,11 +262,11 @@ export const FileOperations: React.FC = () => {
             </div>
           </div>
           <div style={{ marginBottom: '4px' }}>
-            <span style={{ color: '#999' }}>サイズ:</span>{' '}
+            <span style={{ color: '#999' }}>{t('fileOperations.size')}:</span>{' '}
             {formatFileSize(currentFile.size)}
           </div>
           <div>
-            <span style={{ color: '#999' }}>変更日時:</span>{' '}
+            <span style={{ color: '#999' }}>{t('fileOperations.lastModified')}:</span>{' '}
             {formatDate(currentFile.lastModified)}
           </div>
         </div>
