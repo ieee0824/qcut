@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTimelineStore } from '../../store/timelineStore';
@@ -28,16 +28,49 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   // タイムラインとの同期
   const timelineStore = useTimelineStore();
 
+  // タイムライン位置に対応するクリップを見つける
+  const findClipAtTime = useCallback((time: number) => {
+    for (const track of timelineStore.tracks) {
+      if (track.type === 'video') {
+        for (const clip of track.clips) {
+          if (time >= clip.startTime && time < clip.startTime + clip.duration) {
+            return clip;
+          }
+        }
+      }
+    }
+    return null;
+  }, [timelineStore.tracks]);
+  
+  // タイムライン時間から動画ソース時間に変換
+  const timelineTimeToSourceTime = useCallback((timelineTime: number) => {
+    const clip = findClipAtTime(timelineTime);
+    if (!clip) return 0;
+    
+    const relativeTime = timelineTime - clip.startTime;
+    return clip.sourceStartTime + relativeTime;
+  }, [findClipAtTime]);
+  
+  // 動画ソース時間をタイムライン時間に変換
+  const sourceTimeToTimelineTime = useCallback((sourceTime: number, clip: any) => {
+    if (!clip) return sourceTime;
+    const relativeTime = sourceTime - clip.sourceStartTime;
+    return clip.startTime + relativeTime;
+  }, []);
+
   // 再生/停止の同期
   useEffect(() => {
     if (!videoRef.current) return;
 
     if (isPlaying) {
+      // 再生開始時にタイムライン位置に対応する動画ソース位置に移動
+      const sourceTime = timelineTimeToSourceTime(currentTime);
+      videoRef.current.currentTime = sourceTime;
       videoRef.current.play();
     } else {
       videoRef.current.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, currentTime, timelineTimeToSourceTime]);
 
   // 音量の同期
   useEffect(() => {
@@ -45,6 +78,16 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       videoRef.current.volume = volume / 100;
     }
   }, [volume]);
+  
+  // タイムライン位置が外部から変更されたとき（シーク）に動画ソース位置も更新
+  useEffect(() => {
+    if (!videoRef.current || isPlaying) return; // 再生中は handleTimeUpdate で処理
+    
+    const sourceTime = timelineTimeToSourceTime(currentTime);
+    if (Math.abs(videoRef.current.currentTime - sourceTime) > 0.1) {
+      videoRef.current.currentTime = sourceTime;
+    }
+  }, [currentTime, isPlaying, timelineTimeToSourceTime]);
 
   const handleMetadata = () => {
     if (videoRef.current) {
@@ -52,14 +95,59 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   };
 
-  const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      const time = videoRef.current.currentTime;
-      setCurrentTime(time);
-      // タイムラインの再生位置も同期
-      timelineStore.setCurrentTime(time);
+  const handleTimeUpdate = useCallback(() => {
+    if (!videoRef.current) return;
+    
+    const currentClip = findClipAtTime(currentTime);
+    if (!currentClip) {
+      // クリップがない場合は停止
+      setIsPlaying(false);
+      timelineStore.setIsPlaying(false);
+      videoRef.current.pause();
+      return;
     }
-  };
+    
+    const videoSourceTime = videoRef.current.currentTime;
+    const timelineTime = sourceTimeToTimelineTime(videoSourceTime, currentClip);
+    
+    // クリップの終わりを超えた場合
+    const clipEndTime = currentClip.startTime + currentClip.duration;
+    if (timelineTime >= clipEndTime) {
+      // 次のクリップを探す
+      const nextClip = findClipAtTime(clipEndTime + 0.01);
+      if (nextClip) {
+        // 次のクリップの開始位置に移動
+        videoRef.current.currentTime = nextClip.sourceStartTime;
+        setCurrentTime(nextClip.startTime);
+        timelineStore.setCurrentTime(nextClip.startTime);
+      } else {
+        // 次のクリップがない場合は停止
+        setIsPlaying(false);
+        timelineStore.setIsPlaying(false);
+        videoRef.current.pause();
+      }
+      return;
+    }
+    
+    // クリップの範囲外の場合（sourceEndTimeを超えた）
+    if (videoSourceTime >= currentClip.sourceEndTime) {
+      // 次のクリップを探す
+      const nextClip = findClipAtTime(clipEndTime + 0.01);
+      if (nextClip) {
+        videoRef.current.currentTime = nextClip.sourceStartTime;
+        setCurrentTime(nextClip.startTime);
+        timelineStore.setCurrentTime(nextClip.startTime);
+      } else {
+        setIsPlaying(false);
+        timelineStore.setIsPlaying(false);
+        videoRef.current.pause();
+      }
+      return;
+    }
+    
+    setCurrentTime(timelineTime);
+    timelineStore.setCurrentTime(timelineTime);
+  }, [currentTime, findClipAtTime, sourceTimeToTimelineTime, setCurrentTime, setIsPlaying, timelineStore]);
 
   const handleEnded = () => {
     setIsPlaying(false);
@@ -79,14 +167,17 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = parseFloat(e.target.value);
-    setCurrentTime(time);
-    timelineStore.setCurrentTime(time);
+  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const timelineTime = parseFloat(e.target.value);
+    const sourceTime = timelineTimeToSourceTime(timelineTime);
+    
+    setCurrentTime(timelineTime);
+    timelineStore.setCurrentTime(timelineTime);
+    
     if (videoRef.current) {
-      videoRef.current.currentTime = time;
+      videoRef.current.currentTime = sourceTime;
     }
-  };
+  }, [timelineTimeToSourceTime, setCurrentTime, timelineStore]);
 
   return (
     <div
