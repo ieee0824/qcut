@@ -1,4 +1,5 @@
 import { useTimelineStore } from '../../store/timelineStore';
+import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useEffect } from 'react';
 import Track from './Track';
 import Playhead from './Playhead';
@@ -16,6 +17,8 @@ function Timeline() {
     setSelectedClip,
     deleteSelectedClip,
   } = useTimelineStore();
+  
+  const videoPreviewStore = useVideoPreviewStore();
 
   const timelineWidth = Math.max(3000, duration * pixelsPerSecond);
 
@@ -41,6 +44,7 @@ function Timeline() {
     const x = e.clientX - rect.left + e.currentTarget.scrollLeft;
     const time = x / pixelsPerSecond;
     setCurrentTime(time);
+    videoPreviewStore.setCurrentTime(time);
   };
 
   const formatTime = (seconds: number): string => {

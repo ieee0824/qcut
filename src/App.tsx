@@ -4,10 +4,12 @@ import Timeline from './components/Timeline/Timeline';
 import { VideoPreview } from './components/VideoPreview/VideoPreview';
 import { FileOperations } from './components/FileOperations/FileOperations';
 import { useTimelineStore } from './store/timelineStore';
+import { useVideoPreviewStore } from './store/videoPreviewStore';
 
 function App() {
   const { t, i18n } = useTranslation();
   const { isPlaying, setIsPlaying } = useTimelineStore();
+  const videoPreviewStore = useVideoPreviewStore();
 
   // 言語切り替え
   const handleLanguageChange = (lang: string) => {
@@ -16,7 +18,9 @@ function App() {
   };
 
   const togglePlay = () => {
-    setIsPlaying(!isPlaying);
+    const newPlayingState = !isPlaying;
+    setIsPlaying(newPlayingState);
+    videoPreviewStore.setIsPlaying(newPlayingState);
   };
 
   return (

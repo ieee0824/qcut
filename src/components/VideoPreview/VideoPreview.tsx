@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
+import { useTimelineStore } from '../../store/timelineStore';
 
 interface VideoPreviewProps {
   width?: string;
@@ -23,6 +24,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     setCurrentTime,
     setDuration,
   } = useVideoPreviewStore();
+  
+  // タイムラインとの同期
+  const timelineStore = useTimelineStore();
 
   // 再生/停止の同期
   useEffect(() => {
@@ -50,16 +54,22 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
+      const time = videoRef.current.currentTime;
+      setCurrentTime(time);
+      // タイムラインの再生位置も同期
+      timelineStore.setCurrentTime(time);
     }
   };
 
   const handleEnded = () => {
     setIsPlaying(false);
+    timelineStore.setIsPlaying(false);
   };
 
   const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
+    const newPlayingState = !isPlaying;
+    setIsPlaying(newPlayingState);
+    timelineStore.setIsPlaying(newPlayingState);
   };
 
   const formatTime = (seconds: number): string => {
@@ -72,6 +82,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
     setCurrentTime(time);
+    timelineStore.setCurrentTime(time);
     if (videoRef.current) {
       videoRef.current.currentTime = time;
     }
