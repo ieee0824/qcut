@@ -48,6 +48,24 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return null;
   }, []);
 
+  // 指定時刻以降で最も近いクリップを見つける（ギャップを飛ばす）
+  const findNextClipAfter = useCallback((time: number) => {
+    const currentTracks = useTimelineStore.getState().tracks;
+    let best: ReturnType<typeof findClipAtTime> = null;
+    for (const track of currentTracks) {
+      if (track.type === 'video') {
+        for (const clip of track.clips) {
+          if (clip.startTime >= time) {
+            if (!best || clip.startTime < best.startTime) {
+              best = clip;
+            }
+          }
+        }
+      }
+    }
+    return best;
+  }, []);
+
   // タイムライン時間から動画ソース時間に変換
   const timelineTimeToSourceTime = useCallback((timelineTime: number) => {
     const clip = findClipAtTime(timelineTime);
@@ -146,15 +164,19 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     if (!currentVideoUrl) return;
 
     const targetSourceTime = timelineTimeToSourceTime(currentTimeRef.current);
-    videoRef.current.src = currentVideoUrl;
-    videoRef.current.load();
+    const video = videoRef.current;
+    video.src = currentVideoUrl;
+    video.load();
 
-    videoRef.current.addEventListener(
+    video.addEventListener(
       'loadedmetadata',
       () => {
-        if (videoRef.current) {
-          videoRef.current.currentTime = targetSourceTime;
-          setDuration(videoRef.current.duration);
+        if (!videoRef.current) return;
+        videoRef.current.currentTime = targetSourceTime;
+        setDuration(videoRef.current.duration);
+        // load() で一時停止されるため、再生中なら再開
+        if (useVideoPreviewStore.getState().isPlaying) {
+          videoRef.current.play();
         }
       },
       { once: true },
@@ -194,11 +216,16 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   }, [isPlaying, hasCurrentClip, stopPlayback, timelineTimeToSourceTime, setVideoPreviewCurrentTime]);
 
   // 再生中に削除済み部分に移動したら停止
+  // ただしクリップ遷移中の一時的な null は無視する
   useEffect(() => {
-    if (isPlaying && !hasCurrentClip) {
-      stopPlayback();
-    }
-  }, [hasCurrentClip, isPlaying, stopPlayback]);
+    if (!isPlaying || hasCurrentClip) return;
+
+    // 次のクリップが存在する場合は遷移中なので停止しない
+    const nextClip = findNextClipAfter(currentTimeRef.current);
+    if (nextClip) return;
+
+    stopPlayback();
+  }, [hasCurrentClip, isPlaying, stopPlayback, findNextClipAfter]);
 
   // 音量の同期
   useEffect(() => {
@@ -250,11 +277,26 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
       // クリップの終端を超えた、またはソース終端を超えた場合
       if (timelineTime >= clipEndTime || videoSourceTime >= clip.sourceEndTime) {
-        const nextClip = findClipAtTime(clipEndTime + 0.01);
+        // まず隣接クリップを探し、なければギャップを飛ばして次のクリップを探す
+        const nextClip = findClipAtTime(clipEndTime + 0.01) ?? findNextClipAfter(clipEndTime);
         if (nextClip) {
-          videoRef.current.currentTime = nextClip.sourceStartTime;
-          useTimelineStore.getState().setCurrentTime(nextClip.startTime);
-          updateTimeDisplay(nextClip.startTime);
+          // 同じファイルでソース時間が連続している場合はシーク不要（分割クリップ等）
+          const isContinuous = nextClip.filePath === clip.filePath
+            && Math.abs(nextClip.sourceStartTime - clip.sourceEndTime) < 0.05;
+
+          let nextTimelineTime: number;
+          if (isContinuous) {
+            // 連続クリップ: 現在のソース位置からタイムライン時間を再計算
+            const nextRelative = videoSourceTime - nextClip.sourceStartTime;
+            nextTimelineTime = nextClip.startTime + Math.max(0, nextRelative);
+          } else {
+            // 非連続: 次クリップの先頭にシーク
+            videoRef.current.currentTime = nextClip.sourceStartTime;
+            nextTimelineTime = nextClip.startTime;
+          }
+
+          useTimelineStore.getState().setCurrentTime(nextTimelineTime);
+          updateTimeDisplay(nextTimelineTime);
         } else {
           setIsPlaying(false);
           useTimelineStore.getState().setIsPlaying(false);
@@ -268,7 +310,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       useTimelineStore.getState().setCurrentTime(timelineTime);
       updateTimeDisplay(timelineTime);
     });
-  }, [findClipAtTime, setIsPlaying, updateTimeDisplay]);
+  }, [findClipAtTime, findNextClipAfter, setIsPlaying, updateTimeDisplay]);
 
   const handleEnded = () => {
     setIsPlaying(false);
