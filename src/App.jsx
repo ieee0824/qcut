@@ -1,19 +1,57 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
+import Timeline from './components/Timeline/Timeline';
+import { useTimelineStore } from './store/timelineStore';
 
 function App() {
+  const { addClip, isPlaying, setIsPlaying, currentTime, setCurrentTime } = useTimelineStore();
+
+  // デモ用のクリップを追加
+  useEffect(() => {
+    // 初期クリップを追加
+    addClip('video-1', {
+      id: 'clip-1',
+      name: 'Video Clip 1',
+      startTime: 0,
+      duration: 5,
+      color: '#4a9eff',
+    });
+    addClip('video-1', {
+      id: 'clip-2',
+      name: 'Video Clip 2',
+      startTime: 6,
+      duration: 4,
+      color: '#ff6b6b',
+    });
+    addClip('audio-1', {
+      id: 'clip-3',
+      name: 'Audio Track',
+      startTime: 0,
+      duration: 10,
+      color: '#51cf66',
+    });
+  }, []);
+
+  const togglePlay = () => {
+    setIsPlaying(!isPlaying);
+  };
+
   return (
     <div className="app">
       <header className="app-header">
         <h1>qcut - Video Editor</h1>
-        <p>学生向け動画編集ソフトウェア</p>
+        <div className="header-controls">
+          <button onClick={togglePlay} className="play-btn">
+            {isPlaying ? '⏸' : '▶'}
+          </button>
+        </div>
       </header>
       <main className="app-main">
-        <div className="timeline-container">
-          <p>タイムラインエリア</p>
-        </div>
         <div className="preview-container">
           <p>プレビューエリア</p>
+        </div>
+        <div className="timeline-container">
+          <Timeline />
         </div>
       </main>
     </div>
