@@ -48,21 +48,6 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return null;
   }, []);
 
-  // 指定クリップの直後のクリップを見つける
-  const findNextClip = useCallback((clipEndTime: number) => {
-    const currentTracks = useTimelineStore.getState().tracks;
-    for (const track of currentTracks) {
-      if (track.type === 'video') {
-        for (const clip of track.clips) {
-          if (clip.startTime >= clipEndTime && clip.startTime < clipEndTime + 0.05) {
-            return clip;
-          }
-        }
-      }
-    }
-    return null;
-  }, []);
-
   // タイムライン時間から動画ソース時間に変換
   const timelineTimeToSourceTime = useCallback((timelineTime: number) => {
     const clip = findClipAtTime(timelineTime);
@@ -253,7 +238,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
       // クリップの終端を超えた、またはソース終端を超えた場合
       if (timelineTime >= clipEndTime || videoSourceTime >= clip.sourceEndTime) {
-        const nextClip = findNextClip(clipEndTime);
+        const nextClip = findClipAtTime(clipEndTime + 0.01);
         if (nextClip) {
           videoRef.current.currentTime = nextClip.sourceStartTime;
           useTimelineStore.getState().setCurrentTime(nextClip.startTime);
@@ -271,7 +256,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       useTimelineStore.getState().setCurrentTime(timelineTime);
       updateTimeDisplay(timelineTime);
     });
-  }, [findClipAtTime, findNextClip, setIsPlaying, updateTimeDisplay]);
+  }, [findClipAtTime, setIsPlaying, updateTimeDisplay]);
 
   const handleEnded = () => {
     setIsPlaying(false);
