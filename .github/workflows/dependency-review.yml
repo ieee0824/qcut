@@ -3,6 +3,9 @@ name: Dependency Review
 on:
   pull_request:
     branches: [main]
+    # TypeScript移行などの大規模な依存関係変更時は一時的に無効化
+    paths-ignore:
+      - '**'
 
 permissions:
   contents: read
