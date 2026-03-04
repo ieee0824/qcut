@@ -1,4 +1,5 @@
 import { useTimelineStore } from '../../store/timelineStore';
+import { useEffect } from 'react';
 import Track from './Track';
 import Playhead from './Playhead';
 import './Timeline.css';
@@ -12,11 +13,30 @@ function Timeline() {
     zoomIn,
     zoomOut,
     setCurrentTime,
+    setSelectedClip,
+    deleteSelectedClip,
   } = useTimelineStore();
 
   const timelineWidth = Math.max(3000, duration * pixelsPerSecond);
 
+  // キーボードショートカット
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        deleteSelectedClip();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [deleteSelectedClip]);
+
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // クリップ以外の場所をクリックした場合は選択解除
+    if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.timeline-tracks')) {
+      setSelectedClip(null, null);
+    }
+    
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left + e.currentTarget.scrollLeft;
     const time = x / pixelsPerSecond;

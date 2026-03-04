@@ -25,6 +25,10 @@ export interface TimelineState {
   // トラック
   tracks: Track[];
   
+  // 選択状態
+  selectedClipId: string | null;
+  selectedTrackId: string | null;
+  
   // アクション
   setPixelsPerSecond: (pps: number) => void;
   setCurrentTime: (time: number) => void;
@@ -36,6 +40,11 @@ export interface TimelineState {
   removeTrack: (trackId: string) => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  
+  // カット編集機能
+  setSelectedClip: (trackId: string | null, clipId: string | null) => void;
+  splitClipAtTime: (trackId: string, clipId: string, splitTime: number) => void;
+  deleteSelectedClip: () => void;
 }
 
 export const useTimelineStore = create<TimelineState>((set) => ({
@@ -51,6 +60,10 @@ export const useTimelineStore = create<TimelineState>((set) => ({
     { id: 'video-2', type: 'video', name: 'Video 2', clips: [] },
     { id: 'audio-1', type: 'audio', name: 'Audio 1', clips: [] },
   ],
+  
+  // 選択状態
+  selectedClipId: null,
+  selectedTrackId: null,
   
   // アクション
   setPixelsPerSecond: (pps) => set({ pixelsPerSecond: pps }),
@@ -104,4 +117,70 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   zoomOut: () => set((state) => ({
     pixelsPerSecond: Math.max(state.pixelsPerSecond / 1.2, 10),
   })),
+  
+  // カット編集機能
+  setSelectedClip: (trackId, clipId) => set({
+    selectedTrackId: trackId,
+    selectedClipId: clipId,
+  }),
+  
+  splitClipAtTime: (trackId, clipId, splitTime) => set((state) => {
+    const track = state.tracks.find(t => t.id === trackId);
+    if (!track) return state;
+    
+    const clip = track.clips.find(c => c.id === clipId);
+    if (!clip) return state;
+    
+    // クリップ内の相対時間を計算
+    const relativeTime = splitTime - clip.startTime;
+    
+    // 分割位置がクリップの範囲外の場合は何もしない
+    if (relativeTime <= 0 || relativeTime >= clip.duration) {
+      return state;
+    }
+    
+    // 新しい2つのクリップを作成
+    const firstClip: Clip = {
+      ...clip,
+      id: `${clip.id}-1`,
+      duration: relativeTime,
+    };
+    
+    const secondClip: Clip = {
+      ...clip,
+      id: `${clip.id}-2`,
+      startTime: clip.startTime + relativeTime,
+      duration: clip.duration - relativeTime,
+    };
+    
+    return {
+      tracks: state.tracks.map(t =>
+        t.id === trackId
+          ? {
+              ...t,
+              clips: t.clips.flatMap(c =>
+                c.id === clipId ? [firstClip, secondClip] : [c]
+              ),
+            }
+          : t
+      ),
+    };
+  }),
+  
+  deleteSelectedClip: () => set((state) => {
+    if (!state.selectedClipId || !state.selectedTrackId) return state;
+    
+    return {
+      tracks: state.tracks.map(track =>
+        track.id === state.selectedTrackId
+          ? {
+              ...track,
+              clips: track.clips.filter(c => c.id !== state.selectedClipId),
+            }
+          : track
+      ),
+      selectedClipId: null,
+      selectedTrackId: null,
+    };
+  }),
 }));
