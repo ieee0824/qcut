@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useFileOperationsStore } from '@/store/fileOperationsStore';
+import { useVideoPreviewStore } from '@/store/videoPreviewStore';
 
 export const FileOperations: React.FC = () => {
   const {
@@ -11,6 +12,8 @@ export const FileOperations: React.FC = () => {
     setIsLoading,
     clearRecentFiles,
   } = useFileOperationsStore();
+
+  const { setVideoFile } = useVideoPreviewStore();
 
   const [showMenu, setShowMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -34,6 +37,7 @@ export const FileOperations: React.FC = () => {
 
         setCurrentFile(fileInfo);
         addRecentFile(fileInfo);
+        setVideoFile(file); // VideoPreview に動画ファイルを渡す
         setShowMenu(false); // ファイル選択後にメニューを閉じる
         console.log('ファイルを選択しました:', fileInfo);
       }
