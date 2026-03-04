@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import './App.css';
 import Timeline from './components/Timeline/Timeline';
@@ -8,39 +7,13 @@ import { useTimelineStore } from './store/timelineStore';
 
 function App() {
   const { t, i18n } = useTranslation();
-  const { addClip, isPlaying, setIsPlaying } = useTimelineStore();
+  const { isPlaying, setIsPlaying } = useTimelineStore();
 
   // 言語切り替え
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
     localStorage.setItem('i18n-language', lang);
   };
-
-  // デモ用のクリップを追加
-  useEffect(() => {
-    // 初期クリップを追加
-    addClip('video-1', {
-      id: 'clip-1',
-      name: 'Video Clip 1',
-      startTime: 0,
-      duration: 5,
-      color: '#4a9eff',
-    });
-    addClip('video-1', {
-      id: 'clip-2',
-      name: 'Video Clip 2',
-      startTime: 6,
-      duration: 4,
-      color: '#ff6b6b',
-    });
-    addClip('audio-1', {
-      id: 'clip-3',
-      name: 'Audio Track',
-      startTime: 0,
-      duration: 10,
-      color: '#51cf66',
-    });
-  }, [addClip]);
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
