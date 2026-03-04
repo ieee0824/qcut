@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTimelineStore } from '../../store/timelineStore';
@@ -99,20 +99,32 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   }, [duration, updateTimeDisplay]);
 
   // 現在のタイムライン位置に対応するクリップ
-  // tracks の変更時にも再計算する（ファイル読み込み時にクリップが追加されるため）
+  // クリップが変わったときだけ再レンダー（毎フレームではなく）
+  const [currentClipId, setCurrentClipId] = useState<string | null>(null);
+
+  // tracks 変更時とcurrentTime変更時にクリップを再評価
+  useEffect(() => {
+    const clip = findClipAtTime(currentTimeRef.current);
+    setCurrentClipId(clip?.id ?? null);
+
+    return useTimelineStore.subscribe((state) => {
+      const newClip = findClipAtTime(state.currentTime);
+      setCurrentClipId((prev) => {
+        const newId = newClip?.id ?? null;
+        return prev === newId ? prev : newId;
+      });
+    });
+  }, [tracks, findClipAtTime]);
+
   const currentClip = useMemo(() => {
-    const time = currentTimeRef.current;
+    if (!currentClipId) return null;
     for (const track of tracks) {
-      if (track.type === 'video') {
-        for (const clip of track.clips) {
-          if (time >= clip.startTime && time < clip.startTime + clip.duration) {
-            return clip;
-          }
-        }
+      for (const clip of track.clips) {
+        if (clip.id === currentClipId) return clip;
       }
     }
     return null;
-  }, [tracks]);
+  }, [currentClipId, tracks]);
 
   // 現在のクリップの動画URL（filePath → objectURL マップから取得）
   const currentVideoUrl = useMemo(() => {
