@@ -1,9 +1,6 @@
-import { useTimelineStore } from '../../store/timelineStore';
 import Clip from './Clip';
 
 function Track({ track }) {
-  const { pixelsPerSecond } = useTimelineStore();
-
   return (
     <div className="timeline-track" data-track-id={track.id}>
       <div className="timeline-track-content">

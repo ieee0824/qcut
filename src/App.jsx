@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import './App.css';
 import Timeline from './components/Timeline/Timeline';
 import { useTimelineStore } from './store/timelineStore';
 
 function App() {
-  const { addClip, isPlaying, setIsPlaying, currentTime, setCurrentTime } = useTimelineStore();
+  const { addClip, isPlaying, setIsPlaying } = useTimelineStore();
 
   // デモ用のクリップを追加
   useEffect(() => {
@@ -30,7 +30,7 @@ function App() {
       duration: 10,
       color: '#51cf66',
     });
-  }, []);
+  }, [addClip]);
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);

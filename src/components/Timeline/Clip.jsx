@@ -2,7 +2,7 @@ import { useTimelineStore } from '../../store/timelineStore';
 import { useState } from 'react';
 
 function Clip({ clip, trackId }) {
-  const { pixelsPerSecond, updateClip, removeClip } = useTimelineStore();
+  const { pixelsPerSecond, removeClip } = useTimelineStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
 
