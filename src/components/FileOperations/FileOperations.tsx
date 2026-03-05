@@ -7,7 +7,6 @@ import { useTimelineStore } from '@/store/timelineStore';
 export const FileOperations: React.FC = () => {
   const { t } = useTranslation();
   const {
-    currentFile,
     isLoading,
     recentFiles,
     setCurrentFile,
@@ -140,17 +139,6 @@ export const FileOperations: React.FC = () => {
     }
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatDate = (timestamp: number): string => {
-    return new Date(timestamp).toLocaleString('ja-JP');
-  };
 
   return (
     <div style={{ position: 'relative' }}>
@@ -311,43 +299,6 @@ export const FileOperations: React.FC = () => {
         </div>
       )}
 
-      {/* 現在のファイル情報 */}
-      {currentFile && (
-        <div
-          style={{
-            marginTop: '12px',
-            padding: '12px',
-            backgroundColor: '#2a2a2a',
-            borderRadius: '4px',
-            fontSize: '13px',
-            color: '#ccc',
-          }}
-        >
-          <div style={{ marginBottom: '8px' }}>
-            <span style={{ color: '#999' }}>{t('fileOperations.currentFile')}:</span>
-            <div
-              style={{
-                marginTop: '4px',
-                fontWeight: 'bold',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {currentFile.name}
-            </div>
-          </div>
-          <div style={{ marginBottom: '4px' }}>
-            <span style={{ color: '#999' }}>{t('fileOperations.size')}:</span>{' '}
-            {formatFileSize(currentFile.size)}
-          </div>
-          <div>
-            <span style={{ color: '#999' }}>{t('fileOperations.lastModified')}:</span>{' '}
-            {formatDate(currentFile.lastModified)}
-          </div>
-        </div>
-      )}
-      
       {/* 隠れたファイル入力 */}
       <input
         ref={fileInputRef}
