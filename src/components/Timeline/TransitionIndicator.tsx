@@ -40,6 +40,7 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
   const [presetName, setPresetName] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   const width = transition.duration * pixelsPerSecond;
   const left = clipStartTime * pixelsPerSecond - width / 2;
@@ -70,6 +71,28 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
     removeTransition(trackId, clipId);
     setShowContextMenu(false);
   };
+
+  // ポップオーバーが画面外にはみ出る場合、位置を自動補正
+  useEffect(() => {
+    if (!showPopover || !popoverRef.current) return;
+    const popover = popoverRef.current;
+    const rect = popover.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight) {
+      popover.style.top = 'auto';
+      popover.style.bottom = '100%';
+      popover.style.marginTop = '0';
+      popover.style.marginBottom = '4px';
+    } else {
+      popover.style.top = '100%';
+      popover.style.bottom = 'auto';
+      popover.style.marginTop = '4px';
+      popover.style.marginBottom = '0';
+    }
+    if (rect.right > window.innerWidth) {
+      popover.style.left = 'auto';
+      popover.style.right = '0';
+    }
+  }, [showPopover]);
 
   // コンテキストメニューが画面外にはみ出る場合、位置を自動補正
   useEffect(() => {
@@ -107,6 +130,7 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
         <>
           <div className="context-menu-overlay" onClick={() => setShowPopover(false)} />
           <div
+            ref={popoverRef}
             className="transition-popover"
             style={{ left: `${left}px` }}
           >
