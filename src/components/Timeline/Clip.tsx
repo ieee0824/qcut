@@ -1,4 +1,5 @@
 import { useTimelineStore, Clip as ClipType } from '../../store/timelineStore';
+import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useState, useRef, useEffect } from 'react';
 
 interface ClipProps {
@@ -70,6 +71,18 @@ function Clip({ clip, trackId }: ClipProps) {
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // 右クリック位置にプレイヘッドを移動
+    const clipEl = (e.currentTarget as HTMLElement).closest('.timeline-clip');
+    if (clipEl) {
+      const rect = clipEl.getBoundingClientRect();
+      const relX = e.clientX - rect.left;
+      const relTime = relX / pixelsPerSecond;
+      const time = clip.startTime + Math.max(0, Math.min(relTime, clip.duration));
+      useTimelineStore.getState().setCurrentTime(time);
+      useVideoPreviewStore.getState().setCurrentTime(time);
+    }
+
     setContextMenuPos({ x: e.clientX, y: e.clientY });
     setShowContextMenu(true);
     setSelectedClip(trackId, clip.id);
