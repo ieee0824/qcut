@@ -31,6 +31,14 @@
       "time": "Time"
     }
   },
+  "effects": {
+    "title": "Effects",
+    "noClipSelected": "Select a clip",
+    "brightness": "Brightness",
+    "contrast": "Contrast",
+    "saturation": "Saturation",
+    "reset": "Reset"
+  },
   "timeline": {
     "title": "Timeline",
     "videoTracks": "Video Tracks",

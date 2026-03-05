@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import './App.css';
 import Timeline from './components/Timeline/Timeline';
 import { VideoPreview } from './components/VideoPreview/VideoPreview';
+import { EffectsPanel } from './components/Inspector/EffectsPanel';
 import { FileOperations } from './components/FileOperations/FileOperations';
 import { useTimelineStore } from './store/timelineStore';
 import { useVideoPreviewStore } from './store/videoPreviewStore';
@@ -84,6 +85,7 @@ function App() {
       <main className="app-main">
         <div className="preview-container">
           <VideoPreview />
+          <EffectsPanel />
         </div>
         <div className="timeline-container">
           <Timeline />

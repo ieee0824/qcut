@@ -328,6 +328,13 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return currentClip !== null && currentVideoUrl !== null;
   }, [currentClip, currentVideoUrl]);
 
+  // エフェクトから CSS filter 文字列を生成
+  const cssFilter = useMemo(() => {
+    if (!currentClip?.effects) return 'none';
+    const e = currentClip.effects;
+    return `brightness(${e.brightness}) contrast(${e.contrast}) saturate(${e.saturation})`;
+  }, [currentClip?.effects]);
+
   // 動画ファイルが切り替わったとき src を更新してシーク（停止中のみ）
   useEffect(() => {
     if (!videoRef.current) return;
@@ -423,17 +430,17 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       style={{
         width,
         height,
+        flex: 1,
+        minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
         padding: '12px',
-        border: '1px solid #ccc',
-        borderRadius: '4px',
-        backgroundColor: '#f9f9f9',
+        backgroundColor: '#1a1a1a',
       }}
     >
       {/* ビデオプレイヤー（常にDOMに存在させ、ギャップ中に消えないようにする） */}
-      <div style={{ position: 'relative', width: '100%', height: '300px' }}>
+      <div style={{ position: 'relative', width: '100%', flex: 1, minHeight: 0 }}>
         <video
           ref={videoRef}
           onLoadedMetadata={handleMetadata}
@@ -443,6 +450,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             backgroundColor: '#000',
             borderRadius: '4px',
             visibility: hasCurrentClip ? 'visible' : 'hidden',
+            filter: cssFilter,
           }}
         />
         {!hasCurrentClip && (
