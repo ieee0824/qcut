@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, type ClipTransition, type TransitionType } from '../../store/timelineStore';
 import { useTransitionPresetStore } from '../../store/transitionPresetStore';
@@ -39,12 +39,20 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
   const [presetName, setPresetName] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const indicatorRef = useRef<HTMLDivElement>(null);
+  const [popoverPos, setPopoverPos] = useState({ x: 0, y: 0 });
 
   const width = transition.duration * pixelsPerSecond;
   const left = clipStartTime * pixelsPerSecond - width / 2;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!showPopover && indicatorRef.current) {
+      const rect = indicatorRef.current.getBoundingClientRect();
+      setPopoverPos({ x: rect.left, y: rect.bottom + 4 });
+    }
     setShowPopover(!showPopover);
   };
 
@@ -70,9 +78,47 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
     setShowContextMenu(false);
   };
 
+  // ポップオーバーが画面外にはみ出る場合、位置を自動補正
+  useEffect(() => {
+    if (!showPopover || !popoverRef.current || !indicatorRef.current) return;
+    const popover = popoverRef.current;
+    const rect = popover.getBoundingClientRect();
+    const indicatorRect = indicatorRef.current.getBoundingClientRect();
+    let { x, y } = popoverPos;
+    if (rect.bottom > window.innerHeight) {
+      y = indicatorRect.top - rect.height - 4;
+    }
+    if (rect.right > window.innerWidth) {
+      x = window.innerWidth - rect.width;
+    }
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x !== popoverPos.x || y !== popoverPos.y) {
+      setPopoverPos({ x, y });
+    }
+  }, [showPopover, popoverPos]);
+
+  // コンテキストメニューが画面外にはみ出る場合、位置を自動補正
+  useEffect(() => {
+    if (!showContextMenu || !contextMenuRef.current) return;
+    const menu = contextMenuRef.current;
+    const rect = menu.getBoundingClientRect();
+    let { x, y } = contextMenuPos;
+    if (rect.right > window.innerWidth) {
+      x = window.innerWidth - rect.width;
+    }
+    if (rect.bottom > window.innerHeight) {
+      y = window.innerHeight - rect.height;
+    }
+    if (x !== contextMenuPos.x || y !== contextMenuPos.y) {
+      setContextMenuPos({ x, y });
+    }
+  }, [showContextMenu, contextMenuPos]);
+
   return (
     <>
       <div
+        ref={indicatorRef}
         className="transition-indicator"
         style={{ left: `${left}px`, width: `${width}px` }}
         onClick={handleClick}
@@ -89,8 +135,14 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
         <>
           <div className="context-menu-overlay" onClick={() => setShowPopover(false)} />
           <div
+            ref={popoverRef}
             className="transition-popover"
-            style={{ left: `${left}px` }}
+            style={{
+              position: 'fixed',
+              left: `${popoverPos.x}px`,
+              top: `${popoverPos.y}px`,
+              margin: 0,
+            }}
           >
             {/* プリセット選択 */}
             <div className="transition-popover-presets">
@@ -199,6 +251,7 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
         <>
           <div className="context-menu-overlay" onClick={() => setShowContextMenu(false)} />
           <div
+            ref={contextMenuRef}
             className="context-menu"
             style={{ left: `${contextMenuPos.x}px`, top: `${contextMenuPos.y}px` }}
           >
