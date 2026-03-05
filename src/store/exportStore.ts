@@ -1,0 +1,64 @@
+import { create } from 'zustand';
+
+export type ExportStatus = 'idle' | 'configuring' | 'exporting' | 'complete' | 'error' | 'cancelled';
+export type ExportFormat = 'mp4' | 'mov' | 'avi' | 'webm';
+
+export interface ExportSettings {
+  format: ExportFormat;
+  width: number;
+  height: number;
+  bitrate: string;
+  fps: number;
+}
+
+export interface ExportState {
+  status: ExportStatus;
+  progress: number;
+  currentTime: number;
+  errorMessage: string | null;
+  isDialogOpen: boolean;
+  settings: ExportSettings;
+  outputPath: string | null;
+
+  setStatus: (status: ExportStatus) => void;
+  setProgress: (progress: number, currentTime: number) => void;
+  setError: (message: string) => void;
+  setDialogOpen: (open: boolean) => void;
+  setSettings: (settings: Partial<ExportSettings>) => void;
+  setOutputPath: (path: string) => void;
+  reset: () => void;
+}
+
+const DEFAULT_SETTINGS: ExportSettings = {
+  format: 'mp4',
+  width: 1920,
+  height: 1080,
+  bitrate: '8M',
+  fps: 30,
+};
+
+export const useExportStore = create<ExportState>((set) => ({
+  status: 'idle',
+  progress: 0,
+  currentTime: 0,
+  errorMessage: null,
+  isDialogOpen: false,
+  settings: { ...DEFAULT_SETTINGS },
+  outputPath: null,
+
+  setStatus: (status) => set({ status }),
+  setProgress: (progress, currentTime) => set({ progress, currentTime }),
+  setError: (message) => set({ status: 'error', errorMessage: message }),
+  setDialogOpen: (open) => set({ isDialogOpen: open }),
+  setSettings: (partial) => set((state) => ({
+    settings: { ...state.settings, ...partial },
+  })),
+  setOutputPath: (path) => set({ outputPath: path }),
+  reset: () => set({
+    status: 'idle',
+    progress: 0,
+    currentTime: 0,
+    errorMessage: null,
+    outputPath: null,
+  }),
+}));

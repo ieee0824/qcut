@@ -17,7 +17,7 @@ export interface VideoPreviewState {
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
   setVolume: (volume: number) => void;
-  setVideoFile: (file: File) => void;
+  setVideoFile: (file: File, fullPath?: string) => void;
   setVideoUrl: (url: string) => void;
   registerVideoUrl: (filePath: string, url: string) => void;
   resetPreview: () => void;
@@ -36,12 +36,13 @@ export const useVideoPreviewStore = create<VideoPreviewState>((set) => ({
   setCurrentTime: (time) => set({ currentTime: time }),
   setDuration: (duration) => set({ duration }),
   setVolume: (volume) => set({ volume: Math.max(0, Math.min(100, volume)) }),
-  setVideoFile: (file) => {
+  setVideoFile: (file, fullPath?: string) => {
     const url = URL.createObjectURL(file);
+    const key = fullPath ?? file.name;
     set((state) => ({
       videoFile: file,
       videoUrl: url,
-      videoUrls: { ...state.videoUrls, [file.name]: url },
+      videoUrls: { ...state.videoUrls, [key]: url },
     }));
   },
   setVideoUrl: (url) => set({ videoUrl: url }),

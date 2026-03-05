@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { invoke } from '@tauri-apps/api/core';
 import './App.css';
 import Timeline from './components/Timeline/Timeline';
 import { VideoPreview } from './components/VideoPreview/VideoPreview';
 import { EffectsPanel } from './components/Inspector/EffectsPanel';
 import { TextPanel } from './components/Inspector/TextPanel';
 import { FileOperations } from './components/FileOperations/FileOperations';
+import { ExportDialog } from './components/Export/ExportDialog';
 import { useTimelineStore } from './store/timelineStore';
 import { DEFAULT_TEXT_PROPERTIES } from './store/timelineStore';
 import { useVideoPreviewStore } from './store/videoPreviewStore';
+import { useExportStore } from './store/exportStore';
 import { PluginManager } from './plugin-system';
 import { parseSRT, parseASS, subtitlesToTrack, trackToSubtitles, exportSRT, exportASS } from './utils/subtitles';
 
@@ -16,6 +19,7 @@ function App() {
   const { t, i18n } = useTranslation();
   const { isPlaying, setIsPlaying } = useTimelineStore();
   const videoPreviewStore = useVideoPreviewStore();
+  const { setDialogOpen: setExportDialogOpen, setStatus: setExportStatus } = useExportStore();
   const pluginManagerRef = useRef<PluginManager | null>(null);
 
   useEffect(() => {
@@ -74,6 +78,17 @@ function App() {
     };
     input.click();
   }, []);
+
+  const handleExport = useCallback(async () => {
+    try {
+      await invoke('check_ffmpeg');
+      useExportStore.getState().reset();
+      setExportStatus('configuring');
+      setExportDialogOpen(true);
+    } catch (e) {
+      window.alert(String(e));
+    }
+  }, [setExportStatus, setExportDialogOpen]);
 
   const handleExportSubtitle = useCallback((format: 'srt' | 'ass') => {
     const { tracks } = useTimelineStore.getState();
@@ -142,6 +157,9 @@ function App() {
           <button onClick={() => handleExportSubtitle('ass')} className="play-btn" title={t('text.exportSubtitle')}>
             ASS
           </button>
+          <button onClick={handleExport} className="play-btn" title={t('export.title')}>
+            {t('export.button')}
+          </button>
           <button onClick={togglePlay} className="play-btn">
             {isPlaying ? t('button.pause') : t('button.play')}
           </button>
@@ -157,6 +175,7 @@ function App() {
           <Timeline />
         </div>
       </main>
+      <ExportDialog />
     </div>
   );
 }

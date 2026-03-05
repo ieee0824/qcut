@@ -1,0 +1,188 @@
+.export-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.export-dialog {
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 420px;
+  max-width: 500px;
+  color: #fff;
+}
+
+.export-dialog-title {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.export-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.export-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.export-field label {
+  font-size: 13px;
+  color: #999;
+}
+
+.export-field select {
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.export-field select:focus {
+  outline: none;
+  border-color: #4a9eff;
+}
+
+.export-path-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-path-display {
+  flex: 1;
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #ccc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.export-btn-primary {
+  background: #4a9eff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 20px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.export-btn-primary:hover {
+  background: #3b7fd6;
+}
+
+.export-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.export-btn-secondary {
+  background: #3a3a3a;
+  color: #ccc;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.export-btn-secondary:hover {
+  background: #4a4a4a;
+}
+
+/* プログレス */
+.export-progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.export-progress-label {
+  margin: 0;
+  font-size: 14px;
+  color: #ccc;
+}
+
+.export-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #3a3a3a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.export-progress-fill {
+  height: 100%;
+  background: #4a9eff;
+  transition: width 0.3s ease;
+}
+
+.export-progress-percent {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  color: #4a9eff;
+}
+
+/* 結果表示 */
+.export-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.export-result-success {
+  margin: 0;
+  font-size: 16px;
+  color: #4caf50;
+  text-align: center;
+}
+
+.export-result-error {
+  margin: 0;
+  font-size: 16px;
+  color: #f44336;
+  text-align: center;
+}
+
+.export-result-cancelled {
+  margin: 0;
+  font-size: 16px;
+  color: #ff9800;
+  text-align: center;
+}
+
+.export-error-detail {
+  margin: 0;
+  font-size: 13px;
+  color: #999;
+  background: #1a1a1a;
+  padding: 8px 12px;
+  border-radius: 4px;
+  word-break: break-all;
+}
