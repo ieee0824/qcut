@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTimelineStore } from '../../store/timelineStore';
+import type { Clip as ClipType, TextProperties } from '../../store/timelineStore';
 
 interface VideoPreviewProps {
   width?: string;
@@ -350,6 +351,64 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return `translate(${px}px, ${py}px) rotate(${r}deg) scaleX(${sx}) scaleY(${sy})`;
   }, [currentClip?.effects]);
 
+  // 現在時刻に表示すべきテキストオーバーレイを取得
+  const findTextClipsAtTime = useCallback((time: number): ClipType[] => {
+    const currentTracks = useTimelineStore.getState().tracks;
+    const results: ClipType[] = [];
+    for (const track of currentTracks) {
+      if (track.type === 'text') {
+        for (const clip of track.clips) {
+          if (time >= clip.startTime && time < clip.startTime + clip.duration && clip.textProperties) {
+            results.push(clip);
+          }
+        }
+      }
+    }
+    return results;
+  }, []);
+
+  // テキストオーバーレイのアニメーション opacity を計算
+  const calcTextOpacity = useCallback((tp: TextProperties, elapsed: number, clipDuration: number): number => {
+    const dur = tp.animationDuration;
+    let opacity = tp.opacity;
+    if (tp.animation === 'fadeIn' || tp.animation === 'fadeInOut') {
+      if (elapsed < dur) opacity *= elapsed / dur;
+    }
+    if (tp.animation === 'fadeOut' || tp.animation === 'fadeInOut') {
+      const remaining = clipDuration - elapsed;
+      if (remaining < dur) opacity *= remaining / dur;
+    }
+    return Math.max(0, Math.min(1, opacity));
+  }, []);
+
+  // テキストオーバーレイのアニメーション translateY を計算
+  const calcTextTranslateY = useCallback((tp: TextProperties, elapsed: number, _clipDuration: number): number => {
+    const dur = tp.animationDuration;
+    if (tp.animation === 'slideUp') {
+      if (elapsed < dur) return 20 * (1 - elapsed / dur);
+    }
+    if (tp.animation === 'slideDown') {
+      if (elapsed < dur) return -20 * (1 - elapsed / dur);
+    }
+    return 0;
+  }, []);
+
+  // テキストオーバーレイ用の state（currentTime 変更時に更新）
+  const [textOverlays, setTextOverlays] = useState<ClipType[]>([]);
+  const [textCurrentTime, setTextCurrentTime] = useState(0);
+
+  useEffect(() => {
+    const updateTextOverlays = (time: number) => {
+      const clips = findTextClipsAtTime(time);
+      setTextOverlays(clips);
+      setTextCurrentTime(time);
+    };
+    updateTextOverlays(useTimelineStore.getState().currentTime);
+    return useTimelineStore.subscribe((state) => {
+      updateTextOverlays(state.currentTime);
+    });
+  }, [tracks, findTextClipsAtTime]);
+
   // 次のクリップの動画を事前にプリロード（クリップ切り替わり時のもたつき軽減）
   useEffect(() => {
     if (!currentClip) return;
@@ -507,6 +566,40 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             {!Object.keys(videoUrls).length && t('fileOperations.noFile')}
           </div>
         )}
+        {/* テキストオーバーレイ */}
+        {textOverlays.map((clip) => {
+          const tp = clip.textProperties!;
+          const elapsed = textCurrentTime - clip.startTime;
+          const opacity = calcTextOpacity(tp, elapsed, clip.duration);
+          const translateY = calcTextTranslateY(tp, elapsed, clip.duration);
+          return (
+            <div
+              key={clip.id}
+              style={{
+                position: 'absolute',
+                left: `${tp.positionX}%`,
+                top: `${tp.positionY}%`,
+                transform: `translate(-50%, -50%) translateY(${translateY}px)`,
+                fontSize: `${tp.fontSize}px`,
+                fontFamily: tp.fontFamily,
+                fontWeight: tp.bold ? 'bold' : 'normal',
+                fontStyle: tp.italic ? 'italic' : 'normal',
+                textAlign: tp.textAlign,
+                color: tp.fontColor,
+                opacity,
+                backgroundColor: tp.backgroundColor === 'transparent' ? undefined : tp.backgroundColor,
+                padding: tp.backgroundColor !== 'transparent' ? '4px 8px' : undefined,
+                borderRadius: tp.backgroundColor !== 'transparent' ? '4px' : undefined,
+                textShadow: '1px 1px 3px rgba(0,0,0,0.8), -1px -1px 3px rgba(0,0,0,0.8)',
+                whiteSpace: 'pre-wrap',
+                pointerEvents: 'none',
+                zIndex: 10,
+              }}
+            >
+              {tp.text}
+            </div>
+          );
+        })}
       </div>
 
       {/* プリロード用（非表示） */}

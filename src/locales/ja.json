@@ -52,5 +52,31 @@
     "videoTracks": "ビデオトラック",
     "audioTracks": "オーディオトラック",
     "addTrack": "トラックを追加"
+  },
+  "text": {
+    "title": "テキスト",
+    "addTextTrack": "テキストトラック追加",
+    "text": "テキスト",
+    "fontSize": "フォントサイズ",
+    "fontColor": "フォントカラー",
+    "fontFamily": "フォント",
+    "bold": "太字",
+    "italic": "斜体",
+    "textAlign": "配置",
+    "positionX": "位置X",
+    "positionY": "位置Y",
+    "opacity": "透明度",
+    "backgroundColor": "背景色",
+    "animation": "アニメーション",
+    "animationDuration": "アニメーション時間",
+    "none": "なし",
+    "fadeIn": "フェードイン",
+    "fadeOut": "フェードアウト",
+    "fadeInOut": "フェードイン/アウト",
+    "slideUp": "スライドアップ",
+    "slideDown": "スライドダウン",
+    "importSubtitle": "字幕読込",
+    "exportSubtitle": "字幕書出",
+    "noTextSelected": "テキストクリップを選択してください"
   }
 }

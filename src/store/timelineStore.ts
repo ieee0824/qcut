@@ -22,6 +22,40 @@ export const DEFAULT_EFFECTS: ClipEffects = {
   positionY: 0,
 };
 
+export type TextAnimation = 'none' | 'fadeIn' | 'fadeOut' | 'fadeInOut' | 'slideUp' | 'slideDown';
+
+export interface TextProperties {
+  text: string;
+  fontSize: number;        // 16〜120, default 32
+  fontColor: string;       // hex, default '#ffffff'
+  fontFamily: string;      // default 'sans-serif'
+  bold: boolean;
+  italic: boolean;
+  textAlign: 'left' | 'center' | 'right';
+  positionX: number;       // 0〜100 (%), default 50
+  positionY: number;       // 0〜100 (%), default 85
+  opacity: number;         // 0〜1, default 1
+  backgroundColor: string; // hex or 'transparent'
+  animation: TextAnimation;
+  animationDuration: number; // 秒, default 0.3
+}
+
+export const DEFAULT_TEXT_PROPERTIES: TextProperties = {
+  text: 'テキスト',
+  fontSize: 32,
+  fontColor: '#ffffff',
+  fontFamily: 'sans-serif',
+  bold: false,
+  italic: false,
+  textAlign: 'center',
+  positionX: 50,
+  positionY: 85,
+  opacity: 1,
+  backgroundColor: 'transparent',
+  animation: 'none',
+  animationDuration: 0.3,
+};
+
 export interface Clip {
   id: string;
   name: string;
@@ -36,11 +70,14 @@ export interface Clip {
 
   // エフェクト
   effects?: ClipEffects;
+
+  // テキストオーバーレイ
+  textProperties?: TextProperties;
 }
 
 export interface Track {
   id: string;
-  type: 'video' | 'audio';
+  type: 'video' | 'audio' | 'text';
   name: string;
   clips: Clip[];
 }
