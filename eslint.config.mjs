@@ -37,6 +37,13 @@ export default [
         KeyboardEvent: 'readonly',
         File: 'readonly',
         URL: 'readonly',
+        ImageData: 'readonly',
+        TextDecoder: 'readonly',
+        Blob: 'readonly',
+        WebAssembly: 'readonly',
+        Uint8Array: 'readonly',
+        Uint8ClampedArray: 'readonly',
+        ArrayBuffer: 'readonly',
       },
     },
     plugins: {
