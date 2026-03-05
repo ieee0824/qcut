@@ -1,5 +1,6 @@
 import { Track as TrackType } from '../../store/timelineStore';
 import Clip from './Clip';
+import TransitionIndicator from './TransitionIndicator';
 
 interface TrackProps {
   track: TrackType;
@@ -12,6 +13,17 @@ function Track({ track }: TrackProps) {
         {track.clips.map(clip => (
           <Clip key={clip.id} clip={clip} trackId={track.id} />
         ))}
+        {track.clips
+          .filter(clip => clip.transition)
+          .map(clip => (
+            <TransitionIndicator
+              key={`transition-${clip.id}`}
+              transition={clip.transition!}
+              clipId={clip.id}
+              trackId={track.id}
+              clipStartTime={clip.startTime}
+            />
+          ))}
       </div>
     </div>
   );

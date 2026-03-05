@@ -79,6 +79,17 @@
     "exportSubtitle": "字幕書出",
     "noTextSelected": "テキストクリップを選択してください"
   },
+  "transition": {
+    "add": "トランジション追加",
+    "remove": "トランジション削除",
+    "crossfade": "クロスフェード",
+    "dissolve": "ディゾルブ",
+    "wipeLeft": "ワイプ左",
+    "wipeRight": "ワイプ右",
+    "wipeUp": "ワイプ上",
+    "wipeDown": "ワイプ下",
+    "duration": "時間"
+  },
   "export": {
     "title": "動画エクスポート",
     "button": "エクスポート",

@@ -79,6 +79,17 @@
     "exportSubtitle": "Export",
     "noTextSelected": "Select a text clip"
   },
+  "transition": {
+    "add": "Add Transition",
+    "remove": "Remove Transition",
+    "crossfade": "Crossfade",
+    "dissolve": "Dissolve",
+    "wipeLeft": "Wipe Left",
+    "wipeRight": "Wipe Right",
+    "wipeUp": "Wipe Up",
+    "wipeDown": "Wipe Down",
+    "duration": "Duration"
+  },
   "export": {
     "title": "Export Video",
     "button": "Export",
