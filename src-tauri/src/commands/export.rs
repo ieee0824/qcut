@@ -218,44 +218,58 @@ pub async fn export_video(
     let time_regex = Regex::new(r"time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})").unwrap();
     let total_duration = settings.total_duration;
 
-    // stderrを行ごとに読んで進捗をパース
-    for line in reader.lines() {
+    // stderrを別スレッドで読み取り、チャネル経由で受信
+    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    std::thread::spawn(move || {
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                if tx.send(line).is_err() {
+                    break;
+                }
+            }
+        }
+    });
+
+    // メインループ: チャネルからタイムアウト付きで受信し、キャンセルフラグを定期チェック
+    loop {
         if cancel_flag.load(Ordering::SeqCst) {
             let _ = child.kill();
-            let _ = app_handle.emit(
-                "export-progress",
-                ExportProgress {
-                    progress: 0.0,
-                    current_time: 0.0,
-                    status: "cancelled".to_string(),
-                    message: "エクスポートがキャンセルされました".to_string(),
-                },
-            );
-            return Ok(());
+            break;
         }
 
-        if let Ok(line) = line {
-            if let Some(caps) = time_regex.captures(&line) {
-                let hours: f64 = caps[1].parse().unwrap_or(0.0);
-                let minutes: f64 = caps[2].parse().unwrap_or(0.0);
-                let seconds: f64 = caps[3].parse().unwrap_or(0.0);
-                let centiseconds: f64 = caps[4].parse().unwrap_or(0.0);
-                let current_time = hours * 3600.0 + minutes * 60.0 + seconds + centiseconds / 100.0;
-                let progress = if total_duration > 0.0 {
-                    (current_time / total_duration).min(1.0)
-                } else {
-                    0.0
-                };
+        match rx.recv_timeout(std::time::Duration::from_millis(200)) {
+            Ok(line) => {
+                if let Some(caps) = time_regex.captures(&line) {
+                    let hours: f64 = caps[1].parse().unwrap_or(0.0);
+                    let minutes: f64 = caps[2].parse().unwrap_or(0.0);
+                    let seconds: f64 = caps[3].parse().unwrap_or(0.0);
+                    let centiseconds: f64 = caps[4].parse().unwrap_or(0.0);
+                    let current_time =
+                        hours * 3600.0 + minutes * 60.0 + seconds + centiseconds / 100.0;
+                    let progress = if total_duration > 0.0 {
+                        (current_time / total_duration).min(1.0)
+                    } else {
+                        0.0
+                    };
 
-                let _ = app_handle.emit(
-                    "export-progress",
-                    ExportProgress {
-                        progress,
-                        current_time,
-                        status: "encoding".to_string(),
-                        message: format!("エンコード中... {:.1}%", progress * 100.0),
-                    },
-                );
+                    let _ = app_handle.emit(
+                        "export-progress",
+                        ExportProgress {
+                            progress,
+                            current_time,
+                            status: "encoding".to_string(),
+                            message: format!("エンコード中... {:.1}%", progress * 100.0),
+                        },
+                    );
+                }
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                // タイムアウト → ループ先頭でキャンセルフラグを再チェック
+                continue;
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                // stderrが閉じた = FFmpegプロセス終了
+                break;
             }
         }
     }
@@ -265,7 +279,10 @@ pub async fn export_video(
         .wait()
         .map_err(|e| format!("FFmpegの終了待ちに失敗: {}", e))?;
 
+    // エンコード完了後のキャンセルフラグチェック:
+    // キャンセルが押されていてもプロセスが正常完了していれば complete として扱う
     if status.success() {
+        // cancel_flag が立っていても、実際にはエンコード完了しているので complete を送信
         let _ = app_handle.emit(
             "export-progress",
             ExportProgress {
@@ -273,6 +290,18 @@ pub async fn export_video(
                 current_time: total_duration,
                 status: "complete".to_string(),
                 message: "エクスポート完了".to_string(),
+            },
+        );
+        Ok(())
+    } else if cancel_flag.load(Ordering::SeqCst) {
+        // プロセスが異常終了 + キャンセルフラグが立っている → キャンセルとして扱う
+        let _ = app_handle.emit(
+            "export-progress",
+            ExportProgress {
+                progress: 0.0,
+                current_time: 0.0,
+                status: "cancelled".to_string(),
+                message: "エクスポートがキャンセルされました".to_string(),
             },
         );
         Ok(())
