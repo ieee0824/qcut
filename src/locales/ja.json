@@ -96,6 +96,10 @@
     "error": "エクスポートエラー",
     "cancelled": "エクスポートがキャンセルされました",
     "noClips": "タイムラインにクリップがありません",
-    "noOutputPath": "出力先を選択してください"
+    "noOutputPath": "出力先を選択してください",
+    "remaining": "残り約",
+    "seconds": "秒",
+    "minutes": "分",
+    "hours": "時間"
   }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -52,6 +52,7 @@ export const ExportDialog: React.FC = () => {
     setSettings,
     setOutputPath,
     reset,
+    exportStartedAt,
   } = useExportStore();
   const tracks = useTimelineStore((s) => s.tracks);
   const duration = useTimelineStore((s) => s.duration);
@@ -135,6 +136,18 @@ export const ExportDialog: React.FC = () => {
     },
     [setSettings],
   );
+
+  const estimatedRemaining = useMemo(() => {
+    if (!exportStartedAt || progress <= 0) return null;
+    const elapsed = (Date.now() - exportStartedAt) / 1000;
+    if (elapsed < 2) return null; // 最初の2秒はデータ不足
+    const remaining = elapsed * (1 - progress) / progress;
+    if (remaining < 60) return `${t('export.remaining')}: ${Math.round(remaining)}${t('export.seconds')}`;
+    if (remaining < 3600) return `${t('export.remaining')}: ${Math.round(remaining / 60)}${t('export.minutes')}`;
+    const h = Math.floor(remaining / 3600);
+    const m = Math.round((remaining % 3600) / 60);
+    return `${t('export.remaining')}: ${h}${t('export.hours')}${m}${t('export.minutes')}`;
+  }, [exportStartedAt, progress, t]);
 
   if (!isDialogOpen) return null;
 
@@ -239,6 +252,9 @@ export const ExportDialog: React.FC = () => {
               />
             </div>
             <p className="export-progress-percent">{(progress * 100).toFixed(1)}%</p>
+            {estimatedRemaining && (
+              <p className="export-progress-remaining">{estimatedRemaining}</p>
+            )}
             <div className="export-actions">
               <button className="export-btn-secondary" onClick={handleCancel}>
                 {t('export.cancel')}

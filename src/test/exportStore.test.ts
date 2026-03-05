@@ -23,6 +23,7 @@ describe('exportStore', () => {
     expect(result.current.errorMessage).toBeNull();
     expect(result.current.isDialogOpen).toBe(false);
     expect(result.current.outputPath).toBeNull();
+    expect(result.current.exportStartedAt).toBeNull();
   });
 
   it('ステータスを更新', () => {
@@ -33,6 +34,7 @@ describe('exportStore', () => {
     });
 
     expect(result.current.status).toBe('exporting');
+    expect(result.current.exportStartedAt).toBeTypeOf('number');
   });
 
   it('設定を部分更新', () => {
@@ -113,5 +115,6 @@ describe('exportStore', () => {
     expect(result.current.currentTime).toBe(0);
     expect(result.current.errorMessage).toBeNull();
     expect(result.current.outputPath).toBeNull();
+    expect(result.current.exportStartedAt).toBeNull();
   });
 });

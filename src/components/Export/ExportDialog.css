@@ -149,6 +149,13 @@
   color: #4a9eff;
 }
 
+.export-progress-remaining {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+  color: #999;
+}
+
 /* 結果表示 */
 .export-result {
   display: flex;

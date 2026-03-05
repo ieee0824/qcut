@@ -96,6 +96,10 @@
     "error": "Export error",
     "cancelled": "Export cancelled",
     "noClips": "No clips in timeline",
-    "noOutputPath": "Please select an output path"
+    "noOutputPath": "Please select an output path",
+    "remaining": "About",
+    "seconds": "s remaining",
+    "minutes": "min remaining",
+    "hours": "h "
   }
 }

@@ -19,6 +19,7 @@ export interface ExportState {
   isDialogOpen: boolean;
   settings: ExportSettings;
   outputPath: string | null;
+  exportStartedAt: number | null;
 
   setStatus: (status: ExportStatus) => void;
   setProgress: (progress: number, currentTime: number) => void;
@@ -45,8 +46,12 @@ export const useExportStore = create<ExportState>((set) => ({
   isDialogOpen: false,
   settings: { ...DEFAULT_SETTINGS },
   outputPath: null,
+  exportStartedAt: null,
 
-  setStatus: (status) => set({ status }),
+  setStatus: (status) => set((state) => ({
+    status,
+    exportStartedAt: status === 'exporting' ? (state.exportStartedAt ?? Date.now()) : state.exportStartedAt,
+  })),
   setProgress: (progress, currentTime) => set({ progress, currentTime }),
   setError: (message) => set({ status: 'error', errorMessage: message }),
   setDialogOpen: (open) => set({ isDialogOpen: open }),
@@ -60,5 +65,6 @@ export const useExportStore = create<ExportState>((set) => ({
     currentTime: 0,
     errorMessage: null,
     outputPath: null,
+    exportStartedAt: null,
   }),
 }));
