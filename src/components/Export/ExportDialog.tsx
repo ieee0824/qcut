@@ -235,10 +235,10 @@ export const ExportDialog: React.FC = () => {
             <div className="export-progress-bar">
               <div
                 className="export-progress-fill"
-                style={{ width: `${Math.round(progress * 100)}%` }}
+                style={{ width: `${(progress * 100).toFixed(1)}%` }}
               />
             </div>
-            <p className="export-progress-percent">{Math.round(progress * 100)}%</p>
+            <p className="export-progress-percent">{(progress * 100).toFixed(1)}%</p>
             <div className="export-actions">
               <button className="export-btn-secondary" onClick={handleCancel}>
                 {t('export.cancel')}

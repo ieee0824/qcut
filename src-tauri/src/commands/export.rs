@@ -1,6 +1,6 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -208,24 +208,49 @@ pub async fn export_video(
     let mut child = Command::new("ffmpeg")
         .args(&args)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("FFmpegの起動に失敗しました: {}", e))?;
 
-    let stderr = child.stderr.take().ok_or("stderrの取得に失敗")?;
-    let reader = BufReader::new(stderr);
-    let time_regex = Regex::new(r"time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})").unwrap();
-    let total_duration = settings.total_duration;
+    // stderrをドレインするスレッド（バッファ詰まり防止）
+    let stderr = child.stderr.take();
+    std::thread::spawn(move || {
+        if let Some(stderr) = stderr {
+            use std::io::Read;
+            let mut buf = [0u8; 4096];
+            let mut reader = stderr;
+            while reader.read(&mut buf).unwrap_or(0) > 0 {}
+        }
+    });
 
-    // stderrを別スレッドで読み取り、チャネル経由で受信
+    let stdout = child.stdout.take().ok_or("stdoutの取得に失敗")?;
+    let reader = BufReader::new(stdout);
+    let time_regex = Regex::new(r"out_time_ms=(\d+)").unwrap();
+    // totalDuration が 0 または未設定の場合、クリップから出力時間を自動計算
+    let total_duration = if settings.total_duration > 0.0 {
+        settings.total_duration
+    } else {
+        video_clips
+            .iter()
+            .map(|c| c.start_time + c.duration)
+            .fold(0.0_f64, f64::max)
+    };
+    log::info!("Export total_duration: {:.3}s", total_duration);
+
+    // stdoutを別スレッドで読み取り、チャネル経由で受信
+    // -progress pipe:1 の出力はstdoutに key=value 形式で行ごとに出力される
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     std::thread::spawn(move || {
+        use std::io::BufRead;
         for line in reader.lines() {
-            if let Ok(line) = line {
-                if tx.send(line).is_err() {
-                    break;
+            match line {
+                Ok(l) => {
+                    if tx.send(l).is_err() {
+                        break;
+                    }
                 }
+                Err(_) => break,
             }
         }
     });
@@ -240,12 +265,8 @@ pub async fn export_video(
         match rx.recv_timeout(std::time::Duration::from_millis(200)) {
             Ok(line) => {
                 if let Some(caps) = time_regex.captures(&line) {
-                    let hours: f64 = caps[1].parse().unwrap_or(0.0);
-                    let minutes: f64 = caps[2].parse().unwrap_or(0.0);
-                    let seconds: f64 = caps[3].parse().unwrap_or(0.0);
-                    let centiseconds: f64 = caps[4].parse().unwrap_or(0.0);
-                    let current_time =
-                        hours * 3600.0 + minutes * 60.0 + seconds + centiseconds / 100.0;
+                    let microseconds: f64 = caps[1].parse().unwrap_or(0.0);
+                    let current_time = microseconds / 1_000_000.0;
                     let progress = if total_duration > 0.0 {
                         (current_time / total_duration).min(1.0)
                     } else {
@@ -360,7 +381,7 @@ fn build_ffmpeg_args(
     video_clips: &[&ExportClip],
     text_clips: &[&ExportClip],
 ) -> Result<Vec<String>, String> {
-    let mut args: Vec<String> = vec!["-y".into()];
+    let mut args: Vec<String> = vec!["-y".into(), "-progress".into(), "pipe:1".into()];
     let mut filter_parts: Vec<String> = Vec::new();
     let mut input_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     let mut input_args: Vec<String> = Vec::new();
