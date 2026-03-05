@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import './App.css';
 import Timeline from './components/Timeline/Timeline';
@@ -5,11 +6,24 @@ import { VideoPreview } from './components/VideoPreview/VideoPreview';
 import { FileOperations } from './components/FileOperations/FileOperations';
 import { useTimelineStore } from './store/timelineStore';
 import { useVideoPreviewStore } from './store/videoPreviewStore';
+import { PluginManager } from './plugin-system';
 
 function App() {
   const { t, i18n } = useTranslation();
   const { isPlaying, setIsPlaying } = useTimelineStore();
   const videoPreviewStore = useVideoPreviewStore();
+  const pluginManagerRef = useRef<PluginManager | null>(null);
+
+  useEffect(() => {
+    const manager = new PluginManager();
+    pluginManagerRef.current = manager;
+    manager.initialize().catch((e) => {
+      console.warn('[PluginManager] 初期化に失敗:', e);
+    });
+    return () => {
+      manager.shutdown();
+    };
+  }, []);
 
   // 言語切り替え
   const handleLanguageChange = (lang: string) => {
