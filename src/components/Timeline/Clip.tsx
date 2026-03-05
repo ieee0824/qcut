@@ -28,6 +28,7 @@ function Clip({ clip, trackId }: ClipProps) {
   const [showTransitionSubmenu, setShowTransitionSubmenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const submenuRef = useRef<HTMLDivElement>(null);
   const dragStartX = useRef(0);
   const dragStartTime = useRef(0);
 
@@ -128,10 +129,33 @@ function Clip({ clip, trackId }: ClipProps) {
     if (rect.bottom > window.innerHeight) {
       y = window.innerHeight - rect.height;
     }
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
     if (x !== contextMenuPos.x || y !== contextMenuPos.y) {
       setContextMenuPos({ x, y });
     }
   }, [showContextMenu, contextMenuPos]);
+
+  // サブメニューが画面外にはみ出る場合、位置を自動補正
+  useEffect(() => {
+    if (!showTransitionSubmenu || !submenuRef.current) return;
+    const submenu = submenuRef.current;
+    const rect = submenu.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight) {
+      submenu.style.top = 'auto';
+      submenu.style.bottom = '0';
+    } else {
+      submenu.style.top = '0';
+      submenu.style.bottom = 'auto';
+    }
+    if (rect.right > window.innerWidth) {
+      submenu.style.left = 'auto';
+      submenu.style.right = '100%';
+    } else {
+      submenu.style.left = '100%';
+      submenu.style.right = 'auto';
+    }
+  }, [showTransitionSubmenu]);
 
   const handleCloseContextMenu = () => {
     setShowContextMenu(false);
@@ -181,7 +205,7 @@ function Clip({ clip, trackId }: ClipProps) {
               >
                 🔄 {t('transition.add')} ▸
                 {showTransitionSubmenu && (
-                  <div className="context-submenu">
+                  <div ref={submenuRef} className="context-submenu">
                     {allPresets.map(preset => (
                       <button
                         key={preset.id}
