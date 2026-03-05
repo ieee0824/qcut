@@ -1,5 +1,8 @@
 # qcut - Video Editor
 
+[![CI](https://github.com/ieee0824/qcut/actions/workflows/ci.yml/badge.svg)](https://github.com/ieee0824/qcut/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ieee0824/qcut/graph/badge.svg)](https://codecov.io/gh/ieee0824/qcut)
+
 学生が気軽に使える動画編集ソフトウェア
 
 ## 技術スタック

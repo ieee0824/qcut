@@ -22,6 +22,9 @@ pnpm-debug.log*
 # Tauri
 src-tauri/target/
 
+# Coverage
+coverage/
+
 # Build outputs
 /tmp/
 *.dmg
