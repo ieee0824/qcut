@@ -56,6 +56,19 @@ export const DEFAULT_TEXT_PROPERTIES: TextProperties = {
   animationDuration: 0.3,
 };
 
+export type TransitionType =
+  | 'crossfade'
+  | 'wipe-left'
+  | 'wipe-right'
+  | 'wipe-up'
+  | 'wipe-down'
+  | 'dissolve';
+
+export interface ClipTransition {
+  type: TransitionType;
+  duration: number; // オーバーラップ秒数（前クリップの末尾と当クリップの先頭が重なる）
+}
+
 export interface Clip {
   id: string;
   name: string;
@@ -73,6 +86,9 @@ export interface Clip {
 
   // テキストオーバーレイ
   textProperties?: TextProperties;
+
+  // トランジション（前のクリップとの境界に適用）
+  transition?: ClipTransition;
 }
 
 export interface Track {
@@ -108,6 +124,10 @@ export interface TimelineState {
   zoomIn: () => void;
   zoomOut: () => void;
   
+  // トランジション
+  setTransition: (trackId: string, clipId: string, transition: ClipTransition) => void;
+  removeTransition: (trackId: string, clipId: string) => void;
+
   // カット編集機能
   setSelectedClip: (trackId: string | null, clipId: string | null) => void;
   splitClipAtTime: (trackId: string, clipId: string, splitTime: number) => void;
@@ -191,6 +211,33 @@ export const useTimelineStore = create<TimelineState>((set) => ({
     pixelsPerSecond: Math.max(state.pixelsPerSecond / 1.2, 10),
   })),
   
+  // トランジション
+  setTransition: (trackId, clipId, transition) => set((state) => ({
+    tracks: state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip =>
+              clip.id === clipId ? { ...clip, transition } : clip
+            ),
+          }
+        : track
+    ),
+  })),
+
+  removeTransition: (trackId, clipId) => set((state) => ({
+    tracks: state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip =>
+              clip.id === clipId ? { ...clip, transition: undefined } : clip
+            ),
+          }
+        : track
+    ),
+  })),
+
   // カット編集機能
   setSelectedClip: (trackId, clipId) => set({
     selectedTrackId: trackId,
