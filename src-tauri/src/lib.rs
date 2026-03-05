@@ -30,6 +30,8 @@ pub fn run() {
       commands::export::check_ffmpeg,
       commands::export::export_video,
       commands::export::cancel_export,
+      commands::presets::read_transition_presets,
+      commands::presets::write_transition_presets,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
