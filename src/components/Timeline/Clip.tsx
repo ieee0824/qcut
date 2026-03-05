@@ -27,6 +27,7 @@ function Clip({ clip, trackId }: ClipProps) {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [showTransitionSubmenu, setShowTransitionSubmenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
+  const contextMenuRef = useRef<HTMLDivElement>(null);
   const dragStartX = useRef(0);
   const dragStartTime = useRef(0);
 
@@ -115,6 +116,23 @@ function Clip({ clip, trackId }: ClipProps) {
     setShowContextMenu(false);
   };
 
+  // コンテキストメニューが画面外にはみ出る場合、位置を自動補正
+  useEffect(() => {
+    if (!showContextMenu || !contextMenuRef.current) return;
+    const menu = contextMenuRef.current;
+    const rect = menu.getBoundingClientRect();
+    let { x, y } = contextMenuPos;
+    if (rect.right > window.innerWidth) {
+      x = window.innerWidth - rect.width;
+    }
+    if (rect.bottom > window.innerHeight) {
+      y = window.innerHeight - rect.height;
+    }
+    if (x !== contextMenuPos.x || y !== contextMenuPos.y) {
+      setContextMenuPos({ x, y });
+    }
+  }, [showContextMenu, contextMenuPos]);
+
   const handleCloseContextMenu = () => {
     setShowContextMenu(false);
   };
@@ -144,7 +162,8 @@ function Clip({ clip, trackId }: ClipProps) {
       {showContextMenu && (
         <>
           <div className="context-menu-overlay" onClick={handleCloseContextMenu} />
-          <div 
+          <div
+            ref={contextMenuRef}
             className="context-menu"
             style={{
               left: `${contextMenuPos.x}px`,

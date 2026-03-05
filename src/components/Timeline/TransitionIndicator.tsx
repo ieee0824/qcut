@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, type ClipTransition, type TransitionType } from '../../store/timelineStore';
 import { useTransitionPresetStore } from '../../store/transitionPresetStore';
@@ -39,6 +39,7 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
   const [presetName, setPresetName] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const width = transition.duration * pixelsPerSecond;
   const left = clipStartTime * pixelsPerSecond - width / 2;
@@ -69,6 +70,23 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
     removeTransition(trackId, clipId);
     setShowContextMenu(false);
   };
+
+  // コンテキストメニューが画面外にはみ出る場合、位置を自動補正
+  useEffect(() => {
+    if (!showContextMenu || !contextMenuRef.current) return;
+    const menu = contextMenuRef.current;
+    const rect = menu.getBoundingClientRect();
+    let { x, y } = contextMenuPos;
+    if (rect.right > window.innerWidth) {
+      x = window.innerWidth - rect.width;
+    }
+    if (rect.bottom > window.innerHeight) {
+      y = window.innerHeight - rect.height;
+    }
+    if (x !== contextMenuPos.x || y !== contextMenuPos.y) {
+      setContextMenuPos({ x, y });
+    }
+  }, [showContextMenu, contextMenuPos]);
 
   return (
     <>
@@ -199,6 +217,7 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
         <>
           <div className="context-menu-overlay" onClick={() => setShowContextMenu(false)} />
           <div
+            ref={contextMenuRef}
             className="context-menu"
             style={{ left: `${contextMenuPos.x}px`, top: `${contextMenuPos.y}px` }}
           >
