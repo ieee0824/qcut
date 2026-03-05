@@ -1,15 +1,25 @@
 import { create } from 'zustand';
 
 export interface ClipEffects {
-  brightness: number; // 0〜2, default 1.0
-  contrast: number;   // 0〜2, default 1.0
-  saturation: number; // 0〜2, default 1.0
+  brightness: number;  // 0〜2, default 1.0
+  contrast: number;    // 0〜2, default 1.0
+  saturation: number;  // 0〜2, default 1.0
+  rotation: number;    // -180〜180, default 0
+  scaleX: number;      // 0.1〜3, default 1.0
+  scaleY: number;      // 0.1〜3, default 1.0
+  positionX: number;   // -500〜500, default 0
+  positionY: number;   // -500〜500, default 0
 }
 
 export const DEFAULT_EFFECTS: ClipEffects = {
   brightness: 1.0,
   contrast: 1.0,
   saturation: 1.0,
+  rotation: 0,
+  scaleX: 1.0,
+  scaleY: 1.0,
+  positionX: 0,
+  positionY: 0,
 };
 
 export interface Clip {

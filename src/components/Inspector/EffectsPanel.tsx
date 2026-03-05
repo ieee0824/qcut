@@ -7,9 +7,12 @@ interface EffectSliderProps {
   label: string;
   value: number;
   onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
 }
 
-const EffectSlider: React.FC<EffectSliderProps> = ({ label, value, onChange }) => {
+const EffectSlider: React.FC<EffectSliderProps> = ({ label, value, onChange, min = 0, max = 2, step = 0.01 }) => {
   return (
     <div style={{ marginBottom: '12px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
@@ -18,9 +21,9 @@ const EffectSlider: React.FC<EffectSliderProps> = ({ label, value, onChange }) =
       </div>
       <input
         type="range"
-        min="0"
-        max="2"
-        step="0.01"
+        min={min}
+        max={max}
+        step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         style={{ width: '100%', cursor: 'pointer' }}
@@ -99,6 +102,51 @@ export const EffectsPanel: React.FC = () => {
             value={effects.saturation}
             onChange={(v) => handleChange('saturation', v)}
           />
+
+          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
+            {t('transform.title')}
+          </h4>
+          <EffectSlider
+            label={t('transform.rotation')}
+            value={effects.rotation}
+            onChange={(v) => handleChange('rotation', v)}
+            min={-180}
+            max={180}
+            step={1}
+          />
+          <EffectSlider
+            label={t('transform.scaleX')}
+            value={effects.scaleX}
+            onChange={(v) => handleChange('scaleX', v)}
+            min={0.1}
+            max={3}
+            step={0.01}
+          />
+          <EffectSlider
+            label={t('transform.scaleY')}
+            value={effects.scaleY}
+            onChange={(v) => handleChange('scaleY', v)}
+            min={0.1}
+            max={3}
+            step={0.01}
+          />
+          <EffectSlider
+            label={t('transform.positionX')}
+            value={effects.positionX}
+            onChange={(v) => handleChange('positionX', v)}
+            min={-500}
+            max={500}
+            step={1}
+          />
+          <EffectSlider
+            label={t('transform.positionY')}
+            value={effects.positionY}
+            onChange={(v) => handleChange('positionY', v)}
+            min={-500}
+            max={500}
+            step={1}
+          />
+
           <button
             onClick={handleReset}
             style={{

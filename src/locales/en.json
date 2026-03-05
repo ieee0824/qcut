@@ -39,6 +39,14 @@
     "saturation": "Saturation",
     "reset": "Reset"
   },
+  "transform": {
+    "title": "Transform",
+    "rotation": "Rotation",
+    "scaleX": "Scale X",
+    "scaleY": "Scale Y",
+    "positionX": "Position X",
+    "positionY": "Position Y"
+  },
   "timeline": {
     "title": "Timeline",
     "videoTracks": "Video Tracks",

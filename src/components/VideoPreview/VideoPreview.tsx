@@ -335,6 +335,19 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return `brightness(${e.brightness}) contrast(${e.contrast}) saturate(${e.saturation})`;
   }, [currentClip?.effects]);
 
+  // トランスフォームから CSS transform 文字列を生成
+  const cssTransform = useMemo(() => {
+    if (!currentClip?.effects) return 'none';
+    const e = currentClip.effects;
+    const r = e.rotation ?? 0;
+    const sx = e.scaleX ?? 1;
+    const sy = e.scaleY ?? 1;
+    const px = e.positionX ?? 0;
+    const py = e.positionY ?? 0;
+    if (r === 0 && sx === 1 && sy === 1 && px === 0 && py === 0) return 'none';
+    return `translate(${px}px, ${py}px) rotate(${r}deg) scaleX(${sx}) scaleY(${sy})`;
+  }, [currentClip?.effects]);
+
   // 動画ファイルが切り替わったとき src を更新してシーク（停止中のみ）
   useEffect(() => {
     if (!videoRef.current) return;
@@ -440,7 +453,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       }}
     >
       {/* ビデオプレイヤー（常にDOMに存在させ、ギャップ中に消えないようにする） */}
-      <div style={{ position: 'relative', width: '100%', flex: 1, minHeight: 0 }}>
+      <div style={{ position: 'relative', width: '100%', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <video
           ref={videoRef}
           onLoadedMetadata={handleMetadata}
@@ -451,6 +464,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             borderRadius: '4px',
             visibility: hasCurrentClip ? 'visible' : 'hidden',
             filter: cssFilter,
+            transform: cssTransform,
+            transformOrigin: 'center center',
           }}
         />
         {!hasCurrentClip && (
