@@ -79,6 +79,33 @@
     "exportSubtitle": "字幕書出",
     "noTextSelected": "テキストクリップを選択してください"
   },
+  "transition": {
+    "add": "トランジション追加",
+    "remove": "トランジション削除",
+    "crossfade": "クロスフェード",
+    "dissolve": "ディゾルブ",
+    "wipeLeft": "ワイプ左",
+    "wipeRight": "ワイプ右",
+    "wipeUp": "ワイプ上",
+    "wipeDown": "ワイプ下",
+    "duration": "時間"
+  },
+  "preset": {
+    "title": "プリセット",
+    "quickFade": "クイックフェード (0.3s)",
+    "standardCrossfade": "標準クロスフェード (1.0s)",
+    "longCrossfade": "ロングクロスフェード (2.0s)",
+    "dissolve": "ディゾルブ (1.0s)",
+    "wipeLeft": "ワイプ左 (0.5s)",
+    "wipeRight": "ワイプ右 (0.5s)",
+    "wipeUp": "ワイプ上 (0.5s)",
+    "wipeDown": "ワイプ下 (0.5s)",
+    "save": "プリセット保存",
+    "delete": "削除",
+    "namePlaceholder": "プリセット名",
+    "custom": "カスタム",
+    "selectPreset": "プリセットから選択"
+  },
   "export": {
     "title": "動画エクスポート",
     "button": "エクスポート",

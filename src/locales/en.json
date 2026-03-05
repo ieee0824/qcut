@@ -79,6 +79,33 @@
     "exportSubtitle": "Export",
     "noTextSelected": "Select a text clip"
   },
+  "transition": {
+    "add": "Add Transition",
+    "remove": "Remove Transition",
+    "crossfade": "Crossfade",
+    "dissolve": "Dissolve",
+    "wipeLeft": "Wipe Left",
+    "wipeRight": "Wipe Right",
+    "wipeUp": "Wipe Up",
+    "wipeDown": "Wipe Down",
+    "duration": "Duration"
+  },
+  "preset": {
+    "title": "Presets",
+    "quickFade": "Quick Fade (0.3s)",
+    "standardCrossfade": "Standard Crossfade (1.0s)",
+    "longCrossfade": "Long Crossfade (2.0s)",
+    "dissolve": "Dissolve (1.0s)",
+    "wipeLeft": "Wipe Left (0.5s)",
+    "wipeRight": "Wipe Right (0.5s)",
+    "wipeUp": "Wipe Up (0.5s)",
+    "wipeDown": "Wipe Down (0.5s)",
+    "save": "Save Preset",
+    "delete": "Delete",
+    "namePlaceholder": "Preset name",
+    "custom": "Custom",
+    "selectPreset": "Select Preset"
+  },
   "export": {
     "title": "Export Video",
     "button": "Export",

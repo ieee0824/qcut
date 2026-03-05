@@ -329,3 +329,218 @@
   background-color: #3a3a3a;
 }
 
+/* トランジションインジケーター */
+.transition-indicator {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255, 165, 0, 0.3), rgba(255, 165, 0, 0.15), rgba(255, 165, 0, 0.3));
+  border: 1px dashed rgba(255, 165, 0, 0.6);
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.transition-indicator:hover {
+  background: linear-gradient(90deg, rgba(255, 165, 0, 0.5), rgba(255, 165, 0, 0.25), rgba(255, 165, 0, 0.5));
+  border-color: rgba(255, 165, 0, 0.9);
+}
+
+.transition-icon {
+  font-size: 1rem;
+  color: #ffa500;
+  line-height: 1;
+}
+
+.transition-label {
+  font-size: 0.625rem;
+  color: #ffa500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* トランジションポップオーバー */
+.transition-popover {
+  position: absolute;
+  top: 100%;
+  margin-top: 4px;
+  background-color: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  min-width: 160px;
+  padding: 8px;
+}
+
+.transition-popover-types {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.transition-popover-item {
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  color: #ccc;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  border-radius: 3px;
+}
+
+.transition-popover-item:hover {
+  background-color: #3a3a3a;
+  color: #fff;
+}
+
+.transition-popover-item.active {
+  background-color: #4a9eff;
+  color: #fff;
+}
+
+.transition-popover-duration {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #3a3a3a;
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
+.transition-popover-duration label {
+  white-space: nowrap;
+}
+
+.transition-popover-duration input[type="range"] {
+  flex: 1;
+  height: 4px;
+  accent-color: #4a9eff;
+}
+
+.transition-popover-duration span {
+  min-width: 32px;
+  text-align: right;
+  color: #fff;
+}
+
+/* プリセット選択セクション */
+.transition-popover-presets {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.transition-popover-section-label {
+  display: block;
+  font-size: 0.6875rem;
+  color: #888;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.transition-popover-preset-list {
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.transition-popover-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.transition-popover-preset-row .transition-popover-item {
+  flex: 1;
+}
+
+.transition-popover-preset-delete {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 4px 6px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.transition-popover-preset-delete:hover {
+  color: #ff4444;
+  background-color: #3a3a3a;
+}
+
+/* プリセット保存 */
+.transition-popover-save {
+  padding-top: 8px;
+  border-top: 1px solid #3a3a3a;
+}
+
+.transition-popover-save-input {
+  display: flex;
+  gap: 4px;
+}
+
+.transition-popover-save-input input[type="text"] {
+  flex: 1;
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  color: #fff;
+  padding: 4px 6px;
+  font-size: 0.75rem;
+}
+
+.transition-popover-save-input input[type="text"]:focus {
+  outline: none;
+  border-color: #4a9eff;
+}
+
+.transition-popover-save-btn {
+  background-color: #4a9eff;
+  border: none;
+  color: #fff;
+  border-radius: 3px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.transition-popover-save-btn:hover {
+  background-color: #3a8eee;
+}
+
+/* コンテキストメニューサブメニュー */
+.context-menu-submenu-trigger {
+  position: relative;
+  cursor: pointer;
+}
+
+.context-submenu {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  background-color: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  min-width: 180px;
+  padding: 4px;
+  z-index: 1001;
+}
+
+.context-submenu .context-menu-item {
+  width: 100%;
+}
+

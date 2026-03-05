@@ -103,6 +103,15 @@ pub struct TextProperties {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
+pub struct ExportTransition {
+    #[serde(rename = "type")]
+    pub transition_type: String,
+    pub duration: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct ExportClip {
     pub id: String,
     pub name: String,
@@ -113,6 +122,7 @@ pub struct ExportClip {
     pub source_end_time: f64,
     pub effects: Option<ClipEffects>,
     pub text_properties: Option<TextProperties>,
+    pub transition: Option<ExportTransition>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -376,6 +386,18 @@ fn collect_text_clips(tracks: &[ExportTrack]) -> Vec<&ExportClip> {
     clips
 }
 
+fn transition_to_xfade(t: &str) -> &str {
+    match t {
+        "crossfade" => "fade",
+        "dissolve" => "dissolve",
+        "wipe-left" => "wipeleft",
+        "wipe-right" => "wiperight",
+        "wipe-up" => "wipeup",
+        "wipe-down" => "wipedown",
+        _ => "fade",
+    }
+}
+
 fn build_ffmpeg_args(
     settings: &ExportSettings,
     video_clips: &[&ExportClip],
@@ -408,7 +430,15 @@ fn build_ffmpeg_args(
     let h = settings.height;
 
     // 各動画クリップのフィルターチェーン構築
-    let mut segment_labels: Vec<(String, String)> = Vec::new();
+    // セグメント情報: (v_label, a_label, duration, transition)
+    // transition: 前セグメントとの間のトランジション (xfade名, duration)
+    struct SegmentInfo {
+        v_label: String,
+        a_label: String,
+        duration: f64,
+        transition: Option<(String, f64)>,
+    }
+    let mut segments: Vec<SegmentInfo> = Vec::new();
     let mut current_time = 0.0;
 
     for (i, clip) in video_clips.iter().enumerate() {
@@ -425,7 +455,12 @@ fn build_ffmpeg_args(
                 "anullsrc=r=44100:cl=stereo,atrim=0:{:.3}[{}]",
                 gap_duration, gap_a_label
             ));
-            segment_labels.push((gap_v_label, gap_a_label));
+            segments.push(SegmentInfo {
+                v_label: gap_v_label,
+                a_label: gap_a_label,
+                duration: gap_duration,
+                transition: None,
+            });
         }
 
         let idx = input_map
@@ -487,7 +522,18 @@ fn build_ffmpeg_args(
             idx, clip.source_start_time, clip.source_end_time, a_label
         ));
 
-        segment_labels.push((v_label, a_label));
+        // トランジション情報
+        let clip_duration = clip.source_end_time - clip.source_start_time;
+        let trans_info = clip.transition.as_ref().map(|t| {
+            (transition_to_xfade(&t.transition_type).to_string(), t.duration)
+        });
+
+        segments.push(SegmentInfo {
+            v_label,
+            a_label,
+            duration: clip_duration,
+            transition: trans_info,
+        });
         current_time = clip.start_time + clip.duration;
     }
 
@@ -504,27 +550,76 @@ fn build_ffmpeg_args(
             "anullsrc=r=44100:cl=stereo,atrim=0:{:.3}[{}]",
             gap_duration, gap_a_label
         ));
-        segment_labels.push((gap_v_label, gap_a_label));
+        segments.push(SegmentInfo {
+            v_label: gap_v_label,
+            a_label: gap_a_label,
+            duration: gap_duration,
+            transition: None,
+        });
     }
 
-    // Concat フィルター
-    let concat_inputs: String = segment_labels
-        .iter()
-        .map(|(v, a)| format!("[{}][{}]", v, a))
-        .collect::<Vec<_>>()
-        .join("");
-    let n = segment_labels.len();
+    // セグメント結合: xfade + concat
+    // トランジション付きの隣接セグメントは xfade で結合し、残りは concat で結合
+    struct CombinedSegment {
+        v_label: String,
+        a_label: String,
+        duration: f64,
+    }
+    let mut combined: Vec<CombinedSegment> = Vec::new();
+    let mut xfade_counter = 0;
+
+    for seg in segments.iter() {
+        if let Some((ref xfade_name, trans_dur)) = seg.transition {
+            if let Some(prev) = combined.last_mut() {
+                // xfade で前セグメントと結合
+                let offset = prev.duration - trans_dur;
+                let offset = if offset < 0.0 { 0.0 } else { offset };
+
+                let new_v_label = format!("xv{}", xfade_counter);
+                let new_a_label = format!("xa{}", xfade_counter);
+                xfade_counter += 1;
+
+                // 映像: xfade
+                filter_parts.push(format!(
+                    "[{}][{}]xfade=transition={}:duration={:.3}:offset={:.3}[{}]",
+                    prev.v_label, seg.v_label, xfade_name, trans_dur, offset, new_v_label
+                ));
+
+                // 音声: acrossfade
+                filter_parts.push(format!(
+                    "[{}][{}]acrossfade=d={:.3}:c1=tri:c2=tri[{}]",
+                    prev.a_label, seg.a_label, trans_dur, new_a_label
+                ));
+
+                // 結合後の時間 = 前の時間 + 現セグメント時間 - トランジション時間
+                prev.v_label = new_v_label;
+                prev.a_label = new_a_label;
+                prev.duration = prev.duration + seg.duration - trans_dur;
+                continue;
+            }
+        }
+        // トランジションなし or 前セグメントなし: そのまま追加
+        combined.push(CombinedSegment {
+            v_label: seg.v_label.clone(),
+            a_label: seg.a_label.clone(),
+            duration: seg.duration,
+        });
+    }
 
     let mut final_v_label = "outv".to_string();
     let final_a_label = "outa".to_string();
+    let n = combined.len();
 
     if n == 1 {
         // 1セグメントの場合はconcatを省略
-        let (v, a) = &segment_labels[0];
-        // ラベルのリネーム用に単純なフィルターを追加
-        filter_parts.push(format!("[{}]copy[{}]", v, final_v_label));
-        filter_parts.push(format!("[{}]acopy[{}]", a, final_a_label));
+        filter_parts.push(format!("[{}]copy[{}]", combined[0].v_label, final_v_label));
+        filter_parts.push(format!("[{}]acopy[{}]", combined[0].a_label, final_a_label));
     } else {
+        let concat_inputs: String = combined
+            .iter()
+            .map(|s| format!("[{}][{}]", s.v_label, s.a_label))
+            .collect::<Vec<_>>()
+            .join("");
         filter_parts.push(format!(
             "{}concat=n={}:v=1:a=1[{}][{}]",
             concat_inputs, n, final_v_label, final_a_label

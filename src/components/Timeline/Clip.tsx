@@ -1,6 +1,8 @@
 import { useTimelineStore, Clip as ClipType } from '../../store/timelineStore';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
+import { useTransitionPresetStore } from '../../store/transitionPresetStore';
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ClipProps {
   clip: ClipType;
@@ -8,6 +10,7 @@ interface ClipProps {
 }
 
 function Clip({ clip, trackId }: ClipProps) {
+  const { t } = useTranslation();
   const {
     pixelsPerSecond,
     removeClip,
@@ -15,10 +18,14 @@ function Clip({ clip, trackId }: ClipProps) {
     selectedClipId,
     splitClipAtTime,
     updateClip,
+    setTransition,
+    removeTransition,
   } = useTimelineStore();
+  const allPresets = useTransitionPresetStore((s) => s.getAllPresets)();
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [showContextMenu, setShowContextMenu] = useState(false);
+  const [showTransitionSubmenu, setShowTransitionSubmenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
   const dragStartX = useRef(0);
   const dragStartTime = useRef(0);
@@ -26,6 +33,8 @@ function Clip({ clip, trackId }: ClipProps) {
   const left = clip.startTime * pixelsPerSecond;
   const width = clip.duration * pixelsPerSecond;
   const isSelected = selectedClipId === clip.id;
+
+  const hasTransition = !!clip.transition;
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).classList.contains('clip-resize-handle')) {
@@ -100,6 +109,12 @@ function Clip({ clip, trackId }: ClipProps) {
     setShowContextMenu(false);
   };
 
+  const handleRemoveTransition = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeTransition(trackId, clip.id);
+    setShowContextMenu(false);
+  };
+
   const handleCloseContextMenu = () => {
     setShowContextMenu(false);
   };
@@ -139,6 +154,37 @@ function Clip({ clip, trackId }: ClipProps) {
             <button className="context-menu-item" onClick={handleSplit}>
               ✂️ 分割
             </button>
+            {!hasTransition && (
+              <div
+                className="context-menu-item context-menu-submenu-trigger"
+                onMouseEnter={() => setShowTransitionSubmenu(true)}
+                onMouseLeave={() => setShowTransitionSubmenu(false)}
+              >
+                🔄 {t('transition.add')} ▸
+                {showTransitionSubmenu && (
+                  <div className="context-submenu">
+                    {allPresets.map(preset => (
+                      <button
+                        key={preset.id}
+                        className="context-menu-item"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTransition(trackId, clip.id, { type: preset.type, duration: preset.duration });
+                          setShowContextMenu(false);
+                        }}
+                      >
+                        {preset.isBuiltIn ? t(preset.name) : preset.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {hasTransition && (
+              <button className="context-menu-item" onClick={handleRemoveTransition}>
+                🔄 {t('transition.remove')}
+              </button>
+            )}
             <button className="context-menu-item" onClick={handleDelete}>
               🗑️ 削除
             </button>
