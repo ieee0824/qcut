@@ -39,6 +39,14 @@
     "saturation": "彩度",
     "reset": "リセット"
   },
+  "transform": {
+    "title": "トランスフォーム",
+    "rotation": "回転",
+    "scaleX": "スケールX",
+    "scaleY": "スケールY",
+    "positionX": "位置X",
+    "positionY": "位置Y"
+  },
   "timeline": {
     "title": "タイムライン",
     "videoTracks": "ビデオトラック",
