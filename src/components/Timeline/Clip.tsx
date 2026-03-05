@@ -1,6 +1,7 @@
 import { useTimelineStore, Clip as ClipType } from '../../store/timelineStore';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ClipProps {
   clip: ClipType;
@@ -8,6 +9,7 @@ interface ClipProps {
 }
 
 function Clip({ clip, trackId }: ClipProps) {
+  const { t } = useTranslation();
   const {
     pixelsPerSecond,
     removeClip,
@@ -15,6 +17,9 @@ function Clip({ clip, trackId }: ClipProps) {
     selectedClipId,
     splitClipAtTime,
     updateClip,
+    setTransition,
+    removeTransition,
+    tracks,
   } = useTimelineStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -26,6 +31,11 @@ function Clip({ clip, trackId }: ClipProps) {
   const left = clip.startTime * pixelsPerSecond;
   const width = clip.duration * pixelsPerSecond;
   const isSelected = selectedClipId === clip.id;
+
+  const track = tracks.find(t => t.id === trackId);
+  const clipIndex = track ? track.clips.findIndex(c => c.id === clip.id) : -1;
+  const hasPreviousClip = clipIndex > 0;
+  const hasTransition = !!clip.transition;
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).classList.contains('clip-resize-handle')) {
@@ -100,6 +110,18 @@ function Clip({ clip, trackId }: ClipProps) {
     setShowContextMenu(false);
   };
 
+  const handleAddTransition = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTransition(trackId, clip.id, { type: 'crossfade', duration: 1.0 });
+    setShowContextMenu(false);
+  };
+
+  const handleRemoveTransition = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeTransition(trackId, clip.id);
+    setShowContextMenu(false);
+  };
+
   const handleCloseContextMenu = () => {
     setShowContextMenu(false);
   };
@@ -139,6 +161,16 @@ function Clip({ clip, trackId }: ClipProps) {
             <button className="context-menu-item" onClick={handleSplit}>
               ✂️ 分割
             </button>
+            {hasPreviousClip && !hasTransition && (
+              <button className="context-menu-item" onClick={handleAddTransition}>
+                🔄 {t('transition.add')}
+              </button>
+            )}
+            {hasTransition && (
+              <button className="context-menu-item" onClick={handleRemoveTransition}>
+                🔄 {t('transition.remove')}
+              </button>
+            )}
             <button className="context-menu-item" onClick={handleDelete}>
               🗑️ 削除
             </button>
