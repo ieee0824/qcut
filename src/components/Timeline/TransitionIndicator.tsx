@@ -41,12 +41,18 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
   const [showSaveInput, setShowSaveInput] = useState(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const indicatorRef = useRef<HTMLDivElement>(null);
+  const [popoverPos, setPopoverPos] = useState({ x: 0, y: 0 });
 
   const width = transition.duration * pixelsPerSecond;
   const left = clipStartTime * pixelsPerSecond - width / 2;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!showPopover && indicatorRef.current) {
+      const rect = indicatorRef.current.getBoundingClientRect();
+      setPopoverPos({ x: rect.left, y: rect.bottom + 4 });
+    }
     setShowPopover(!showPopover);
   };
 
@@ -74,25 +80,23 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
 
   // ポップオーバーが画面外にはみ出る場合、位置を自動補正
   useEffect(() => {
-    if (!showPopover || !popoverRef.current) return;
+    if (!showPopover || !popoverRef.current || !indicatorRef.current) return;
     const popover = popoverRef.current;
     const rect = popover.getBoundingClientRect();
+    const indicatorRect = indicatorRef.current.getBoundingClientRect();
+    let { x, y } = popoverPos;
     if (rect.bottom > window.innerHeight) {
-      popover.style.top = 'auto';
-      popover.style.bottom = '100%';
-      popover.style.marginTop = '0';
-      popover.style.marginBottom = '4px';
-    } else {
-      popover.style.top = '100%';
-      popover.style.bottom = 'auto';
-      popover.style.marginTop = '4px';
-      popover.style.marginBottom = '0';
+      y = indicatorRect.top - rect.height - 4;
     }
     if (rect.right > window.innerWidth) {
-      popover.style.left = 'auto';
-      popover.style.right = '0';
+      x = window.innerWidth - rect.width;
     }
-  }, [showPopover]);
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x !== popoverPos.x || y !== popoverPos.y) {
+      setPopoverPos({ x, y });
+    }
+  }, [showPopover, popoverPos]);
 
   // コンテキストメニューが画面外にはみ出る場合、位置を自動補正
   useEffect(() => {
@@ -114,6 +118,7 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
   return (
     <>
       <div
+        ref={indicatorRef}
         className="transition-indicator"
         style={{ left: `${left}px`, width: `${width}px` }}
         onClick={handleClick}
@@ -132,7 +137,12 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
           <div
             ref={popoverRef}
             className="transition-popover"
-            style={{ left: `${left}px` }}
+            style={{
+              position: 'fixed',
+              left: `${popoverPos.x}px`,
+              top: `${popoverPos.y}px`,
+              margin: 0,
+            }}
           >
             {/* プリセット選択 */}
             <div className="transition-popover-presets">
