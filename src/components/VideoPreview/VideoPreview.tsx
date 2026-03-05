@@ -14,6 +14,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const preloadVideoRef = useRef<HTMLVideoElement>(null);
+  const preloadedUrlRef = useRef<string>('');
   const loadedVideoUrl = useRef<string | null>(null);
   const currentTimeRef = useRef(0);
   const playbackRafRef = useRef<number | null>(null);
@@ -348,6 +350,23 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return `translate(${px}px, ${py}px) rotate(${r}deg) scaleX(${sx}) scaleY(${sy})`;
   }, [currentClip?.effects]);
 
+  // 次のクリップの動画を事前にプリロード（クリップ切り替わり時のもたつき軽減）
+  useEffect(() => {
+    if (!currentClip) return;
+    const clipEnd = currentClip.startTime + currentClip.duration;
+    const nextClip = findNextClipAfter(clipEnd);
+    if (!nextClip || nextClip.filePath === currentClip.filePath) return;
+
+    const nextUrl = videoUrls[nextClip.filePath];
+    if (!nextUrl || nextUrl === preloadedUrlRef.current) return;
+
+    preloadedUrlRef.current = nextUrl;
+    if (preloadVideoRef.current) {
+      preloadVideoRef.current.src = nextUrl;
+      preloadVideoRef.current.load();
+    }
+  }, [currentClip, findNextClipAfter, videoUrls]);
+
   // 動画ファイルが切り替わったとき src を更新してシーク（停止中のみ）
   useEffect(() => {
     if (!videoRef.current) return;
@@ -489,6 +508,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           </div>
         )}
       </div>
+
+      {/* プリロード用（非表示） */}
+      <video ref={preloadVideoRef} preload="auto" muted style={{ display: 'none' }} />
 
       {/* コントロール */}
       <div
