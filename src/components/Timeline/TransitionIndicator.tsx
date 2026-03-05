@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, type ClipTransition, type TransitionType } from '../../store/timelineStore';
+import { useTransitionPresetStore } from '../../store/transitionPresetStore';
 
 interface TransitionIndicatorProps {
   transition: ClipTransition;
@@ -30,9 +31,14 @@ const TRANSITION_I18N_KEYS: Record<TransitionType, string> = {
 function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: TransitionIndicatorProps) {
   const { t } = useTranslation();
   const { pixelsPerSecond, setTransition, removeTransition } = useTimelineStore();
+  const allPresets = useTransitionPresetStore((s) => s.getAllPresets)();
+  const addPreset = useTransitionPresetStore((s) => s.addPreset);
+  const removePreset = useTransitionPresetStore((s) => s.removePreset);
   const [showPopover, setShowPopover] = useState(false);
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
+  const [presetName, setPresetName] = useState('');
+  const [showSaveInput, setShowSaveInput] = useState(false);
 
   const width = transition.duration * pixelsPerSecond;
   const left = clipStartTime * pixelsPerSecond - width / 2;
@@ -86,6 +92,39 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
             className="transition-popover"
             style={{ left: `${left}px` }}
           >
+            {/* プリセット選択 */}
+            <div className="transition-popover-presets">
+              <label className="transition-popover-section-label">{t('preset.selectPreset')}</label>
+              <div className="transition-popover-preset-list">
+                {allPresets.map(preset => (
+                  <div key={preset.id} className="transition-popover-preset-row">
+                    <button
+                      className="transition-popover-item"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTransition(trackId, clipId, { type: preset.type, duration: preset.duration });
+                      }}
+                    >
+                      {preset.isBuiltIn ? t(preset.name) : preset.name}
+                    </button>
+                    {!preset.isBuiltIn && (
+                      <button
+                        className="transition-popover-preset-delete"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removePreset(preset.id);
+                        }}
+                        title={t('preset.delete')}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 種類選択 */}
             <div className="transition-popover-types">
               {TRANSITION_TYPES.map(type => (
                 <button
@@ -109,6 +148,48 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
                 onClick={(e) => e.stopPropagation()}
               />
               <span>{transition.duration.toFixed(1)}s</span>
+            </div>
+
+            {/* プリセット保存 */}
+            <div className="transition-popover-save">
+              {showSaveInput ? (
+                <div className="transition-popover-save-input">
+                  <input
+                    type="text"
+                    value={presetName}
+                    onChange={(e) => setPresetName(e.target.value)}
+                    placeholder={t('preset.namePlaceholder')}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && presetName.trim()) {
+                        addPreset(presetName.trim(), transition.type, transition.duration);
+                        setPresetName('');
+                        setShowSaveInput(false);
+                      }
+                    }}
+                  />
+                  <button
+                    className="transition-popover-save-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (presetName.trim()) {
+                        addPreset(presetName.trim(), transition.type, transition.duration);
+                        setPresetName('');
+                        setShowSaveInput(false);
+                      }
+                    }}
+                  >
+                    ✓
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="transition-popover-item"
+                  onClick={(e) => { e.stopPropagation(); setShowSaveInput(true); }}
+                >
+                  💾 {t('preset.save')}
+                </button>
+              )}
             </div>
           </div>
         </>
