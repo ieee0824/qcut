@@ -85,6 +85,10 @@
   height: 50px;
 }
 
+.timeline-track-header[data-track-type="text"] {
+  height: 40px;
+}
+
 .track-name {
   font-size: 0.875rem;
   font-weight: 500;
@@ -150,6 +154,16 @@
 
 .timeline-track[data-track-type="audio"] {
   height: 50px;
+}
+
+.timeline-track[data-track-type="text"] {
+  height: 40px;
+}
+
+.timeline-track[data-track-type="text"] .timeline-clip {
+  top: 3px;
+  height: 34px;
+  background-color: #e6a817 !important;
 }
 
 .timeline-track-content {

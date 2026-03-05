@@ -52,5 +52,31 @@
     "videoTracks": "Video Tracks",
     "audioTracks": "Audio Tracks",
     "addTrack": "Add Track"
+  },
+  "text": {
+    "title": "Text",
+    "addTextTrack": "Add Text Track",
+    "text": "Text",
+    "fontSize": "Font Size",
+    "fontColor": "Font Color",
+    "fontFamily": "Font",
+    "bold": "Bold",
+    "italic": "Italic",
+    "textAlign": "Align",
+    "positionX": "Position X",
+    "positionY": "Position Y",
+    "opacity": "Opacity",
+    "backgroundColor": "Background",
+    "animation": "Animation",
+    "animationDuration": "Animation Duration",
+    "none": "None",
+    "fadeIn": "Fade In",
+    "fadeOut": "Fade Out",
+    "fadeInOut": "Fade In/Out",
+    "slideUp": "Slide Up",
+    "slideDown": "Slide Down",
+    "importSubtitle": "Import",
+    "exportSubtitle": "Export",
+    "noTextSelected": "Select a text clip"
   }
 }
