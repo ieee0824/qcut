@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTimelineStore } from '../../store/timelineStore';
-import type { Clip as ClipType, TextProperties } from '../../store/timelineStore';
+import type { Clip as ClipType, TextProperties, TransitionType } from '../../store/timelineStore';
 
 interface VideoPreviewProps {
   width?: string;
@@ -15,9 +15,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const transitionVideoRef = useRef<HTMLVideoElement>(null);
   const preloadVideoRef = useRef<HTMLVideoElement>(null);
   const preloadedUrlRef = useRef<string>('');
   const loadedVideoUrl = useRef<string | null>(null);
+  const loadedTransitionVideoUrl = useRef<string | null>(null);
   const currentTimeRef = useRef(0);
   const playbackRafRef = useRef<number | null>(null);
   const lastTimestampRef = useRef(0);
@@ -25,6 +27,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const seekBarRef = useRef<HTMLInputElement>(null);
   // 動画ファイル切替中フラグ（load〜loadedmetadata 間）
   const isLoadingVideoRef = useRef(false);
+  const isLoadingTransitionVideoRef = useRef(false);
+  // トランジション中かどうか
+  const isInTransitionRef = useRef(false);
 
   const {
     isPlaying,
@@ -70,6 +75,105 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       }
     }
     return best;
+  }, []);
+
+  // トランジション区間の検出
+  interface TransitionInfo {
+    outgoingClip: ClipType;
+    incomingClip: ClipType;
+    progress: number; // 0→1 (0=outgoing only, 1=incoming only)
+    transitionType: TransitionType;
+  }
+
+  const findTransitionAtTime = useCallback((time: number): TransitionInfo | null => {
+    const currentTracks = useTimelineStore.getState().tracks;
+    for (const track of currentTracks) {
+      if (track.type !== 'video') continue;
+      for (const clip of track.clips) {
+        if (!clip.transition) continue;
+        const overlapStart = clip.startTime - clip.transition.duration;
+        const overlapEnd = clip.startTime;
+        if (time >= overlapStart && time < overlapEnd) {
+          // outgoing clip = findClipAtTime で取得（overlapStart 位置のクリップ）
+          const outgoing = findClipAtTime(time);
+          if (!outgoing || outgoing.id === clip.id) continue;
+          const progress = (time - overlapStart) / clip.transition.duration;
+          return {
+            outgoingClip: outgoing,
+            incomingClip: clip,
+            progress,
+            transitionType: clip.transition.type,
+          };
+        }
+      }
+    }
+    return null;
+  }, [findClipAtTime]);
+
+  // トランジション用ビデオの切り替え
+  const switchTransitionVideo = useCallback((url: string, sourceTime: number) => {
+    if (!transitionVideoRef.current) return;
+    if (url === loadedTransitionVideoUrl.current) {
+      transitionVideoRef.current.currentTime = sourceTime;
+      if (transitionVideoRef.current.paused) {
+        transitionVideoRef.current.play();
+      }
+      return;
+    }
+    isLoadingTransitionVideoRef.current = true;
+    loadedTransitionVideoUrl.current = url;
+    transitionVideoRef.current.src = url;
+    transitionVideoRef.current.load();
+    const videoEl = transitionVideoRef.current;
+    videoEl.addEventListener(
+      'loadedmetadata',
+      () => {
+        isLoadingTransitionVideoRef.current = false;
+        videoEl.currentTime = sourceTime;
+        videoEl.play();
+      },
+      { once: true },
+    );
+  }, []);
+
+  // トランジション種類に応じた CSS スタイルを計算
+  const getTransitionStyles = useCallback((
+    progress: number,
+    type: TransitionType,
+  ): { outgoing: React.CSSProperties; incoming: React.CSSProperties } => {
+    switch (type) {
+      case 'crossfade':
+      case 'dissolve':
+        return {
+          outgoing: { opacity: 1 - progress },
+          incoming: { opacity: progress },
+        };
+      case 'wipe-left':
+        return {
+          outgoing: {},
+          incoming: { clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` },
+        };
+      case 'wipe-right':
+        return {
+          outgoing: {},
+          incoming: { clipPath: `inset(0 0 0 ${(1 - progress) * 100}%)` },
+        };
+      case 'wipe-up':
+        return {
+          outgoing: {},
+          incoming: { clipPath: `inset(0 0 ${(1 - progress) * 100}% 0)` },
+        };
+      case 'wipe-down':
+        return {
+          outgoing: {},
+          incoming: { clipPath: `inset(${(1 - progress) * 100}% 0 0 0)` },
+        };
+      default:
+        return {
+          outgoing: { opacity: 1 - progress },
+          incoming: { opacity: progress },
+        };
+    }
   }, []);
 
   // タイムライン時間から動画ソース時間に変換
@@ -155,6 +259,68 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       }
 
       const clip = findClipAtTime(currentTimeRef.current);
+
+      // --- トランジション判定 ---
+      const transition = findTransitionAtTime(currentTimeRef.current);
+      if (transition && transitionVideoRef.current) {
+        isInTransitionRef.current = true;
+        const { outgoingClip, incomingClip, progress, transitionType } = transition;
+        const urls = useVideoPreviewStore.getState().videoUrls;
+
+        // outgoing clip → videoRef
+        const outUrl = urls[outgoingClip.filePath];
+        if (outUrl && outUrl !== loadedVideoUrl.current && !isLoadingVideoRef.current) {
+          const srcTime = outgoingClip.sourceStartTime + (currentTimeRef.current - outgoingClip.startTime);
+          switchVideo(outUrl, srcTime, true);
+        }
+
+        // incoming clip → transitionVideoRef
+        const inUrl = urls[incomingClip.filePath];
+        const incomingSourceTime = incomingClip.sourceStartTime + (currentTimeRef.current - (incomingClip.startTime - incomingClip.transition!.duration));
+        if (inUrl && inUrl !== loadedTransitionVideoUrl.current && !isLoadingTransitionVideoRef.current) {
+          switchTransitionVideo(inUrl, incomingSourceTime);
+        }
+
+        // CSS スタイルを直接更新（レンダー不要）
+        const styles = getTransitionStyles(progress, transitionType);
+        videoRef.current.style.opacity = styles.outgoing.opacity !== undefined ? String(styles.outgoing.opacity) : '1';
+        videoRef.current.style.clipPath = (styles.outgoing as Record<string, string>).clipPath || '';
+        transitionVideoRef.current.style.visibility = 'visible';
+        transitionVideoRef.current.style.opacity = styles.incoming.opacity !== undefined ? String(styles.incoming.opacity) : '1';
+        transitionVideoRef.current.style.clipPath = (styles.incoming as Record<string, string>).clipPath || '';
+
+        // delta で時間を進める
+        const newTime = currentTimeRef.current + delta;
+        currentTimeRef.current = newTime;
+        useTimelineStore.getState().setCurrentTime(newTime);
+        updateTimeDisplay(newTime);
+
+        playbackRafRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      // トランジション終了時のクリーンアップ
+      if (isInTransitionRef.current) {
+        isInTransitionRef.current = false;
+        if (videoRef.current) {
+          videoRef.current.style.opacity = '1';
+          videoRef.current.style.clipPath = '';
+        }
+        if (transitionVideoRef.current) {
+          transitionVideoRef.current.style.visibility = 'hidden';
+          transitionVideoRef.current.style.opacity = '1';
+          transitionVideoRef.current.style.clipPath = '';
+          transitionVideoRef.current.pause();
+        }
+        // incoming clip に videoRef を切り替え
+        if (clip) {
+          const url = useVideoPreviewStore.getState().videoUrls[clip.filePath];
+          if (url && url !== loadedVideoUrl.current) {
+            const sourceTime = clip.sourceStartTime + (currentTimeRef.current - clip.startTime);
+            switchVideo(url, sourceTime, true);
+          }
+        }
+      }
 
       if (clip) {
         // --- クリップ区間 ---
@@ -271,7 +437,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     };
 
     playbackRafRef.current = window.requestAnimationFrame(tick);
-  }, [stopPlaybackLoop, findClipAtTime, findNextClipAfter, switchVideo, updateTimeDisplay, setIsPlaying]);
+  }, [stopPlaybackLoop, findClipAtTime, findNextClipAfter, findTransitionAtTime, switchVideo, switchTransitionVideo, getTransitionStyles, updateTimeDisplay, setIsPlaying]);
 
   // RAF クリーンアップ
   useEffect(() => {
@@ -461,6 +627,16 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     } else {
       stopPlaybackLoop();
       videoRef.current.pause();
+      // トランジション用ビデオもクリーンアップ
+      if (transitionVideoRef.current) {
+        transitionVideoRef.current.pause();
+        transitionVideoRef.current.style.visibility = 'hidden';
+      }
+      if (isInTransitionRef.current) {
+        isInTransitionRef.current = false;
+        videoRef.current.style.opacity = '1';
+        videoRef.current.style.clipPath = '';
+      }
       // 停止時にストアを同期
       setVideoPreviewCurrentTime(currentTimeRef.current);
     }
@@ -544,6 +720,22 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             filter: cssFilter,
             transform: cssTransform,
             transformOrigin: 'center center',
+          }}
+        />
+        {/* トランジション用ビデオ（incoming clip） */}
+        <video
+          ref={transitionVideoRef}
+          muted
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'transparent',
+            borderRadius: '4px',
+            visibility: 'hidden',
+            objectFit: 'contain',
           }}
         />
         {!hasCurrentClip && (
