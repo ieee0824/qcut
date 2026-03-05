@@ -78,5 +78,28 @@
     "importSubtitle": "Import",
     "exportSubtitle": "Export",
     "noTextSelected": "Select a text clip"
+  },
+  "export": {
+    "title": "Export Video",
+    "button": "Export",
+    "format": "Format",
+    "resolution": "Resolution",
+    "bitrate": "Bitrate",
+    "fps": "Frame Rate",
+    "outputPath": "Output Path",
+    "selectOutput": "Select...",
+    "start": "Start Export",
+    "cancel": "Cancel",
+    "close": "Close",
+    "encoding": "Encoding...",
+    "complete": "Export complete",
+    "error": "Export error",
+    "cancelled": "Export cancelled",
+    "noClips": "No clips in timeline",
+    "noOutputPath": "Please select an output path",
+    "remaining": "About",
+    "seconds": "s remaining",
+    "minutes": "min remaining",
+    "hours": "h "
   }
 }

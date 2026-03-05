@@ -1,5 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { open } from '@tauri-apps/plugin-dialog';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useFileOperationsStore } from '@/store/fileOperationsStore';
 import { useVideoPreviewStore } from '@/store/videoPreviewStore';
 import { useTimelineStore } from '@/store/timelineStore';
@@ -15,16 +17,10 @@ export const FileOperations: React.FC = () => {
     clearRecentFiles,
   } = useFileOperationsStore();
 
-  const { setVideoFile } = useVideoPreviewStore();
+  const { registerVideoUrl } = useVideoPreviewStore();
   const { addClip, addTrack, tracks } = useTimelineStore();
 
   const [showMenu, setShowMenu] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  // showRecentMenu は将来的なサブメニュー実装時に使用
-
-  const handleOpenFile = () => {
-    fileInputRef.current?.click();
-  };
 
   const getNextVideoTrackId = (existingTracks: typeof tracks) => {
     const indices = existingTracks
@@ -58,74 +54,88 @@ export const FileOperations: React.FC = () => {
     return { trackId: newTrackId, startTime: 0 };
   };
 
-  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOpenFile = async () => {
+    setShowMenu(false);
     setIsLoading(true);
     try {
-      const file = event.target.files?.[0];
-      if (file) {
-        const fileInfo = {
-          name: file.name,
-          path: file.name, // ブラウザのセキュリティ制約でフルパスは取得不可
-          size: file.size,
-          lastModified: file.lastModified,
-        };
+      // Tauriダイアログでフルパスを取得
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: t('fileOperations.videoFile'),
+            extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', '3gp'],
+          },
+          {
+            name: t('fileOperations.allFiles'),
+            extensions: ['*'],
+          },
+        ],
+      });
 
-        setCurrentFile(fileInfo);
-        addRecentFile(fileInfo);
-        setVideoFile(file); // VideoPreview に動画ファイルを渡す
-        
-        // 動画の長さを取得してタイムラインにクリップを追加
-        const videoDuration = await getVideoDuration(file);
-        const clipId = `clip-${Date.now()}`;
-        
-        const target = getTargetVideoTrack();
-        if (!target) {
-          throw new Error('ビデオトラックが見つかりません');
-        }
+      if (!selected) return;
 
-        addClip(target.trackId, {
-          id: clipId,
-          name: file.name,
-          startTime: target.startTime,
-          duration: videoDuration,
-          filePath: file.name,
-          sourceStartTime: 0,
-          sourceEndTime: videoDuration,
-          color: '#4a9eff',
-        });
-        
-        setShowMenu(false); // ファイル選択後にメニューを閉じる
-        console.log('ファイルを選択しました:', fileInfo);
-        console.log('クリップを追加しました:', clipId, 'duration:', videoDuration);
+      const fullPath = selected as string;
+      const fileName = fullPath.split('/').pop() ?? fullPath.split('\\').pop() ?? fullPath;
+
+      // convertFileSrc でWebViewから直接アクセス可能なURLを取得
+      const assetUrl = convertFileSrc(fullPath);
+
+      const fileInfo = {
+        name: fileName,
+        path: fullPath,
+        size: 0,
+        lastModified: Date.now(),
+      };
+
+      setCurrentFile(fileInfo);
+      addRecentFile(fileInfo);
+      registerVideoUrl(fullPath, assetUrl);
+
+      // 動画の長さを取得してタイムラインにクリップを追加
+      const videoDuration = await getVideoDurationFromUrl(assetUrl);
+      const clipId = `clip-${Date.now()}`;
+
+      const target = getTargetVideoTrack();
+      if (!target) {
+        throw new Error('ビデオトラックが見つかりません');
       }
+
+      addClip(target.trackId, {
+        id: clipId,
+        name: fileName,
+        startTime: target.startTime,
+        duration: videoDuration,
+        filePath: fullPath,
+        sourceStartTime: 0,
+        sourceEndTime: videoDuration,
+        color: '#4a9eff',
+      });
+
+      console.log('ファイルを選択しました:', fileInfo);
+      console.log('クリップを追加しました:', clipId, 'duration:', videoDuration);
     } catch (error) {
       console.error('ファイル選択エラー:', error);
     } finally {
       setIsLoading(false);
-      // input をリセット（同じファイルを再度選択可能にするため）
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
   // 動画の長さを取得するヘルパー関数
-  const getVideoDuration = (file: File): Promise<number> => {
+  const getVideoDurationFromUrl = (url: string): Promise<number> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
       video.preload = 'metadata';
-      
+
       video.onloadedmetadata = () => {
-        window.URL.revokeObjectURL(video.src);
         resolve(video.duration);
       };
-      
+
       video.onerror = () => {
-        window.URL.revokeObjectURL(video.src);
         reject(new Error('動画のメタデータ読み込みに失敗しました'));
       };
-      
-      video.src = URL.createObjectURL(file);
+
+      video.src = url;
     });
   };
 
@@ -177,10 +187,7 @@ export const FileOperations: React.FC = () => {
         >
           {/* ファイルを開く */}
           <button
-            onClick={() => {
-              handleOpenFile();
-              setShowMenu(false);
-            }}
+            onClick={handleOpenFile}
             disabled={isLoading}
             style={{
               display: 'block',
@@ -298,15 +305,6 @@ export const FileOperations: React.FC = () => {
           )}
         </div>
       )}
-
-      {/* 隠れたファイル入力 */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm,video/x-flv,video/x-ms-wmv,video/3gpp"
-        onChange={handleFileSelected}
-        style={{ display: 'none' }}
-      />
     </div>
   );
 };

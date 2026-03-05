@@ -78,5 +78,28 @@
     "importSubtitle": "字幕読込",
     "exportSubtitle": "字幕書出",
     "noTextSelected": "テキストクリップを選択してください"
+  },
+  "export": {
+    "title": "動画エクスポート",
+    "button": "エクスポート",
+    "format": "フォーマット",
+    "resolution": "解像度",
+    "bitrate": "ビットレート",
+    "fps": "フレームレート",
+    "outputPath": "出力先",
+    "selectOutput": "選択...",
+    "start": "エクスポート開始",
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "encoding": "エンコード中...",
+    "complete": "エクスポート完了",
+    "error": "エクスポートエラー",
+    "cancelled": "エクスポートがキャンセルされました",
+    "noClips": "タイムラインにクリップがありません",
+    "noOutputPath": "出力先を選択してください",
+    "remaining": "残り約",
+    "seconds": "秒",
+    "minutes": "分",
+    "hours": "時間"
   }
 }
