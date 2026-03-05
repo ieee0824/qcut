@@ -107,12 +107,15 @@ function Timeline() {
     if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.timeline-tracks')) {
       setSelectedClip(null, null);
     }
-    
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left + e.currentTarget.scrollLeft;
-    const time = x / pixelsPerSecond;
-    setCurrentTime(time);
-    videoPreviewStore.setCurrentTime(time);
+
+    // ルーラー領域のクリックのみシーク（トラック領域ではシークしない）
+    if ((e.target as HTMLElement).closest('.timeline-ruler')) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left + e.currentTarget.scrollLeft;
+      const time = x / pixelsPerSecond;
+      setCurrentTime(time);
+      videoPreviewStore.setCurrentTime(time);
+    }
   };
 
   const handleTracksScroll = (e: React.UIEvent<HTMLDivElement>) => {

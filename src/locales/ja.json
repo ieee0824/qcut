@@ -31,6 +31,14 @@
       "time": "時間"
     }
   },
+  "effects": {
+    "title": "エフェクト",
+    "noClipSelected": "クリップを選択してください",
+    "brightness": "明るさ",
+    "contrast": "コントラスト",
+    "saturation": "彩度",
+    "reset": "リセット"
+  },
   "timeline": {
     "title": "タイムライン",
     "videoTracks": "ビデオトラック",

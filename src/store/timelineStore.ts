@@ -1,16 +1,31 @@
 import { create } from 'zustand';
 
+export interface ClipEffects {
+  brightness: number; // 0〜2, default 1.0
+  contrast: number;   // 0〜2, default 1.0
+  saturation: number; // 0〜2, default 1.0
+}
+
+export const DEFAULT_EFFECTS: ClipEffects = {
+  brightness: 1.0,
+  contrast: 1.0,
+  saturation: 1.0,
+};
+
 export interface Clip {
   id: string;
   name: string;
   startTime: number; // タイムライン上の開始位置（秒）
   duration: number; // タイムライン上の表示時間（秒）
   color?: string;
-  
+
   // 動画ファイル情報
   filePath: string; // 動画ファイルのパス
   sourceStartTime: number; // 元動画の開始位置（秒）
   sourceEndTime: number; // 元動画の終了位置（秒）
+
+  // エフェクト
+  effects?: ClipEffects;
 }
 
 export interface Track {

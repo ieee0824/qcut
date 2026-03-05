@@ -101,6 +101,7 @@ function Clip({ clip, trackId }: ClipProps) {
           backgroundColor: clip.color || '#4a9eff',
         }}
         onMouseDown={handleMouseDown}
+        onClick={(e) => e.stopPropagation()}
         onContextMenu={handleContextMenu}
         title={clip.name}
       >

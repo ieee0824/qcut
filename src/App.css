@@ -53,10 +53,11 @@
 .preview-container {
   flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: row;
+  align-items: stretch;
   background-color: #000;
-  overflow: auto;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .timeline-container {
