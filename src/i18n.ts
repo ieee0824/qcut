@@ -15,7 +15,9 @@ const resources = {
 
 // ブラウザの言語設定を取得（デフォルトは日本語）
 const detectLanguage = (): string => {
-  const saved = localStorage.getItem('i18n-language');
+  const saved = typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
+    ? localStorage.getItem('i18n-language')
+    : null;
   if (saved) return saved;
 
   const browserLang = navigator.language.startsWith('ja') ? 'ja' : 'en';
