@@ -88,7 +88,9 @@
     "wipeRight": "ワイプ右",
     "wipeUp": "ワイプ上",
     "wipeDown": "ワイプ下",
-    "duration": "時間"
+    "duration": "時間",
+    "crossTrack": "クロストラックトランジション",
+    "addCrossTrack": "クロストラックトランジション追加"
   },
   "preset": {
     "title": "プリセット",

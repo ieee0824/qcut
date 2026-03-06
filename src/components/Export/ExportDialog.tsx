@@ -55,6 +55,7 @@ export const ExportDialog: React.FC = () => {
     exportStartedAt,
   } = useExportStore();
   const tracks = useTimelineStore((s) => s.tracks);
+  const crossTrackTransitions = useTimelineStore((s) => s.crossTrackTransitions);
   const duration = useTimelineStore((s) => s.duration);
 
   // バックエンドからの進捗イベントをリッスン
@@ -108,13 +109,14 @@ export const ExportDialog: React.FC = () => {
           ...settings,
           outputPath,
           tracks,
+          crossTrackTransitions,
           totalDuration: duration,
         },
       });
     } catch (e) {
       setError(String(e));
     }
-  }, [outputPath, settings, tracks, duration, setStatus, setProgress, setError, t]);
+  }, [outputPath, settings, tracks, crossTrackTransitions, duration, setStatus, setProgress, setError, t]);
 
   const handleCancel = useCallback(async () => {
     try {

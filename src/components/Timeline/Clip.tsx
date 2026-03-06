@@ -1,7 +1,7 @@
 import { useTimelineStore, Clip as ClipType } from '../../store/timelineStore';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTransitionPresetStore } from '../../store/transitionPresetStore';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface ClipProps {
@@ -13,6 +13,8 @@ function Clip({ clip, trackId }: ClipProps) {
   const { t } = useTranslation();
   const {
     pixelsPerSecond,
+    tracks,
+    crossTrackTransitions,
     removeClip,
     setSelectedClip,
     selectedClipId,
@@ -20,15 +22,43 @@ function Clip({ clip, trackId }: ClipProps) {
     updateClip,
     setTransition,
     removeTransition,
+    addCrossTrackTransition,
   } = useTimelineStore();
   const allPresets = useTransitionPresetStore((s) => s.getAllPresets)();
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [showTransitionSubmenu, setShowTransitionSubmenu] = useState(false);
+  const [showCrossTrackSubmenu, setShowCrossTrackSubmenu] = useState(false);
+
+  // 他トラックで時間的に重複するクリップを検索
+  const overlappingClipsOnOtherTracks = useMemo(() => {
+    const clipEnd = clip.startTime + clip.duration;
+    const result: { trackId: string; trackName: string; clip: ClipType }[] = [];
+    for (const track of tracks) {
+      if (track.id === trackId) continue;
+      if (track.type !== 'video') continue;
+      for (const otherClip of track.clips) {
+        const otherEnd = otherClip.startTime + otherClip.duration;
+        if (clip.startTime < otherEnd && otherClip.startTime < clipEnd) {
+          // 既にクロストラックトランジションが存在するペアは除外
+          const alreadyExists = crossTrackTransitions.some(
+            (ct) =>
+              (ct.sourceClipId === clip.id && ct.targetClipId === otherClip.id) ||
+              (ct.sourceClipId === otherClip.id && ct.targetClipId === clip.id)
+          );
+          if (!alreadyExists) {
+            result.push({ trackId: track.id, trackName: track.name, clip: otherClip });
+          }
+        }
+      }
+    }
+    return result;
+  }, [tracks, trackId, clip, crossTrackTransitions]);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
+  const crossTrackSubmenuRef = useRef<HTMLDivElement>(null);
   const dragStartX = useRef(0);
   const dragStartTime = useRef(0);
 
@@ -157,6 +187,27 @@ function Clip({ clip, trackId }: ClipProps) {
     }
   }, [showTransitionSubmenu]);
 
+  // クロストラックサブメニューが画面外にはみ出る場合、位置を自動補正
+  useEffect(() => {
+    if (!showCrossTrackSubmenu || !crossTrackSubmenuRef.current) return;
+    const submenu = crossTrackSubmenuRef.current;
+    const rect = submenu.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight) {
+      submenu.style.top = 'auto';
+      submenu.style.bottom = '0';
+    } else {
+      submenu.style.top = '0';
+      submenu.style.bottom = 'auto';
+    }
+    if (rect.right > window.innerWidth) {
+      submenu.style.left = 'auto';
+      submenu.style.right = '100%';
+    } else {
+      submenu.style.left = '100%';
+      submenu.style.right = 'auto';
+    }
+  }, [showCrossTrackSubmenu]);
+
   const handleCloseContextMenu = () => {
     setShowContextMenu(false);
   };
@@ -227,6 +278,40 @@ function Clip({ clip, trackId }: ClipProps) {
               <button className="context-menu-item" onClick={handleRemoveTransition}>
                 🔄 {t('transition.remove')}
               </button>
+            )}
+            {overlappingClipsOnOtherTracks.length > 0 && (
+              <div
+                className="context-menu-item context-menu-submenu-trigger"
+                onMouseEnter={() => setShowCrossTrackSubmenu(true)}
+                onMouseLeave={() => setShowCrossTrackSubmenu(false)}
+              >
+                🔀 {t('transition.addCrossTrack')} ▸
+                {showCrossTrackSubmenu && (
+                  <div ref={crossTrackSubmenuRef} className="context-submenu">
+                    {overlappingClipsOnOtherTracks.map(({ trackId: otherTrackId, trackName, clip: otherClip }) => (
+                      <button
+                        key={otherClip.id}
+                        className="context-menu-item"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addCrossTrackTransition({
+                            id: `ct-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                            type: 'crossfade',
+                            duration: 1.0,
+                            sourceTrackId: trackId,
+                            sourceClipId: clip.id,
+                            targetTrackId: otherTrackId,
+                            targetClipId: otherClip.id,
+                          });
+                          setShowContextMenu(false);
+                        }}
+                      >
+                        {trackName}: {otherClip.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             <button className="context-menu-item" onClick={handleDelete}>
               🗑️ 削除

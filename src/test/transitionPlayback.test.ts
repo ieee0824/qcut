@@ -6,9 +6,12 @@ import { useTimelineStore, type TransitionType } from '../store/timelineStore';
  * VideoPreview内のヘルパー関数のロジックを再現してテスト
  */
 
-// findTransitionAtTime のロジックを再現
+// findTransitionAtTime のロジックを再現（同一トラック + クロストラック）
 function findTransitionAtTime(time: number) {
-  const tracks = useTimelineStore.getState().tracks;
+  const state = useTimelineStore.getState();
+  const tracks = state.tracks;
+
+  // 1. 同一トラック内のトランジション
   for (const track of tracks) {
     if (track.type !== 'video') continue;
     for (const clip of track.clips) {
@@ -38,6 +41,35 @@ function findTransitionAtTime(time: number) {
       }
     }
   }
+
+  // 2. クロストラックトランジション
+  for (const ct of state.crossTrackTransitions) {
+    const sourceTrack = tracks.find(t => t.id === ct.sourceTrackId);
+    const targetTrack = tracks.find(t => t.id === ct.targetTrackId);
+    if (!sourceTrack || !targetTrack) continue;
+
+    const sourceClip = sourceTrack.clips.find(c => c.id === ct.sourceClipId);
+    const targetClip = targetTrack.clips.find(c => c.id === ct.targetClipId);
+    if (!sourceClip || !targetClip) continue;
+
+    const overlapStart = Math.max(sourceClip.startTime, targetClip.startTime);
+    const overlapEnd = Math.min(
+      sourceClip.startTime + sourceClip.duration,
+      targetClip.startTime + targetClip.duration,
+    );
+    const transEnd = Math.min(overlapStart + ct.duration, overlapEnd);
+
+    if (time >= overlapStart && time < transEnd) {
+      const progress = (time - overlapStart) / (transEnd - overlapStart);
+      return {
+        outgoingClip: sourceClip,
+        incomingClip: targetClip,
+        progress,
+        transitionType: ct.type,
+      };
+    }
+  }
+
   return null;
 }
 
@@ -192,5 +224,94 @@ describe('transition playback logic', () => {
       expect(styles.outgoing.opacity).toBeCloseTo(0.5);
       expect(styles.incoming.opacity).toBeCloseTo(0.5);
     });
+  });
+});
+
+describe('cross-track transition playback logic', () => {
+  beforeEach(() => {
+    useTimelineStore.setState({
+      tracks: [],
+      crossTrackTransitions: [],
+      selectedClipId: null,
+      selectedTrackId: null,
+      currentTime: 0,
+      isPlaying: false,
+      pixelsPerSecond: 50,
+    });
+
+    const { addTrack, addClip, addCrossTrackTransition } = useTimelineStore.getState();
+    addTrack({ id: 'video-1', type: 'video', name: 'Video 1', clips: [] });
+    addTrack({ id: 'video-2', type: 'video', name: 'Video 2', clips: [] });
+
+    // Video 1: clip at 0-5s
+    addClip('video-1', {
+      id: 'clip-1',
+      name: 'Clip 1',
+      startTime: 0,
+      duration: 5,
+      filePath: 'a.mp4',
+      sourceStartTime: 0,
+      sourceEndTime: 5,
+    });
+    // Video 2: clip at 3-8s (overlaps with clip-1 from 3-5s)
+    addClip('video-2', {
+      id: 'clip-2',
+      name: 'Clip 2',
+      startTime: 3,
+      duration: 5,
+      filePath: 'b.mp4',
+      sourceStartTime: 0,
+      sourceEndTime: 5,
+    });
+
+    addCrossTrackTransition({
+      id: 'ct-1',
+      type: 'crossfade',
+      duration: 1.5,
+      sourceTrackId: 'video-1',
+      sourceClipId: 'clip-1',
+      targetTrackId: 'video-2',
+      targetClipId: 'clip-2',
+    });
+  });
+
+  it('should return null before cross-track transition zone', () => {
+    expect(findTransitionAtTime(2.9)).toBeNull();
+  });
+
+  it('should detect cross-track transition at overlap start', () => {
+    const result = findTransitionAtTime(3.0);
+    expect(result).not.toBeNull();
+    expect(result!.outgoingClip.id).toBe('clip-1');
+    expect(result!.incomingClip.id).toBe('clip-2');
+    expect(result!.progress).toBeCloseTo(0);
+    expect(result!.transitionType).toBe('crossfade');
+  });
+
+  it('should compute progress correctly at midpoint', () => {
+    // duration=1.5, overlapStart=3.0, transEnd=4.5
+    const result = findTransitionAtTime(3.75);
+    expect(result).not.toBeNull();
+    expect(result!.progress).toBeCloseTo(0.5);
+  });
+
+  it('should return null after cross-track transition zone', () => {
+    // transEnd = 3.0 + 1.5 = 4.5
+    expect(findTransitionAtTime(4.5)).toBeNull();
+  });
+
+  it('should cap transition duration to overlap region', () => {
+    // Set a very long duration (10s) but overlap is only 2s (3-5)
+    const { updateCrossTrackTransition } = useTimelineStore.getState();
+    updateCrossTrackTransition('ct-1', { duration: 10 });
+
+    // At time 4.0, should be detected (within overlap 3-5)
+    const result = findTransitionAtTime(4.0);
+    expect(result).not.toBeNull();
+    // progress = (4.0 - 3.0) / (5.0 - 3.0) = 0.5
+    expect(result!.progress).toBeCloseTo(0.5);
+
+    // At time 5.0 (outside overlap), should return null
+    expect(findTransitionAtTime(5.0)).toBeNull();
   });
 });

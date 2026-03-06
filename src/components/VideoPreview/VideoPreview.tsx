@@ -86,7 +86,10 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   }
 
   const findTransitionAtTime = useCallback((time: number): TransitionInfo | null => {
-    const currentTracks = useTimelineStore.getState().tracks;
+    const state = useTimelineStore.getState();
+    const currentTracks = state.tracks;
+
+    // 1. 同一トラック内のトランジションをチェック
     for (const track of currentTracks) {
       if (track.type !== 'video') continue;
       for (const clip of track.clips) {
@@ -107,6 +110,37 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         }
       }
     }
+
+    // 2. クロストラックトランジションをチェック
+    for (const ct of state.crossTrackTransitions) {
+      const sourceTrack = currentTracks.find(t => t.id === ct.sourceTrackId);
+      const targetTrack = currentTracks.find(t => t.id === ct.targetTrackId);
+      if (!sourceTrack || !targetTrack) continue;
+
+      const sourceClip = sourceTrack.clips.find(c => c.id === ct.sourceClipId);
+      const targetClip = targetTrack.clips.find(c => c.id === ct.targetClipId);
+      if (!sourceClip || !targetClip) continue;
+
+      // 重複区間を計算
+      const overlapStart = Math.max(sourceClip.startTime, targetClip.startTime);
+      const overlapEnd = Math.min(
+        sourceClip.startTime + sourceClip.duration,
+        targetClip.startTime + targetClip.duration,
+      );
+      // トランジション期間はdurationか重複区間の短い方
+      const transEnd = Math.min(overlapStart + ct.duration, overlapEnd);
+
+      if (time >= overlapStart && time < transEnd) {
+        const progress = (time - overlapStart) / (transEnd - overlapStart);
+        return {
+          outgoingClip: sourceClip,
+          incomingClip: targetClip,
+          progress,
+          transitionType: ct.type,
+        };
+      }
+    }
+
     return null;
   }, [findClipAtTime]);
 

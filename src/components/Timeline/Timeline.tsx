@@ -3,6 +3,7 @@ import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useEffect, useRef, useState } from 'react';
 import Track from './Track';
 import Playhead from './Playhead';
+import CrossTrackTransitionIndicator from './CrossTrackTransitionIndicator';
 import './Timeline.css';
 
 // タイムコード表示を分離して、currentTime 更新時に Timeline 全体が再レンダーされないようにする
@@ -35,6 +36,7 @@ function TimelineTimecode() {
 function Timeline() {
   const {
     tracks,
+    crossTrackTransitions,
     pixelsPerSecond,
     duration,
     zoomIn,
@@ -181,6 +183,26 @@ function Timeline() {
             {tracks.map(track => (
               <Track key={track.id} track={track} />
             ))}
+
+            {crossTrackTransitions.map(ct => {
+              const sourceTrack = tracks.find(t => t.id === ct.sourceTrackId);
+              const targetTrack = tracks.find(t => t.id === ct.targetTrackId);
+              const sourceClip = sourceTrack?.clips.find(c => c.id === ct.sourceClipId);
+              const targetClip = targetTrack?.clips.find(c => c.id === ct.targetClipId);
+              if (!sourceClip || !targetClip) return null;
+              const sourceTrackIndex = tracks.findIndex(t => t.id === ct.sourceTrackId);
+              const targetTrackIndex = tracks.findIndex(t => t.id === ct.targetTrackId);
+              return (
+                <CrossTrackTransitionIndicator
+                  key={ct.id}
+                  transition={ct}
+                  sourceClip={sourceClip}
+                  targetClip={targetClip}
+                  sourceTrackIndex={sourceTrackIndex}
+                  targetTrackIndex={targetTrackIndex}
+                />
+              );
+            })}
           </div>
         </div>
       </div>

@@ -88,7 +88,9 @@
     "wipeRight": "Wipe Right",
     "wipeUp": "Wipe Up",
     "wipeDown": "Wipe Down",
-    "duration": "Duration"
+    "duration": "Duration",
+    "crossTrack": "Cross-Track Transition",
+    "addCrossTrack": "Add Cross-Track Transition"
   },
   "preset": {
     "title": "Presets",

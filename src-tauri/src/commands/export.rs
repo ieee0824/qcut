@@ -138,6 +138,20 @@ pub struct ExportTrack {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct ExportCrossTrackTransition {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub transition_type: String,
+    pub duration: f64,
+    pub source_track_id: String,
+    pub source_clip_id: String,
+    pub target_track_id: String,
+    pub target_clip_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportSettings {
     pub format: String,
     pub width: u32,
@@ -146,6 +160,8 @@ pub struct ExportSettings {
     pub fps: u32,
     pub output_path: String,
     pub tracks: Vec<ExportTrack>,
+    #[serde(default)]
+    pub cross_track_transitions: Vec<ExportCrossTrackTransition>,
     pub total_duration: f64,
 }
 
@@ -398,6 +414,29 @@ fn transition_to_xfade(t: &str) -> &str {
     }
 }
 
+fn find_cross_track_transition_for_clip<'a>(
+    clip_id: &str,
+    cross_track_transitions: &'a [ExportCrossTrackTransition],
+) -> Option<&'a ExportCrossTrackTransition> {
+    cross_track_transitions
+        .iter()
+        .find(|ct| ct.target_clip_id == clip_id)
+}
+
+fn find_source_clip_in_tracks<'a>(
+    source_clip_id: &str,
+    tracks: &'a [ExportTrack],
+) -> Option<&'a ExportClip> {
+    for track in tracks {
+        for clip in &track.clips {
+            if clip.id == source_clip_id {
+                return Some(clip);
+            }
+        }
+    }
+    None
+}
+
 fn build_ffmpeg_args(
     settings: &ExportSettings,
     video_clips: &[&ExportClip],
@@ -416,6 +455,17 @@ fn build_ffmpeg_args(
             input_args.push("-i".into());
             input_args.push(clip.file_path.clone());
             input_index += 1;
+        }
+    }
+    // クロストラックトランジションのソースクリップも入力に追加
+    for ct in &settings.cross_track_transitions {
+        if let Some(source_clip) = find_source_clip_in_tracks(&ct.source_clip_id, &settings.tracks) {
+            if !source_clip.file_path.is_empty() && !input_map.contains_key(&source_clip.file_path) {
+                input_map.insert(source_clip.file_path.clone(), input_index);
+                input_args.push("-i".into());
+                input_args.push(source_clip.file_path.clone());
+                input_index += 1;
+            }
         }
     }
 
@@ -522,11 +572,53 @@ fn build_ffmpeg_args(
             idx, clip.source_start_time, clip.source_end_time, a_label
         ));
 
-        // トランジション情報
+        // トランジション情報（同一トラック or クロストラック）
         let clip_duration = clip.source_end_time - clip.source_start_time;
-        let trans_info = clip.transition.as_ref().map(|t| {
+        let mut trans_info = clip.transition.as_ref().map(|t| {
             (transition_to_xfade(&t.transition_type).to_string(), t.duration)
         });
+
+        // クロストラックトランジション: ターゲットクリップの場合、
+        // ソースクリップのセグメントを先に挿入し、xfadeで結合する
+        if trans_info.is_none() {
+            if let Some(ct) = find_cross_track_transition_for_clip(&clip.id, &settings.cross_track_transitions) {
+                if let Some(source_clip) = find_source_clip_in_tracks(&ct.source_clip_id, &settings.tracks) {
+                    if let Some(src_idx) = input_map.get(&source_clip.file_path) {
+                        let ct_src_v = format!("ctv{}", i);
+                        let ct_src_a = format!("cta{}", i);
+                        let src_duration = source_clip.source_end_time - source_clip.source_start_time;
+
+                        let mut src_vfilter = format!(
+                            "[{}:v]trim=start={:.3}:end={:.3},setpts=PTS-STARTPTS",
+                            src_idx, source_clip.source_start_time, source_clip.source_end_time
+                        );
+                        src_vfilter.push_str(&format!(
+                            ",scale={}:{}:force_original_aspect_ratio=decrease,pad={}:{}:(ow-iw)/2:(oh-ih)/2:black",
+                            w, h, w, h
+                        ));
+                        src_vfilter.push_str(&format!("[{}]", ct_src_v));
+                        filter_parts.push(src_vfilter);
+
+                        filter_parts.push(format!(
+                            "[{}:a]atrim=start={:.3}:end={:.3},asetpts=PTS-STARTPTS[{}]",
+                            src_idx, source_clip.source_start_time, source_clip.source_end_time, ct_src_a
+                        ));
+
+                        segments.push(SegmentInfo {
+                            v_label: ct_src_v,
+                            a_label: ct_src_a,
+                            duration: src_duration,
+                            transition: None,
+                        });
+
+                        trans_info = Some((
+                            transition_to_xfade(&ct.transition_type).to_string(),
+                            ct.duration,
+                        ));
+                    }
+                }
+            }
+        }
 
         segments.push(SegmentInfo {
             v_label,

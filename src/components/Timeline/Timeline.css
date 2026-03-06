@@ -544,3 +544,38 @@
   width: 100%;
 }
 
+/* クロストラックトランジションインジケーター */
+.cross-track-transition-indicator {
+  position: absolute;
+  background: linear-gradient(90deg, rgba(0, 200, 255, 0.15), rgba(0, 200, 255, 0.08), rgba(0, 200, 255, 0.15));
+  border: 1px dashed rgba(0, 200, 255, 0.5);
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.cross-track-transition-indicator:hover {
+  background: linear-gradient(90deg, rgba(0, 200, 255, 0.25), rgba(0, 200, 255, 0.15), rgba(0, 200, 255, 0.25));
+  border-color: rgba(0, 200, 255, 0.8);
+}
+
+.cross-track-transition-icon {
+  font-size: 0.75rem;
+  color: #00c8ff;
+}
+
+.cross-track-transition-label {
+  font-size: 0.625rem;
+  color: #00c8ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+

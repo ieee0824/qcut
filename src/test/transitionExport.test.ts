@@ -122,3 +122,111 @@ describe('transition export data', () => {
     }
   });
 });
+
+describe('cross-track transition export data', () => {
+  beforeEach(() => {
+    useTimelineStore.setState({
+      tracks: [],
+      crossTrackTransitions: [],
+      selectedClipId: null,
+      selectedTrackId: null,
+      currentTime: 0,
+      isPlaying: false,
+      pixelsPerSecond: 50,
+    });
+
+    const { addTrack, addClip } = useTimelineStore.getState();
+    addTrack({ id: 'video-1', type: 'video', name: 'Video 1', clips: [] });
+    addTrack({ id: 'video-2', type: 'video', name: 'Video 2', clips: [] });
+    addClip('video-1', {
+      id: 'clip-1',
+      name: 'Clip 1',
+      startTime: 0,
+      duration: 5,
+      filePath: 'a.mp4',
+      sourceStartTime: 0,
+      sourceEndTime: 5,
+    });
+    addClip('video-2', {
+      id: 'clip-2',
+      name: 'Clip 2',
+      startTime: 3,
+      duration: 5,
+      filePath: 'b.mp4',
+      sourceStartTime: 0,
+      sourceEndTime: 5,
+    });
+  });
+
+  it('should serialize crossTrackTransitions for export', () => {
+    const { addCrossTrackTransition } = useTimelineStore.getState();
+    addCrossTrackTransition({
+      id: 'ct-1',
+      type: 'crossfade',
+      duration: 1.0,
+      sourceTrackId: 'video-1',
+      sourceClipId: 'clip-1',
+      targetTrackId: 'video-2',
+      targetClipId: 'clip-2',
+    });
+
+    const state = useTimelineStore.getState();
+    const exportSettings = {
+      format: 'mp4',
+      width: 1920,
+      height: 1080,
+      bitrate: '8M',
+      fps: 30,
+      outputPath: '/tmp/test.mp4',
+      tracks: state.tracks,
+      crossTrackTransitions: state.crossTrackTransitions,
+      totalDuration: 8,
+    };
+
+    const serialized = JSON.parse(JSON.stringify(exportSettings));
+    expect(serialized.crossTrackTransitions).toHaveLength(1);
+    expect(serialized.crossTrackTransitions[0]).toEqual({
+      id: 'ct-1',
+      type: 'crossfade',
+      duration: 1.0,
+      sourceTrackId: 'video-1',
+      sourceClipId: 'clip-1',
+      targetTrackId: 'video-2',
+      targetClipId: 'clip-2',
+    });
+  });
+
+  it('should serialize mixed same-track and cross-track transitions', () => {
+    const { setTransition, addCrossTrackTransition, addClip } = useTimelineStore.getState();
+
+    addClip('video-1', {
+      id: 'clip-3',
+      name: 'Clip 3',
+      startTime: 5,
+      duration: 5,
+      filePath: 'c.mp4',
+      sourceStartTime: 0,
+      sourceEndTime: 5,
+    });
+
+    // Same-track transition
+    setTransition('video-1', 'clip-3', { type: 'dissolve', duration: 0.5 });
+
+    // Cross-track transition
+    addCrossTrackTransition({
+      id: 'ct-1',
+      type: 'wipe-left',
+      duration: 1.5,
+      sourceTrackId: 'video-1',
+      sourceClipId: 'clip-1',
+      targetTrackId: 'video-2',
+      targetClipId: 'clip-2',
+    });
+
+    const state = useTimelineStore.getState();
+    const clip3 = state.tracks[0].clips.find(c => c.id === 'clip-3')!;
+    expect(clip3.transition).toEqual({ type: 'dissolve', duration: 0.5 });
+    expect(state.crossTrackTransitions).toHaveLength(1);
+    expect(state.crossTrackTransitions[0].type).toBe('wipe-left');
+  });
+});

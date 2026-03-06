@@ -98,20 +98,33 @@ export interface Track {
   clips: Clip[];
 }
 
+export interface CrossTrackTransition {
+  id: string;
+  type: TransitionType;
+  duration: number;
+  sourceTrackId: string;  // 出力元（フェードアウト側）
+  sourceClipId: string;
+  targetTrackId: string;  // 入力先（フェードイン側）
+  targetClipId: string;
+}
+
 export interface TimelineState {
   // タイムライン設定
   pixelsPerSecond: number;
   currentTime: number;
   duration: number;
   isPlaying: boolean;
-  
+
   // トラック
   tracks: Track[];
-  
+
+  // クロストラックトランジション
+  crossTrackTransitions: CrossTrackTransition[];
+
   // 選択状態
   selectedClipId: string | null;
   selectedTrackId: string | null;
-  
+
   // アクション
   setPixelsPerSecond: (pps: number) => void;
   setCurrentTime: (time: number) => void;
@@ -123,10 +136,15 @@ export interface TimelineState {
   removeTrack: (trackId: string) => void;
   zoomIn: () => void;
   zoomOut: () => void;
-  
+
   // トランジション
   setTransition: (trackId: string, clipId: string, transition: ClipTransition) => void;
   removeTransition: (trackId: string, clipId: string) => void;
+
+  // クロストラックトランジション
+  addCrossTrackTransition: (transition: CrossTrackTransition) => void;
+  removeCrossTrackTransition: (transitionId: string) => void;
+  updateCrossTrackTransition: (transitionId: string, updates: Partial<Pick<CrossTrackTransition, 'type' | 'duration'>>) => void;
 
   // カット編集機能
   setSelectedClip: (trackId: string | null, clipId: string | null) => void;
@@ -143,7 +161,10 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   
   // トラック
   tracks: [],
-  
+
+  // クロストラックトランジション
+  crossTrackTransitions: [],
+
   // 選択状態
   selectedClipId: null,
   selectedTrackId: null,
@@ -176,6 +197,9 @@ export const useTimelineStore = create<TimelineState>((set) => ({
 
     return {
       tracks,
+      crossTrackTransitions: state.crossTrackTransitions.filter(
+        (ct) => ct.sourceClipId !== clipId && ct.targetClipId !== clipId
+      ),
       selectedTrackId: isSelectedClipRemoved ? null : state.selectedTrackId,
       selectedClipId: isSelectedClipRemoved ? null : state.selectedClipId,
     };
@@ -200,6 +224,9 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   
   removeTrack: (trackId) => set((state) => ({
     tracks: state.tracks.filter(t => t.id !== trackId),
+    crossTrackTransitions: state.crossTrackTransitions.filter(
+      (ct) => ct.sourceTrackId !== trackId && ct.targetTrackId !== trackId
+    ),
   })),
   
   // ズーム
@@ -235,6 +262,39 @@ export const useTimelineStore = create<TimelineState>((set) => ({
             ),
           }
         : track
+    ),
+  })),
+
+  // クロストラックトランジション
+  addCrossTrackTransition: (transition) => set((state) => {
+    // バリデーション: 異なるトラックであること
+    if (transition.sourceTrackId === transition.targetTrackId) return state;
+
+    // バリデーション: クリップが存在し、時間的に重複していること
+    const sourceTrack = state.tracks.find(t => t.id === transition.sourceTrackId);
+    const targetTrack = state.tracks.find(t => t.id === transition.targetTrackId);
+    if (!sourceTrack || !targetTrack) return state;
+
+    const sourceClip = sourceTrack.clips.find(c => c.id === transition.sourceClipId);
+    const targetClip = targetTrack.clips.find(c => c.id === transition.targetClipId);
+    if (!sourceClip || !targetClip) return state;
+
+    const sourceEnd = sourceClip.startTime + sourceClip.duration;
+    const targetEnd = targetClip.startTime + targetClip.duration;
+    if (sourceClip.startTime >= targetEnd || targetClip.startTime >= sourceEnd) return state;
+
+    return {
+      crossTrackTransitions: [...state.crossTrackTransitions, transition],
+    };
+  }),
+
+  removeCrossTrackTransition: (transitionId) => set((state) => ({
+    crossTrackTransitions: state.crossTrackTransitions.filter(ct => ct.id !== transitionId),
+  })),
+
+  updateCrossTrackTransition: (transitionId, updates) => set((state) => ({
+    crossTrackTransitions: state.crossTrackTransitions.map(ct =>
+      ct.id === transitionId ? { ...ct, ...updates } : ct
     ),
   })),
 
@@ -286,23 +346,30 @@ export const useTimelineStore = create<TimelineState>((set) => ({
             }
           : t
       ),
+      crossTrackTransitions: state.crossTrackTransitions.filter(
+        (ct) => ct.sourceClipId !== clipId && ct.targetClipId !== clipId
+      ),
     };
   }),
   
   deleteSelectedClip: () => set((state) => {
     if (!state.selectedClipId || !state.selectedTrackId) return state;
 
+    const clipId = state.selectedClipId;
     return {
       tracks: state.tracks
         .map((track) =>
           track.id === state.selectedTrackId
             ? {
                 ...track,
-                clips: track.clips.filter((clip) => clip.id !== state.selectedClipId),
+                clips: track.clips.filter((clip) => clip.id !== clipId),
               }
             : track
         )
         .filter((track) => track.clips.length > 0),
+      crossTrackTransitions: state.crossTrackTransitions.filter(
+        (ct) => ct.sourceClipId !== clipId && ct.targetClipId !== clipId
+      ),
       selectedClipId: null,
       selectedTrackId: null,
     };
