@@ -18,6 +18,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       
@@ -36,6 +37,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       
@@ -60,6 +62,7 @@ jobs:
   audit:
     name: Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       
@@ -78,6 +81,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [lint, test, audit]
     steps:
       - uses: actions/checkout@v4
@@ -104,6 +108,7 @@ jobs:
   build-tauri:
     name: Build Tauri (Ubuntu)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [lint, test, audit, build]
     steps:
       - uses: actions/checkout@v4
