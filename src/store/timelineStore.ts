@@ -156,7 +156,7 @@ export interface TimelineState {
   canRedo: () => boolean;
 
   // クリップボード
-  _clipboard: { trackId: string; clip: Clip } | null;
+  _clipboard: { trackId: string; trackType: Track['type']; clip: Clip } | null;
   copySelectedClip: () => void;
   pasteClip: () => void;
 }
@@ -391,25 +391,44 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     if (!state.selectedClipId || !state.selectedTrackId) return state;
     const track = state.tracks.find(t => t.id === state.selectedTrackId);
     const clip = track?.clips.find(c => c.id === state.selectedClipId);
-    if (!clip) return state;
-    return { _clipboard: { trackId: state.selectedTrackId, clip: JSON.parse(JSON.stringify(clip)) } };
+    if (!track || !clip) return state;
+    return { _clipboard: { trackId: state.selectedTrackId, trackType: track.type, clip: JSON.parse(JSON.stringify(clip)) } };
   }),
 
   pasteClip: () => set((state) => {
     if (!state._clipboard) return state;
-    const { clip } = state._clipboard;
-    const targetTrackId = state.selectedTrackId ?? state._clipboard.trackId;
-    const track = state.tracks.find(t => t.id === targetTrackId);
-    if (!track) return state;
+    const { clip, trackId: sourceTrackId, trackType: sourceType } = state._clipboard;
+
+    // ペースト先: 選択中トラック → コピー元トラック → 同タイプの最初のトラック
+    let resolvedTrackId: string | null = state.selectedTrackId;
+
+    // 選択中トラックがコピー元と異なるタイプならスキップ
+    if (resolvedTrackId) {
+      const selectedTrack = state.tracks.find(t => t.id === resolvedTrackId);
+      if (selectedTrack && selectedTrack.type !== sourceType) {
+        resolvedTrackId = null;
+      }
+    }
+
+    if (!resolvedTrackId) {
+      resolvedTrackId = sourceTrackId;
+    }
+
+    // コピー元トラックが削除済みの場合、同タイプの最初のトラックにフォールバック
+    if (!state.tracks.find(t => t.id === resolvedTrackId)) {
+      const fallback = state.tracks.find(t => t.type === sourceType);
+      if (!fallback) return state;
+      resolvedTrackId = fallback.id;
+    }
 
     const newClip: Clip = {
       ...JSON.parse(JSON.stringify(clip)),
-      id: `${clip.id}-paste-${Date.now()}`,
+      id: `clip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       startTime: state.currentTime,
     };
 
     const newTracks = state.tracks.map(t =>
-      t.id === targetTrackId
+      t.id === resolvedTrackId
         ? { ...t, clips: [...t.clips, newClip] }
         : t
     );
