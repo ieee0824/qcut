@@ -116,14 +116,18 @@ export interface TimelineState {
   currentTime: number;
   duration: number;
   isPlaying: boolean;
-  
+
   // トラック
   tracks: Track[];
-  
+
   // 選択状態
   selectedClipId: string | null;
   selectedTrackId: string | null;
-  
+
+  // Undo/Redo 履歴
+  _history: Track[][];
+  _historyIndex: number;
+
   // アクション
   setPixelsPerSecond: (pps: number) => void;
   setCurrentTime: (time: number) => void;
@@ -135,7 +139,7 @@ export interface TimelineState {
   removeTrack: (trackId: string) => void;
   zoomIn: () => void;
   zoomOut: () => void;
-  
+
   // トランジション
   setTransition: (trackId: string, clipId: string, transition: ClipTransition) => void;
   removeTransition: (trackId: string, clipId: string) => void;
@@ -144,39 +148,71 @@ export interface TimelineState {
   setSelectedClip: (trackId: string | null, clipId: string | null) => void;
   splitClipAtTime: (trackId: string, clipId: string, splitTime: number) => void;
   deleteSelectedClip: () => void;
+
+  // Undo/Redo
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+
+  // クリップボード
+  _clipboard: { trackId: string; trackType: Track['type']; clip: Clip } | null;
+  copySelectedClip: () => void;
+  pasteClip: () => void;
 }
 
-export const useTimelineStore = create<TimelineState>((set) => ({
+const MAX_HISTORY = 50;
+
+/** Record new tracks into history (call with the NEW tracks state) */
+function withHistory(
+  state: TimelineState,
+  newTracks: Track[],
+): Pick<TimelineState, 'tracks' | '_history' | '_historyIndex'> {
+  const history = state._history.slice(0, state._historyIndex + 1);
+  history.push(JSON.parse(JSON.stringify(newTracks)));
+  if (history.length > MAX_HISTORY) history.shift();
+  return { tracks: newTracks, _history: history, _historyIndex: history.length - 1 };
+}
+
+export const useTimelineStore = create<TimelineState>((set, get) => ({
   // タイムライン設定
-  pixelsPerSecond: 50, // 1秒あたりのピクセル数（ズームレベル）
-  currentTime: 0, // 現在の再生位置（秒）
-  duration: 0, // 全体の長さ（秒）
-  isPlaying: false, // 再生中かどうか
-  
+  pixelsPerSecond: 50,
+  currentTime: 0,
+  duration: 0,
+  isPlaying: false,
+
   // トラック
   tracks: [],
-  
+
   // 選択状態
   selectedClipId: null,
   selectedTrackId: null,
-  
+
+  // Undo/Redo 履歴
+  _history: [[]],
+  _historyIndex: 0,
+
+  // クリップボード
+  _clipboard: null,
+
   // アクション
   setPixelsPerSecond: (pps) => set({ pixelsPerSecond: pps }),
-  
+
   setCurrentTime: (time) => set({ currentTime: time }),
-  
+
   setIsPlaying: (playing) => set({ isPlaying: playing }),
-  
-  addClip: (trackId, clip) => set((state) => ({
-    tracks: state.tracks.map(track => 
-      track.id === trackId 
+
+  addClip: (trackId, clip) => set((state) => {
+    const newTracks = state.tracks.map(track =>
+      track.id === trackId
         ? { ...track, clips: [...track.clips, clip] }
         : track
-    ),
-  })),
-  
+    );
+    return withHistory(state, newTracks);
+  }),
+
   removeClip: (trackId, clipId) => set((state) => {
-    const tracks = state.tracks
+    const newTracks = state.tracks
       .map((track) =>
         track.id === trackId
           ? { ...track, clips: track.clips.filter((clip) => clip.id !== clipId) }
@@ -187,14 +223,14 @@ export const useTimelineStore = create<TimelineState>((set) => ({
     const isSelectedClipRemoved = state.selectedTrackId === trackId && state.selectedClipId === clipId;
 
     return {
-      tracks,
+      ...withHistory(state, newTracks),
       selectedTrackId: isSelectedClipRemoved ? null : state.selectedTrackId,
       selectedClipId: isSelectedClipRemoved ? null : state.selectedClipId,
     };
   }),
-  
-  updateClip: (trackId, clipId, updates) => set((state) => ({
-    tracks: state.tracks.map(track =>
+
+  updateClip: (trackId, clipId, updates) => set((state) => {
+    const newTracks = state.tracks.map(track =>
       track.id === trackId
         ? {
             ...track,
@@ -203,29 +239,30 @@ export const useTimelineStore = create<TimelineState>((set) => ({
             ),
           }
         : track
-    ),
-  })),
-  
-  addTrack: (track) => set((state) => ({
-    tracks: [...state.tracks, track],
-  })),
-  
-  removeTrack: (trackId) => set((state) => ({
-    tracks: state.tracks.filter(t => t.id !== trackId),
-  })),
-  
+    );
+    return withHistory(state, newTracks);
+  }),
+
+  addTrack: (track) => set((state) =>
+    withHistory(state, [...state.tracks, track])
+  ),
+
+  removeTrack: (trackId) => set((state) =>
+    withHistory(state, state.tracks.filter(t => t.id !== trackId))
+  ),
+
   // ズーム
   zoomIn: () => set((state) => ({
     pixelsPerSecond: Math.min(state.pixelsPerSecond * 1.2, 200),
   })),
-  
+
   zoomOut: () => set((state) => ({
     pixelsPerSecond: Math.max(state.pixelsPerSecond / 1.2, 10),
   })),
-  
+
   // トランジション
-  setTransition: (trackId, clipId, transition) => set((state) => ({
-    tracks: state.tracks.map(track =>
+  setTransition: (trackId, clipId, transition) => set((state) => {
+    const newTracks = state.tracks.map(track =>
       track.id === trackId
         ? {
             ...track,
@@ -234,11 +271,12 @@ export const useTimelineStore = create<TimelineState>((set) => ({
             ),
           }
         : track
-    ),
-  })),
+    );
+    return withHistory(state, newTracks);
+  }),
 
-  removeTransition: (trackId, clipId) => set((state) => ({
-    tracks: state.tracks.map(track =>
+  removeTransition: (trackId, clipId) => set((state) => {
+    const newTracks = state.tracks.map(track =>
       track.id === trackId
         ? {
             ...track,
@@ -247,38 +285,36 @@ export const useTimelineStore = create<TimelineState>((set) => ({
             ),
           }
         : track
-    ),
-  })),
+    );
+    return withHistory(state, newTracks);
+  }),
 
   // カット編集機能
   setSelectedClip: (trackId, clipId) => set({
     selectedTrackId: trackId,
     selectedClipId: clipId,
   }),
-  
+
   splitClipAtTime: (trackId, clipId, splitTime) => set((state) => {
     const track = state.tracks.find(t => t.id === trackId);
     if (!track) return state;
-    
+
     const clip = track.clips.find(c => c.id === clipId);
     if (!clip) return state;
-    
-    // クリップ内の相対時間を計算
+
     const relativeTime = splitTime - clip.startTime;
-    
-    // 分割位置がクリップの範囲外の場合は何もしない
+
     if (relativeTime <= 0 || relativeTime >= clip.duration) {
       return state;
     }
-    
-    // 新しい2つのクリップを作成
+
     const firstClip: Clip = {
       ...clip,
       id: `${clip.id}-1`,
       duration: relativeTime,
       sourceEndTime: clip.sourceStartTime + relativeTime,
     };
-    
+
     const secondClip: Clip = {
       ...clip,
       id: `${clip.id}-2`,
@@ -286,37 +322,116 @@ export const useTimelineStore = create<TimelineState>((set) => ({
       duration: clip.duration - relativeTime,
       sourceStartTime: clip.sourceStartTime + relativeTime,
     };
-    
-    return {
-      tracks: state.tracks.map(t =>
-        t.id === trackId
-          ? {
-              ...t,
-              clips: t.clips.flatMap(c =>
-                c.id === clipId ? [firstClip, secondClip] : [c]
-              ),
-            }
-          : t
-      ),
-    };
+
+    const newTracks = state.tracks.map(t =>
+      t.id === trackId
+        ? {
+            ...t,
+            clips: t.clips.flatMap(c =>
+              c.id === clipId ? [firstClip, secondClip] : [c]
+            ),
+          }
+        : t
+    );
+    return withHistory(state, newTracks);
   }),
-  
+
   deleteSelectedClip: () => set((state) => {
     if (!state.selectedClipId || !state.selectedTrackId) return state;
 
+    const newTracks = state.tracks
+      .map((track) =>
+        track.id === state.selectedTrackId
+          ? {
+              ...track,
+              clips: track.clips.filter((clip) => clip.id !== state.selectedClipId),
+            }
+          : track
+      )
+      .filter((track) => track.clips.length > 0);
+
     return {
-      tracks: state.tracks
-        .map((track) =>
-          track.id === state.selectedTrackId
-            ? {
-                ...track,
-                clips: track.clips.filter((clip) => clip.id !== state.selectedClipId),
-              }
-            : track
-        )
-        .filter((track) => track.clips.length > 0),
+      ...withHistory(state, newTracks),
       selectedClipId: null,
       selectedTrackId: null,
     };
+  }),
+
+  // Undo/Redo
+  undo: () => set((state) => {
+    if (state._historyIndex <= 0) return state;
+    const newIndex = state._historyIndex - 1;
+    return {
+      tracks: JSON.parse(JSON.stringify(state._history[newIndex])),
+      _historyIndex: newIndex,
+      selectedClipId: null,
+      selectedTrackId: null,
+    };
+  }),
+
+  redo: () => set((state) => {
+    if (state._historyIndex >= state._history.length - 1) return state;
+    const newIndex = state._historyIndex + 1;
+    return {
+      tracks: JSON.parse(JSON.stringify(state._history[newIndex])),
+      _historyIndex: newIndex,
+      selectedClipId: null,
+      selectedTrackId: null,
+    };
+  }),
+
+  canUndo: () => get()._historyIndex > 0,
+  canRedo: () => {
+    const s = get();
+    return s._historyIndex < s._history.length - 1;
+  },
+
+  // クリップボード
+  copySelectedClip: () => set((state) => {
+    if (!state.selectedClipId || !state.selectedTrackId) return state;
+    const track = state.tracks.find(t => t.id === state.selectedTrackId);
+    const clip = track?.clips.find(c => c.id === state.selectedClipId);
+    if (!track || !clip) return state;
+    return { _clipboard: { trackId: state.selectedTrackId, trackType: track.type, clip: JSON.parse(JSON.stringify(clip)) } };
+  }),
+
+  pasteClip: () => set((state) => {
+    if (!state._clipboard) return state;
+    const { clip, trackId: sourceTrackId, trackType: sourceType } = state._clipboard;
+
+    // ペースト先: 選択中トラック → コピー元トラック → 同タイプの最初のトラック
+    let resolvedTrackId: string | null = state.selectedTrackId;
+
+    // 選択中トラックがコピー元と異なるタイプならスキップ
+    if (resolvedTrackId) {
+      const selectedTrack = state.tracks.find(t => t.id === resolvedTrackId);
+      if (selectedTrack && selectedTrack.type !== sourceType) {
+        resolvedTrackId = null;
+      }
+    }
+
+    if (!resolvedTrackId) {
+      resolvedTrackId = sourceTrackId;
+    }
+
+    // コピー元トラックが削除済みの場合、同タイプの最初のトラックにフォールバック
+    if (!state.tracks.find(t => t.id === resolvedTrackId)) {
+      const fallback = state.tracks.find(t => t.type === sourceType);
+      if (!fallback) return state;
+      resolvedTrackId = fallback.id;
+    }
+
+    const newClip: Clip = {
+      ...JSON.parse(JSON.stringify(clip)),
+      id: `clip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      startTime: state.currentTime,
+    };
+
+    const newTracks = state.tracks.map(t =>
+      t.id === resolvedTrackId
+        ? { ...t, clips: [...t.clips, newClip] }
+        : t
+    );
+    return withHistory(state, newTracks);
   }),
 }));

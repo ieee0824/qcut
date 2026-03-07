@@ -41,7 +41,6 @@ function Timeline() {
     zoomOut,
     setCurrentTime,
     setSelectedClip,
-    deleteSelectedClip,
   } = useTimelineStore();
 
   const videoPreviewStore = useVideoPreviewStore();
@@ -52,18 +51,6 @@ function Timeline() {
   const panStartScrollLeft = useRef(0);
 
   const timelineWidth = Math.max(3000, duration * pixelsPerSecond);
-
-  // キーボードショートカット
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        deleteSelectedClip();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [deleteSelectedClip]);
 
   // パンニング処理
   useEffect(() => {

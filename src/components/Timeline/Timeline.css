@@ -285,10 +285,27 @@
   left: 0;
 }
 
+/* クリップ重なり領域 */
+.timeline-overlap {
+  position: absolute;
+  top: 5px;
+  height: 50px;
+  background-color: rgba(255, 60, 60, 0.35);
+  border: 1px solid rgba(255, 60, 60, 0.6);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.timeline-track[data-track-type="text"] .timeline-overlap {
+  top: 3px;
+  height: 34px;
+}
+
 /* クリップ選択状態 */
 .timeline-clip.selected {
-  border: 2px solid #4a9eff;
-  box-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+  border: 3px solid #1a5abf;
+  box-shadow: 0 0 12px rgba(26, 90, 191, 0.6), inset 0 0 6px rgba(26, 90, 191, 0.25);
   z-index: 5;
 }
 

@@ -8,10 +8,13 @@ import { EffectsPanel } from './components/Inspector/EffectsPanel';
 import { TextPanel } from './components/Inspector/TextPanel';
 import { FileOperations } from './components/FileOperations/FileOperations';
 import { ExportDialog } from './components/Export/ExportDialog';
+import { ShortcutHelp } from './components/ShortcutHelp/ShortcutHelp';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTimelineStore } from './store/timelineStore';
 import { DEFAULT_TEXT_PROPERTIES } from './store/timelineStore';
 import { useVideoPreviewStore } from './store/videoPreviewStore';
 import { useExportStore } from './store/exportStore';
+import { useShortcutStore } from './store/shortcutStore';
 import { PluginManager } from './plugin-system';
 import { parseSRT, parseASS, subtitlesToTrack, trackToSubtitles, exportSRT, exportASS } from './utils/subtitles';
 
@@ -20,7 +23,10 @@ function App() {
   const { isPlaying, setIsPlaying } = useTimelineStore();
   const videoPreviewStore = useVideoPreviewStore();
   const { setDialogOpen: setExportDialogOpen, setStatus: setExportStatus } = useExportStore();
+  const { setHelpVisible } = useShortcutStore();
   const pluginManagerRef = useRef<PluginManager | null>(null);
+
+  useKeyboardShortcuts();
 
   useEffect(() => {
     const manager = new PluginManager();
@@ -173,6 +179,9 @@ function App() {
           <button onClick={togglePlay} className="play-btn">
             {isPlaying ? t('button.pause') : t('button.play')}
           </button>
+          <button onClick={() => setHelpVisible(true)} className="play-btn" title={t('shortcut.title')}>
+            ?
+          </button>
         </div>
       </header>
       <main className="app-main">
@@ -186,6 +195,7 @@ function App() {
         </div>
       </main>
       <ExportDialog />
+      <ShortcutHelp />
     </div>
   );
 }
