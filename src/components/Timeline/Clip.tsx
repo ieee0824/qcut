@@ -3,13 +3,15 @@ import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTransitionPresetStore } from '../../store/transitionPresetStore';
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { WaveformCanvas } from './WaveformCanvas';
 
 interface ClipProps {
   clip: ClipType;
   trackId: string;
+  trackType: 'video' | 'audio' | 'text';
 }
 
-function Clip({ clip, trackId }: ClipProps) {
+function Clip({ clip, trackId, trackType }: ClipProps) {
   const { t } = useTranslation();
   const {
     pixelsPerSecond,
@@ -175,6 +177,16 @@ function Clip({ clip, trackId }: ClipProps) {
         onContextMenu={handleContextMenu}
         title={clip.name}
       >
+        {clip.filePath && trackType !== 'text' && (
+          <WaveformCanvas
+            filePath={clip.filePath}
+            sourceStartTime={clip.sourceStartTime}
+            sourceEndTime={clip.sourceEndTime}
+            width={width}
+            height={48}
+            color={trackType === 'audio' ? '#a0cfff' : 'rgba(160, 207, 255, 0.4)'}
+          />
+        )}
         <div className="clip-content">
           <span className="clip-name">{clip.name}</span>
           <button className="clip-delete" onClick={handleDelete}>×</button>

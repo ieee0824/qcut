@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -6,6 +7,9 @@ pub fn run() {
   tauri::Builder::default()
     .manage(commands::export::ExportState {
       cancel_flag: Arc::new(AtomicBool::new(false)),
+    })
+    .manage(commands::waveform::WaveformCache {
+      cache: std::sync::Mutex::new(HashMap::new()),
     })
     .plugin(tauri_plugin_dialog::init())
     .setup(|app| {
@@ -32,6 +36,7 @@ pub fn run() {
       commands::export::cancel_export,
       commands::presets::read_transition_presets,
       commands::presets::write_transition_presets,
+      commands::waveform::get_waveform,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
