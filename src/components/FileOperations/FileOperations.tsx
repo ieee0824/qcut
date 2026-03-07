@@ -22,32 +22,42 @@ export const FileOperations: React.FC = () => {
 
   const [showMenu, setShowMenu] = useState(false);
 
-  const getNextVideoTrackId = (existingTracks: typeof tracks) => {
+  const AUDIO_EXTENSIONS = ['mp3', 'wav', 'aac', 'ogg', 'm4a', 'flac', 'wma'];
+
+  const isAudioFile = (filePath: string) => {
+    const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+    return AUDIO_EXTENSIONS.includes(ext);
+  };
+
+  const getNextTrackId = (existingTracks: typeof tracks, type: 'video' | 'audio') => {
+    const prefix = type === 'video' ? 'video' : 'audio';
+    const pattern = new RegExp(`^${prefix}-(\\d+)$`);
     const indices = existingTracks
-      .filter((track) => track.type === 'video')
+      .filter((track) => track.type === type)
       .map((track) => {
-        const match = track.id.match(/^video-(\d+)$/);
+        const match = track.id.match(pattern);
         return match ? Number(match[1]) : 0;
       })
       .filter((value) => Number.isFinite(value));
 
     const nextIndex = indices.length > 0 ? Math.max(...indices) + 1 : 1;
-    return `video-${nextIndex}`;
+    return `${prefix}-${nextIndex}`;
   };
 
-  const getTargetVideoTrack = () => {
-    const videoTracks = tracks.filter((track) => track.type === 'video');
-    const emptyTrack = videoTracks.find((track) => track.clips.length === 0);
+  const getTargetTrack = (type: 'video' | 'audio') => {
+    const typeTracks = tracks.filter((track) => track.type === type);
+    const emptyTrack = typeTracks.find((track) => track.clips.length === 0);
 
     if (emptyTrack) {
       return { trackId: emptyTrack.id, startTime: 0 };
     }
 
-    const newTrackId = getNextVideoTrackId(tracks);
+    const newTrackId = getNextTrackId(tracks, type);
+    const label = type === 'video' ? 'Video' : 'Audio';
     addTrack({
       id: newTrackId,
-      type: 'video',
-      name: `Video ${newTrackId.replace('video-', '')}`,
+      type,
+      name: `${label} ${newTrackId.replace(`${type}-`, '')}`,
       clips: [],
     });
 
@@ -65,6 +75,10 @@ export const FileOperations: React.FC = () => {
           {
             name: t('fileOperations.videoFile'),
             extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', '3gp'],
+          },
+          {
+            name: t('fileOperations.audioFile'),
+            extensions: AUDIO_EXTENSIONS,
           },
           {
             name: t('fileOperations.allFiles'),
@@ -90,30 +104,45 @@ export const FileOperations: React.FC = () => {
 
       setCurrentFile(fileInfo);
       addRecentFile(fileInfo);
-      registerVideoUrl(fullPath, assetUrl);
 
-      // 動画の長さを取得してタイムラインにクリップを追加
-      const videoDuration = await getVideoDurationFromUrl(assetUrl);
-      const clipId = `clip-${Date.now()}`;
+      const isAudio = isAudioFile(fullPath);
 
-      const target = getTargetVideoTrack();
-      if (!target) {
-        throw new Error('ビデオトラックが見つかりません');
+      if (isAudio) {
+        // 音声ファイルの場合
+        const audioDuration = await getAudioDurationFromUrl(assetUrl);
+        const clipId = `clip-${Date.now()}`;
+        const target = getTargetTrack('audio');
+
+        addClip(target.trackId, {
+          id: clipId,
+          name: fileName,
+          startTime: target.startTime,
+          duration: audioDuration,
+          filePath: fullPath,
+          sourceStartTime: 0,
+          sourceEndTime: audioDuration,
+          color: '#4caf50',
+        });
+      } else {
+        // 動画ファイルの場合
+        registerVideoUrl(fullPath, assetUrl);
+        const videoDuration = await getVideoDurationFromUrl(assetUrl);
+        const clipId = `clip-${Date.now()}`;
+        const target = getTargetTrack('video');
+
+        addClip(target.trackId, {
+          id: clipId,
+          name: fileName,
+          startTime: target.startTime,
+          duration: videoDuration,
+          filePath: fullPath,
+          sourceStartTime: 0,
+          sourceEndTime: videoDuration,
+          color: '#4a9eff',
+        });
       }
 
-      addClip(target.trackId, {
-        id: clipId,
-        name: fileName,
-        startTime: target.startTime,
-        duration: videoDuration,
-        filePath: fullPath,
-        sourceStartTime: 0,
-        sourceEndTime: videoDuration,
-        color: '#4a9eff',
-      });
-
       console.log('ファイルを選択しました:', fileInfo);
-      console.log('クリップを追加しました:', clipId, 'duration:', videoDuration);
     } catch (error) {
       console.error('ファイル選択エラー:', error);
     } finally {
@@ -136,6 +165,24 @@ export const FileOperations: React.FC = () => {
       };
 
       video.src = url;
+    });
+  };
+
+  // 音声の長さを取得するヘルパー関数
+  const getAudioDurationFromUrl = (url: string): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const audio = document.createElement('audio');
+      audio.preload = 'metadata';
+
+      audio.onloadedmetadata = () => {
+        resolve(audio.duration);
+      };
+
+      audio.onerror = () => {
+        reject(new Error('音声のメタデータ読み込みに失敗しました'));
+      };
+
+      audio.src = url;
     });
   };
 

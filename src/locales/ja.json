@@ -21,6 +21,7 @@
     "noFile": "動画を読み込んでください",
     "selectVideo": "ビデオファイルを開く",
     "videoFile": "ビデオファイル",
+    "audioFile": "音声ファイル",
     "allFiles": "すべてのファイル"
   },
   "videoPreview": {
@@ -38,6 +39,8 @@
     "contrast": "コントラスト",
     "saturation": "彩度",
     "reset": "リセット",
+    "audio": "オーディオ",
+    "volume": "音量",
     "fade": "フェード",
     "fadeIn": "フェードイン",
     "fadeOut": "フェードアウト"
@@ -54,7 +57,8 @@
     "title": "タイムライン",
     "videoTracks": "ビデオトラック",
     "audioTracks": "オーディオトラック",
-    "addTrack": "トラックを追加"
+    "addTrack": "トラックを追加",
+    "addAudioTrack": "音声トラック追加"
   },
   "text": {
     "title": "テキスト",
