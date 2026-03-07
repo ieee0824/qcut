@@ -3,6 +3,18 @@ import { useTranslation } from 'react-i18next';
 import { useTimelineStore, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import type { ClipEffects } from '../../store/timelineStore';
 
+interface EqPreset {
+  label: string;
+  values: { eqLow: number; eqMid: number; eqHigh: number };
+}
+
+const EQ_PRESETS: EqPreset[] = [
+  { label: 'effects.eqPresetFlat', values: { eqLow: 0, eqMid: 0, eqHigh: 0 } },
+  { label: 'effects.eqPresetBassBoost', values: { eqLow: 6, eqMid: 0, eqHigh: 0 } },
+  { label: 'effects.eqPresetVocal', values: { eqLow: -2, eqMid: 4, eqHigh: 2 } },
+  { label: 'effects.eqPresetTrebleCut', values: { eqLow: 0, eqMid: 0, eqHigh: -6 } },
+];
+
 interface EffectSliderProps {
   label: string;
   value: number;
@@ -160,6 +172,60 @@ export const EffectsPanel: React.FC = () => {
             min={0}
             max={2}
             step={0.01}
+          />
+
+          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
+            {t('effects.equalizer')}
+          </h4>
+          <div style={{ marginBottom: '8px' }}>
+            <select
+              onChange={(e) => {
+                const preset = EQ_PRESETS[parseInt(e.target.value)];
+                if (!preset || !selectedTrackId || !selectedClipId) return;
+                updateClip(selectedTrackId, selectedClipId, {
+                  effects: { ...effects, ...preset.values },
+                });
+              }}
+              style={{
+                width: '100%',
+                padding: '4px',
+                fontSize: '12px',
+                backgroundColor: '#3a3a3a',
+                color: '#ccc',
+                border: '1px solid #555',
+                borderRadius: '4px',
+              }}
+              value=""
+            >
+              <option value="" disabled>{t('effects.eqSelectPreset')}</option>
+              {EQ_PRESETS.map((p, i) => (
+                <option key={i} value={i}>{t(p.label)}</option>
+              ))}
+            </select>
+          </div>
+          <EffectSlider
+            label={t('effects.eqLow')}
+            value={effects.eqLow}
+            onChange={(v) => handleChange('eqLow', v)}
+            min={-12}
+            max={12}
+            step={0.5}
+          />
+          <EffectSlider
+            label={t('effects.eqMid')}
+            value={effects.eqMid}
+            onChange={(v) => handleChange('eqMid', v)}
+            min={-12}
+            max={12}
+            step={0.5}
+          />
+          <EffectSlider
+            label={t('effects.eqHigh')}
+            value={effects.eqHigh}
+            onChange={(v) => handleChange('eqHigh', v)}
+            min={-12}
+            max={12}
+            step={0.5}
           />
 
           <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>

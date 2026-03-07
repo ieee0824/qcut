@@ -43,7 +43,16 @@
     "volume": "Volume",
     "fade": "Fade",
     "fadeIn": "Fade In",
-    "fadeOut": "Fade Out"
+    "fadeOut": "Fade Out",
+    "equalizer": "Equalizer",
+    "eqLow": "Low (100Hz)",
+    "eqMid": "Mid (1kHz)",
+    "eqHigh": "High (10kHz)",
+    "eqSelectPreset": "Select Preset",
+    "eqPresetFlat": "Flat",
+    "eqPresetBassBoost": "Bass Boost",
+    "eqPresetVocal": "Vocal Enhance",
+    "eqPresetTrebleCut": "Treble Cut"
   },
   "transform": {
     "title": "Transform",
