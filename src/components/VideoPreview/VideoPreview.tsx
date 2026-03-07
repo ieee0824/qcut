@@ -11,7 +11,7 @@ interface VideoPreviewProps {
 
 export const VideoPreview: React.FC<VideoPreviewProps> = ({
   width = '100%',
-  height = '400px',
+  height = '100%',
 }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -740,10 +740,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         height,
         flex: 1,
         minWidth: 0,
+        minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px',
-        padding: '12px',
+        gap: '8px',
+        padding: '8px',
         backgroundColor: '#1a1a1a',
       }}
     >
