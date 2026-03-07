@@ -83,6 +83,12 @@ pub struct ClipEffects {
     pub fade_in: f64,
     #[serde(default)]
     pub fade_out: f64,
+    #[serde(default = "default_volume")]
+    pub volume: f64,
+}
+
+fn default_volume() -> f64 {
+    1.0
 }
 
 #[derive(Debug, Deserialize)]
@@ -537,6 +543,9 @@ fn build_ffmpeg_args(
             idx, clip.source_start_time, clip.source_end_time
         );
         if let Some(ref effects) = clip.effects {
+            if (effects.volume - 1.0).abs() > 0.01 {
+                afilter.push_str(&format!(",volume={:.2}", effects.volume));
+            }
             if effects.fade_in > 0.01 {
                 afilter.push_str(&format!(",afade=t=in:st=0:d={:.3}", effects.fade_in));
             }

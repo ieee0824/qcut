@@ -151,6 +151,18 @@ export const EffectsPanel: React.FC = () => {
           />
 
           <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
+            {t('effects.audio')}
+          </h4>
+          <EffectSlider
+            label={t('effects.volume')}
+            value={effects.volume}
+            onChange={(v) => handleChange('volume', v)}
+            min={0}
+            max={2}
+            step={0.01}
+          />
+
+          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
             {t('effects.fade')}
           </h4>
           <EffectSlider

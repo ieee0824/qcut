@@ -21,6 +21,7 @@
     "noFile": "Please load a video",
     "selectVideo": "Select a video file",
     "videoFile": "Video File",
+    "audioFile": "Audio File",
     "allFiles": "All Files"
   },
   "videoPreview": {
@@ -38,6 +39,8 @@
     "contrast": "Contrast",
     "saturation": "Saturation",
     "reset": "Reset",
+    "audio": "Audio",
+    "volume": "Volume",
     "fade": "Fade",
     "fadeIn": "Fade In",
     "fadeOut": "Fade Out"
@@ -54,7 +57,8 @@
     "title": "Timeline",
     "videoTracks": "Video Tracks",
     "audioTracks": "Audio Tracks",
-    "addTrack": "Add Track"
+    "addTrack": "Add Track",
+    "addAudioTrack": "Add Audio Track"
   },
   "text": {
     "title": "Text",

@@ -62,6 +62,13 @@ function App() {
     });
   }, []);
 
+  const handleAddAudioTrack = useCallback(() => {
+    const { addTrack, tracks } = useTimelineStore.getState();
+    const audioTracks = tracks.filter((t) => t.type === 'audio');
+    const trackId = `audio-${audioTracks.length + 1}`;
+    addTrack({ id: trackId, type: 'audio', name: `Audio ${audioTracks.length + 1}`, clips: [] });
+  }, []);
+
   const handleImportSubtitle = useCallback(() => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -145,6 +152,9 @@ function App() {
             </button>
           </div>
           <FileOperations />
+          <button onClick={handleAddAudioTrack} className="play-btn" title={t('timeline.addAudioTrack')}>
+            ♪+
+          </button>
           <button onClick={handleAddTextTrack} className="play-btn" title={t('text.addTextTrack')}>
             T+
           </button>
