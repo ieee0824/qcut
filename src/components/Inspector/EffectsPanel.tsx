@@ -71,7 +71,10 @@ export const EffectsPanel: React.FC = () => {
       style={{
         width: '220px',
         minWidth: '220px',
+        height: '100%',
+        minHeight: 0,
         padding: '12px',
+        boxSizing: 'border-box',
         backgroundColor: '#2a2a2a',
         borderLeft: '1px solid #3a3a3a',
         overflowY: 'auto',
