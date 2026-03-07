@@ -419,10 +419,24 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             videoRef.current.style.opacity = '1';
           }
 
-          // クリップの音量エフェクトを適用
+          // クリップの音量エフェクトを適用（フェードイン/アウトも反映）
           const clipVolume = clip.effects?.volume ?? 1.0;
           const uiVolume = useVideoPreviewStore.getState().volume / 100;
-          videoRef.current.volume = Math.max(0, Math.min(1, uiVolume * clipVolume));
+          const audioFadeIn = clip.effects?.fadeIn ?? 0;
+          const audioFadeOut = clip.effects?.fadeOut ?? 0;
+          let audioFade = 1;
+          if (audioFadeIn > 0 || audioFadeOut > 0) {
+            const elapsedTime = currentTimeRef.current - clip.startTime;
+            const remainingTime = clipEndTime - currentTimeRef.current;
+            if (audioFadeIn > 0 && elapsedTime < audioFadeIn) {
+              audioFade = Math.min(audioFade, elapsedTime / audioFadeIn);
+            }
+            if (audioFadeOut > 0 && remainingTime < audioFadeOut) {
+              audioFade = Math.min(audioFade, remainingTime / audioFadeOut);
+            }
+            audioFade = Math.max(0, Math.min(1, audioFade));
+          }
+          videoRef.current.volume = Math.max(0, Math.min(1, uiVolume * clipVolume * audioFade));
         }
       } else {
         // --- ギャップ区間 ---
