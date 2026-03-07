@@ -85,6 +85,12 @@ pub struct ClipEffects {
     pub fade_out: f64,
     #[serde(default = "default_volume")]
     pub volume: f64,
+    #[serde(default)]
+    pub eq_low: f64,
+    #[serde(default)]
+    pub eq_mid: f64,
+    #[serde(default)]
+    pub eq_high: f64,
 }
 
 fn default_volume() -> f64 {
@@ -552,6 +558,20 @@ fn build_ffmpeg_args(
             if effects.fade_out > 0.01 {
                 let fade_out_start = (audio_duration - effects.fade_out).max(0.0);
                 afilter.push_str(&format!(",afade=t=out:st={:.3}:d={:.3}", fade_out_start, effects.fade_out));
+            }
+            // イコライザー (3バンド: Low 100Hz shelf, Mid 1kHz peaking, High 10kHz shelf)
+            if effects.eq_low.abs() > 0.1 || effects.eq_mid.abs() > 0.1 || effects.eq_high.abs() > 0.1 {
+                let mut eq_parts: Vec<String> = Vec::new();
+                if effects.eq_low.abs() > 0.1 {
+                    eq_parts.push(format!("equalizer=f=100:t=h:w=200:g={:.1}", effects.eq_low));
+                }
+                if effects.eq_mid.abs() > 0.1 {
+                    eq_parts.push(format!("equalizer=f=1000:t=q:w=1.0:g={:.1}", effects.eq_mid));
+                }
+                if effects.eq_high.abs() > 0.1 {
+                    eq_parts.push(format!("equalizer=f=10000:t=h:w=200:g={:.1}", effects.eq_high));
+                }
+                afilter.push_str(&format!(",{}", eq_parts.join(",")));
             }
         }
         afilter.push_str(&format!("[{}]", a_label));

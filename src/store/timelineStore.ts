@@ -12,6 +12,9 @@ export interface ClipEffects {
   fadeIn: number;      // 0〜3, default 0 (seconds)
   fadeOut: number;     // 0〜3, default 0 (seconds)
   volume: number;      // 0〜2, default 1.0
+  eqLow: number;      // -12〜12 dB, default 0 (100Hz shelf)
+  eqMid: number;      // -12〜12 dB, default 0 (1kHz peaking)
+  eqHigh: number;     // -12〜12 dB, default 0 (10kHz shelf)
 }
 
 export const DEFAULT_EFFECTS: ClipEffects = {
@@ -26,6 +29,9 @@ export const DEFAULT_EFFECTS: ClipEffects = {
   fadeIn: 0,
   fadeOut: 0,
   volume: 1.0,
+  eqLow: 0,
+  eqMid: 0,
+  eqHigh: 0,
 };
 
 export type TextAnimation = 'none' | 'fadeIn' | 'fadeOut' | 'fadeInOut' | 'slideUp' | 'slideDown';
