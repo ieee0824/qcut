@@ -9,6 +9,7 @@ jobs:
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -31,7 +32,7 @@ jobs:
         run: npm audit --audit-level=moderate
 
   release:
-    name: Release (${{ matrix.platform }})
+    name: Release (${{ matrix.os_name }})
     needs: quality-gate
     permissions:
       contents: write
@@ -40,12 +41,22 @@ jobs:
       matrix:
         include:
           - platform: ubuntu-latest
-            args: ''
+            os_name: linux
+            arch: amd64
+            rust_target: ''
+            tauri_args: ''
           - platform: macos-latest
-            args: '--target aarch64-apple-darwin'
+            os_name: darwin
+            arch: aarch64
+            rust_target: aarch64-apple-darwin
+            tauri_args: '--target aarch64-apple-darwin'
           - platform: windows-latest
-            args: ''
+            os_name: windows
+            arch: x64
+            rust_target: ''
+            tauri_args: ''
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -58,7 +69,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
+          targets: ${{ matrix.rust_target }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -74,16 +85,46 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Build and release
-        uses: tauri-apps/tauri-action@v0
+      - name: Build Tauri app
+        shell: bash
+        run: npx tauri build ${{ matrix.tauri_args }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
+      - name: Collect and rename artifacts
+        shell: bash
+        run: |
+          mkdir -p upload
+          OS="${{ matrix.os_name }}"
+          ARCH="${{ matrix.arch }}"
+          find src-tauri/target -path "*/bundle/*" \
+            \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" \
+               -o -name "*.deb" -o -name "*.AppImage" -o -name "*.AppImage.tar.gz" -o -name "*.AppImage.tar.gz.sig" \
+               -o -name "*-setup.exe" -o -name "*.nsis.zip" -o -name "*.nsis.zip.sig" \
+               -o -name "*.msi" -o -name "*.msi.zip" -o -name "*.msi.zip.sig" \) \
+            2>/dev/null | while read f; do
+              ext="${f##*.}"
+              # Handle compound extensions
+              case "$f" in
+                *.app.tar.gz.sig) ext="app.tar.gz.sig" ;;
+                *.app.tar.gz)     ext="app.tar.gz" ;;
+                *.AppImage.tar.gz.sig) ext="AppImage.tar.gz.sig" ;;
+                *.AppImage.tar.gz)     ext="AppImage.tar.gz" ;;
+                *.nsis.zip.sig)   ext="nsis.zip.sig" ;;
+                *.nsis.zip)       ext="nsis.zip" ;;
+                *.msi.zip.sig)    ext="msi.zip.sig" ;;
+                *.msi.zip)        ext="msi.zip" ;;
+                *-setup.exe)      ext="setup.exe" ;;
+              esac
+              cp "$f" "upload/qcut-${OS}-${ARCH}.${ext}"
+          done
+          echo "Artifacts to upload:"
+          ls -la upload/
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'qcut ${{ github.ref_name }}'
-          releaseBody: 'See the assets below to download and install this version.'
-          releaseDraft: ${{ contains(github.ref_name, '-beta') }}
+          draft: ${{ contains(github.ref_name, '-beta') }}
           prerelease: ${{ contains(github.ref_name, '-beta') }}
-          args: ${{ matrix.args }}
+          files: upload/*
