@@ -147,6 +147,26 @@ export const EffectsPanel: React.FC = () => {
             step={1}
           />
 
+          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
+            {t('effects.fade')}
+          </h4>
+          <EffectSlider
+            label={t('effects.fadeIn')}
+            value={effects.fadeIn}
+            onChange={(v) => handleChange('fadeIn', v)}
+            min={0}
+            max={3}
+            step={0.1}
+          />
+          <EffectSlider
+            label={t('effects.fadeOut')}
+            value={effects.fadeOut}
+            onChange={(v) => handleChange('fadeOut', v)}
+            min={0}
+            max={3}
+            step={0.1}
+          />
+
           <button
             onClick={handleReset}
             style={{

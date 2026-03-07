@@ -37,7 +37,10 @@
     "brightness": "明るさ",
     "contrast": "コントラスト",
     "saturation": "彩度",
-    "reset": "リセット"
+    "reset": "リセット",
+    "fade": "フェード",
+    "fadeIn": "フェードイン",
+    "fadeOut": "フェードアウト"
   },
   "transform": {
     "title": "トランスフォーム",
