@@ -34,6 +34,7 @@ export default [
         HTMLDivElement: 'readonly',
         HTMLVideoElement: 'readonly',
         HTMLInputElement: 'readonly',
+        HTMLCanvasElement: 'readonly',
         KeyboardEvent: 'readonly',
         File: 'readonly',
         URL: 'readonly',
