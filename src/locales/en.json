@@ -122,6 +122,24 @@
     "custom": "Custom",
     "selectPreset": "Select Preset"
   },
+  "shortcut": {
+    "title": "Keyboard Shortcuts",
+    "action": "Action",
+    "key": "Key",
+    "reset": "Reset to Defaults",
+    "playPause": "Play / Pause",
+    "split": "Split Clip",
+    "undo": "Undo",
+    "redo": "Redo",
+    "copy": "Copy",
+    "paste": "Paste",
+    "delete": "Delete",
+    "frameNext": "Next Frame",
+    "framePrev": "Previous Frame",
+    "zoomIn": "Zoom In Timeline",
+    "zoomOut": "Zoom Out Timeline",
+    "showHelp": "Show Shortcuts"
+  },
   "export": {
     "title": "Export Video",
     "button": "Export",
