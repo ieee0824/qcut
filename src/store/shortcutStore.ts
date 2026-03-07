@@ -26,7 +26,7 @@ export const DEFAULT_SHORTCUTS: ShortcutEntry[] = [
   { id: 'framePrev',   label: 'shortcut.framePrev',   binding: { key: 'ArrowLeft', ctrlOrMeta: false, shift: false, alt: false } },
   { id: 'zoomIn',      label: 'shortcut.zoomIn',      binding: { key: '=',         ctrlOrMeta: false, shift: false, alt: false } },
   { id: 'zoomOut',     label: 'shortcut.zoomOut',      binding: { key: '-',         ctrlOrMeta: false, shift: false, alt: false } },
-  { id: 'showHelp',    label: 'shortcut.showHelp',    binding: { key: '?',         ctrlOrMeta: false, shift: false, alt: false } },
+  { id: 'showHelp',    label: 'shortcut.showHelp',    binding: { key: '?',         ctrlOrMeta: false, shift: true,  alt: false } },
 ];
 
 const STORAGE_KEY = 'qcut-shortcuts';
@@ -91,7 +91,8 @@ export function formatBinding(binding: ShortcutBinding): string {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
     parts.push(isMac ? 'Cmd' : 'Ctrl');
   }
-  if (binding.shift) parts.push('Shift');
+  if (binding.shift && binding.key.length === 1 && binding.key >= 'a' && binding.key <= 'z') parts.push('Shift');
+  else if (binding.shift && binding.key.length > 1) parts.push('Shift');
   if (binding.alt) parts.push('Alt');
 
   const keyDisplay: Record<string, string> = {

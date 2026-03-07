@@ -20,6 +20,13 @@ export function useKeyboardShortcuts() {
       if (isInputFocused()) return;
 
       const { shortcuts, setHelpVisible, helpVisible } = useShortcutStore.getState();
+
+      // Escでヘルプを閉じる
+      if (e.key === 'Escape' && helpVisible) {
+        setHelpVisible(false);
+        return;
+      }
+
       const timeline = useTimelineStore.getState();
       const videoPreview = useVideoPreviewStore.getState();
 
