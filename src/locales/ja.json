@@ -1,7 +1,7 @@
 {
   "app": {
     "title": "qcut - Video Editor",
-    "description": "学生向け動画編集ソフトウェア"
+    "description": "動画編集ソフトウェア"
   },
   "menu": {
     "file": "📁 ファイル",
@@ -43,7 +43,16 @@
     "volume": "音量",
     "fade": "フェード",
     "fadeIn": "フェードイン",
-    "fadeOut": "フェードアウト"
+    "fadeOut": "フェードアウト",
+    "equalizer": "イコライザー",
+    "eqLow": "低音 (100Hz)",
+    "eqMid": "中音 (1kHz)",
+    "eqHigh": "高音 (10kHz)",
+    "eqSelectPreset": "プリセットから選択",
+    "eqPresetFlat": "フラット",
+    "eqPresetBassBoost": "低音ブースト",
+    "eqPresetVocal": "ボーカル強調",
+    "eqPresetTrebleCut": "高音カット"
   },
   "transform": {
     "title": "トランスフォーム",
