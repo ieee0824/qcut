@@ -21,9 +21,18 @@ export function useKeyboardShortcuts() {
 
       const { shortcuts, setHelpVisible, helpVisible } = useShortcutStore.getState();
 
-      // Escでヘルプを閉じる
-      if (e.key === 'Escape' && helpVisible) {
-        setHelpVisible(false);
+      if (e.key === 'Escape') {
+        // ヘルプが開いていれば閉じる
+        if (helpVisible) {
+          setHelpVisible(false);
+          return;
+        }
+        // クリップ選択を解除
+        const timeline = useTimelineStore.getState();
+        if (timeline.selectedClipId) {
+          timeline.setSelectedClip(null, null);
+          return;
+        }
         return;
       }
 
