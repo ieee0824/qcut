@@ -71,7 +71,10 @@ export const EffectsPanel: React.FC = () => {
       style={{
         width: '220px',
         minWidth: '220px',
+        height: '100%',
+        minHeight: 0,
         padding: '12px',
+        boxSizing: 'border-box',
         backgroundColor: '#2a2a2a',
         borderLeft: '1px solid #3a3a3a',
         overflowY: 'auto',
@@ -145,6 +148,26 @@ export const EffectsPanel: React.FC = () => {
             min={-500}
             max={500}
             step={1}
+          />
+
+          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
+            {t('effects.fade')}
+          </h4>
+          <EffectSlider
+            label={t('effects.fadeIn')}
+            value={effects.fadeIn}
+            onChange={(v) => handleChange('fadeIn', v)}
+            min={0}
+            max={3}
+            step={0.1}
+          />
+          <EffectSlider
+            label={t('effects.fadeOut')}
+            value={effects.fadeOut}
+            onChange={(v) => handleChange('fadeOut', v)}
+            min={0}
+            max={3}
+            step={0.1}
           />
 
           <button

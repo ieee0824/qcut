@@ -79,6 +79,10 @@ pub struct ClipEffects {
     pub scale_y: f64,
     pub position_x: f64,
     pub position_y: f64,
+    #[serde(default)]
+    pub fade_in: f64,
+    #[serde(default)]
+    pub fade_out: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -505,6 +509,16 @@ fn build_ffmpeg_args(
                     radians, radians, radians
                 ));
             }
+
+            // フェードイン/フェードアウト
+            let seg_duration = clip.source_end_time - clip.source_start_time;
+            if effects.fade_in > 0.01 {
+                vfilter.push_str(&format!(",fade=t=in:st=0:d={:.3}", effects.fade_in));
+            }
+            if effects.fade_out > 0.01 {
+                let fade_out_start = (seg_duration - effects.fade_out).max(0.0);
+                vfilter.push_str(&format!(",fade=t=out:st={:.3}:d={:.3}", fade_out_start, effects.fade_out));
+            }
         }
 
         // 最終的にターゲット解像度にスケール + パディング
@@ -517,10 +531,22 @@ fn build_ffmpeg_args(
         filter_parts.push(vfilter);
 
         // 音声フィルターチェーン
-        filter_parts.push(format!(
-            "[{}:a]atrim=start={:.3}:end={:.3},asetpts=PTS-STARTPTS[{}]",
-            idx, clip.source_start_time, clip.source_end_time, a_label
-        ));
+        let audio_duration = clip.source_end_time - clip.source_start_time;
+        let mut afilter = format!(
+            "[{}:a]atrim=start={:.3}:end={:.3},asetpts=PTS-STARTPTS",
+            idx, clip.source_start_time, clip.source_end_time
+        );
+        if let Some(ref effects) = clip.effects {
+            if effects.fade_in > 0.01 {
+                afilter.push_str(&format!(",afade=t=in:st=0:d={:.3}", effects.fade_in));
+            }
+            if effects.fade_out > 0.01 {
+                let fade_out_start = (audio_duration - effects.fade_out).max(0.0);
+                afilter.push_str(&format!(",afade=t=out:st={:.3}:d={:.3}", fade_out_start, effects.fade_out));
+            }
+        }
+        afilter.push_str(&format!("[{}]", a_label));
+        filter_parts.push(afilter);
 
         // トランジション情報
         let clip_duration = clip.source_end_time - clip.source_start_time;

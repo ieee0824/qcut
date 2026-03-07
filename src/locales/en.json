@@ -37,7 +37,10 @@
     "brightness": "Brightness",
     "contrast": "Contrast",
     "saturation": "Saturation",
-    "reset": "Reset"
+    "reset": "Reset",
+    "fade": "Fade",
+    "fadeIn": "Fade In",
+    "fadeOut": "Fade Out"
   },
   "transform": {
     "title": "Transform",

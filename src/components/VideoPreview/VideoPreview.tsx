@@ -399,6 +399,26 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           useTimelineStore.getState().setCurrentTime(timelineTime);
           updateTimeDisplay(timelineTime);
         }
+
+        // フェードイン/フェードアウトのopacity適用
+        if (videoRef.current) {
+          const fadeIn = clip.effects?.fadeIn ?? 0;
+          const fadeOut = clip.effects?.fadeOut ?? 0;
+          if (fadeIn > 0 || fadeOut > 0) {
+            const elapsed = currentTimeRef.current - clip.startTime;
+            const remaining = clipEndTime - currentTimeRef.current;
+            let opacity = 1;
+            if (fadeIn > 0 && elapsed < fadeIn) {
+              opacity = Math.min(opacity, elapsed / fadeIn);
+            }
+            if (fadeOut > 0 && remaining < fadeOut) {
+              opacity = Math.min(opacity, remaining / fadeOut);
+            }
+            videoRef.current.style.opacity = String(Math.max(0, Math.min(1, opacity)));
+          } else if (!isInTransitionRef.current) {
+            videoRef.current.style.opacity = '1';
+          }
+        }
       } else {
         // --- ギャップ区間 ---
         // delta で時間を進める（黒画面）
