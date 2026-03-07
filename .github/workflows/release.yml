@@ -42,14 +42,17 @@ jobs:
         include:
           - platform: ubuntu-latest
             os_name: linux
+            arch: amd64
             rust_target: ''
             tauri_args: ''
           - platform: macos-latest
-            os_name: macos
+            os_name: darwin
+            arch: aarch64
             rust_target: aarch64-apple-darwin
             tauri_args: '--target aarch64-apple-darwin'
           - platform: windows-latest
             os_name: windows
+            arch: x64
             rust_target: ''
             tauri_args: ''
     runs-on: ${{ matrix.platform }}
@@ -93,14 +96,28 @@ jobs:
         shell: bash
         run: |
           mkdir -p upload
+          OS="${{ matrix.os_name }}"
+          ARCH="${{ matrix.arch }}"
           find src-tauri/target -path "*/bundle/*" \
             \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" \
                -o -name "*.deb" -o -name "*.AppImage" -o -name "*.AppImage.tar.gz" -o -name "*.AppImage.tar.gz.sig" \
                -o -name "*-setup.exe" -o -name "*.nsis.zip" -o -name "*.nsis.zip.sig" \
                -o -name "*.msi" -o -name "*.msi.zip" -o -name "*.msi.zip.sig" \) \
             2>/dev/null | while read f; do
-              basename="$(basename "$f")"
-              cp "$f" "upload/${{ matrix.os_name }}-${basename}"
+              ext="${f##*.}"
+              # Handle compound extensions
+              case "$f" in
+                *.app.tar.gz.sig) ext="app.tar.gz.sig" ;;
+                *.app.tar.gz)     ext="app.tar.gz" ;;
+                *.AppImage.tar.gz.sig) ext="AppImage.tar.gz.sig" ;;
+                *.AppImage.tar.gz)     ext="AppImage.tar.gz" ;;
+                *.nsis.zip.sig)   ext="nsis.zip.sig" ;;
+                *.nsis.zip)       ext="nsis.zip" ;;
+                *.msi.zip.sig)    ext="msi.zip.sig" ;;
+                *.msi.zip)        ext="msi.zip" ;;
+                *-setup.exe)      ext="setup.exe" ;;
+              esac
+              cp "$f" "upload/qcut-${OS}-${ARCH}.${ext}"
           done
           echo "Artifacts to upload:"
           ls -la upload/
