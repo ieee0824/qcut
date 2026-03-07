@@ -418,6 +418,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           } else if (!isInTransitionRef.current) {
             videoRef.current.style.opacity = '1';
           }
+
+          // クリップの音量エフェクトを適用
+          const clipVolume = clip.effects?.volume ?? 1.0;
+          const uiVolume = useVideoPreviewStore.getState().volume / 100;
+          videoRef.current.volume = Math.max(0, Math.min(1, uiVolume * clipVolume));
         }
       } else {
         // --- ギャップ区間 ---
@@ -662,12 +667,14 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   }, [isPlaying, startPlaybackLoop, stopPlaybackLoop, setVideoPreviewCurrentTime]);
 
-  // 音量の同期
+  // 音量の同期（UI音量 × クリップ音量エフェクト）
   useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.volume = volume / 100;
+      const clip = findClipAtTime(currentTimeRef.current);
+      const clipVolume = clip?.effects?.volume ?? 1.0;
+      videoRef.current.volume = Math.max(0, Math.min(1, (volume / 100) * clipVolume));
     }
-  }, [volume]);
+  }, [volume, findClipAtTime]);
 
   // タイムライン位置が外部から変更されたとき（シーク）に動画ソース位置も更新
   useEffect(() => {
