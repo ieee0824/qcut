@@ -431,18 +431,23 @@ describe('projectStore', () => {
     expect(useProjectStore.getState().projectFilePath).toBeNull();
   });
 
-  it('startAutosave と stopAutosave でタイマーが管理される', () => {
-    const setIntervalSpy = vi.spyOn(window, 'setInterval');
-    const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+  it('scheduleAutosave でデバウンスタイマーが設定される', () => {
+    const setTimeoutSpy = vi.spyOn(window, 'setTimeout');
 
-    useProjectStore.getState().startAutosave();
-    expect(setIntervalSpy).toHaveBeenCalled();
+    useProjectStore.getState().scheduleAutosave();
+    expect(setTimeoutSpy).toHaveBeenCalled();
 
+    setTimeoutSpy.mockRestore();
+  });
+
+  it('stopAutosave でタイマーがクリアされる', () => {
+    const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout');
+
+    useProjectStore.getState().scheduleAutosave();
     useProjectStore.getState().stopAutosave();
-    expect(clearIntervalSpy).toHaveBeenCalled();
+    expect(clearTimeoutSpy).toHaveBeenCalled();
 
-    setIntervalSpy.mockRestore();
-    clearIntervalSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
   });
 
   it('saveProject 成功時に自動保存ファイルが削除される', async () => {

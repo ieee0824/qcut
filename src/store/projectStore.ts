@@ -13,7 +13,7 @@ export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 let autosaveTimerId: number | null = null;
 let autosaveFilePath: string | null = null;
 
-export const AUTOSAVE_INTERVAL_MS = 2 * 60 * 1000; // 2分
+export const AUTOSAVE_DEBOUNCE_MS = 5 * 1000; // 編集操作後5秒で自動保存
 
 export interface ProjectState {
   projectFilePath: string | null;
@@ -38,6 +38,7 @@ export interface ProjectState {
   // 自動保存
   startAutosave: () => void;
   stopAutosave: () => void;
+  scheduleAutosave: () => void;
   performAutosave: () => Promise<void>;
   checkAndRecoverAutosave: () => Promise<void>;
   deleteAutosave: () => Promise<void>;
@@ -319,20 +320,25 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   // --- 自動保存 ---
 
   startAutosave: () => {
-    // 既存のタイマーがあれば停止
-    if (autosaveTimerId !== null) {
-      clearInterval(autosaveTimerId);
-    }
-    autosaveTimerId = window.setInterval(() => {
-      useProjectStore.getState().performAutosave();
-    }, AUTOSAVE_INTERVAL_MS);
+    // no-op: デバウンスはタイムライン変更の subscribe で発火する
   },
 
   stopAutosave: () => {
     if (autosaveTimerId !== null) {
-      clearInterval(autosaveTimerId);
+      clearTimeout(autosaveTimerId);
       autosaveTimerId = null;
     }
+  },
+
+  scheduleAutosave: () => {
+    // 既存のタイマーをリセットしてデバウンス
+    if (autosaveTimerId !== null) {
+      clearTimeout(autosaveTimerId);
+    }
+    autosaveTimerId = window.setTimeout(() => {
+      autosaveTimerId = null;
+      useProjectStore.getState().performAutosave();
+    }, AUTOSAVE_DEBOUNCE_MS);
   },
 
   performAutosave: async () => {
@@ -426,7 +432,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 }));
 
-// タイムラインの変更を監視して isDirty を自動更新
+// タイムラインの変更を監視して isDirty を自動更新し、自動保存をスケジュール
 useTimelineStore.subscribe(
   (state, prevState) => {
     if (state.tracks !== prevState.tracks) {
@@ -434,6 +440,7 @@ useTimelineStore.subscribe(
       // プロジェクト読み込み中の変更は無視
       if (loadStatus !== 'loading') {
         useProjectStore.getState().markDirty();
+        useProjectStore.getState().scheduleAutosave();
       }
     }
   },
