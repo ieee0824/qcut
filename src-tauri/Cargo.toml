@@ -26,3 +26,6 @@ tauri-plugin-log = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 regex = "1"
+rusqlite = { version = "0.35", features = ["bundled"] }
+fern = "0.7"
+chrono = "0.4"
