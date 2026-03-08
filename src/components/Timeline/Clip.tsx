@@ -22,6 +22,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     updateClip,
     setTransition,
     removeTransition,
+    moveClipToTrack,
   } = useTimelineStore();
   const allPresets = useTransitionPresetStore((s) => s.getAllPresets)();
   const [isDragging, setIsDragging] = useState(false);
@@ -57,18 +58,36 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
   useEffect(() => {
     if (!isDragging) return;
 
+    // ドラッグ中のトラックハイライト用: 現在のtrackIdを追跡
+    let currentTrackId = trackId;
+
     const handleMouseMove = (e: globalThis.MouseEvent) => {
+      // 水平方向の移動
       const deltaX = e.clientX - dragStartX.current;
       const deltaTime = deltaX / pixelsPerSecond;
       let newStartTime = dragStartTime.current + deltaTime;
-      
-      // 負の値にならないようにする
       newStartTime = Math.max(0, newStartTime);
-      
-      updateClip(trackId, clip.id, { startTime: newStartTime });
+      updateClip(currentTrackId, clip.id, { startTime: newStartTime });
+
+      // 垂直方向: ドロップ先トラックの判定
+      const trackEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('.timeline-track') as HTMLElement | null;
+      const targetTrackId = trackEl?.dataset.trackId;
+
+      // ハイライト更新
+      document.querySelectorAll('.timeline-track.drop-target').forEach(el => el.classList.remove('drop-target'));
+      if (targetTrackId && targetTrackId !== currentTrackId) {
+        trackEl?.classList.add('drop-target');
+      }
+
+      // トラック移動
+      if (targetTrackId && targetTrackId !== currentTrackId) {
+        moveClipToTrack(currentTrackId, clip.id, targetTrackId);
+        currentTrackId = targetTrackId;
+      }
     };
 
     const handleMouseUp = () => {
+      document.querySelectorAll('.timeline-track.drop-target').forEach(el => el.classList.remove('drop-target'));
       setIsDragging(false);
     };
 
@@ -79,7 +98,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, pixelsPerSecond, trackId, clip.id, updateClip]);
+  }, [isDragging, pixelsPerSecond, trackId, clip.id, updateClip, moveClipToTrack]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();

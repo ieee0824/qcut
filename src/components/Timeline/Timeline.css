@@ -200,6 +200,12 @@
   background-color: #e6a817 !important;
 }
 
+.timeline-track.drop-target {
+  background-color: rgba(74, 158, 255, 0.15);
+  outline: 2px dashed rgba(74, 158, 255, 0.6);
+  outline-offset: -2px;
+}
+
 .timeline-track-content {
   position: relative;
   height: 100%;
@@ -225,6 +231,7 @@
   opacity: 0.9;
   z-index: 10;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
 }
 
 .clip-content {
