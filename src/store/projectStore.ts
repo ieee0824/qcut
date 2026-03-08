@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import type { ProjectFile } from '../types/projectFile';
 import { CURRENT_SCHEMA_VERSION } from '../types/projectFile';
 import { useTimelineStore } from './timelineStore';
 import { useExportStore } from './exportStore';
+import { useVideoPreviewStore } from './videoPreviewStore';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
@@ -128,6 +129,18 @@ function applyProjectToStores(project: ProjectFile): void {
     _history: [project.timeline.tracks],
     _historyIndex: 0,
   });
+
+  // 動画ファイルの URL を videoPreviewStore に登録
+  const videoPreview = useVideoPreviewStore.getState();
+  for (const track of project.timeline.tracks) {
+    if (track.type === 'text') continue;
+    for (const clip of track.clips) {
+      if (clip.filePath) {
+        const assetUrl = convertFileSrc(clip.filePath);
+        videoPreview.registerVideoUrl(clip.filePath, assetUrl);
+      }
+    }
+  }
 
   // エクスポート設定を復元
   if (project.exportSettings) {

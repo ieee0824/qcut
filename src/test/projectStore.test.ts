@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
+  convertFileSrc: vi.fn((path: string) => `asset://localhost/${path}`),
 }));
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({
@@ -14,6 +15,7 @@ import { save, open } from '@tauri-apps/plugin-dialog';
 import { useProjectStore } from '../store/projectStore';
 import { useTimelineStore } from '../store/timelineStore';
 import { useExportStore } from '../store/exportStore';
+import { useVideoPreviewStore } from '../store/videoPreviewStore';
 import type { ProjectFile } from '../types/projectFile';
 
 describe('projectStore', () => {
@@ -213,6 +215,19 @@ describe('projectStore', () => {
     expect(timeline.tracks[0].id).toBe('video-1');
     expect(timeline.tracks[0].clips).toHaveLength(1);
     expect(timeline.tracks[0].clips[0].name).toBe('sample.mp4');
+  });
+
+  it('loadProjectFromPath で動画URLがvideoPreviewStoreに登録される', async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === 'read_project') return JSON.stringify(validProjectJson);
+      if (cmd === 'get_file_info') return { name: 'sample.mp4', path: '/videos/sample.mp4', size: 1000, last_modified: 0 };
+      return undefined;
+    });
+
+    await useProjectStore.getState().loadProjectFromPath('/tmp/test.qcut');
+
+    const videoUrls = useVideoPreviewStore.getState().videoUrls;
+    expect(videoUrls['/videos/sample.mp4']).toBe('asset://localhost//videos/sample.mp4');
   });
 
   it('loadProjectFromPath でエクスポート設定が復元される', async () => {
