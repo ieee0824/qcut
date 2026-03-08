@@ -324,6 +324,15 @@ pub(crate) fn build_ffmpeg_args(
                     }
                     afilter.push_str(&format!(",{}", eq_parts.join(",")));
                 }
+                // ノイズリダクション (anlmdn)
+                if effects.denoise_amount > 0.01 {
+                    let sigma = effects.denoise_amount * 0.01;
+                    afilter.push_str(&format!(",anlmdn=s={:.6}", sigma));
+                }
+                // ハイパスフィルター
+                if effects.highpass_freq > 1.0 {
+                    afilter.push_str(&format!(",highpass=f={:.0}", effects.highpass_freq));
+                }
             }
         }
         afilter.push_str(&format!("[{}]", a_label));
@@ -476,6 +485,15 @@ pub(crate) fn build_ffmpeg_args(
                         eq_parts.push(format!("equalizer=f=10000:t=h:w=200:g={:.1}", effects.eq_high));
                     }
                     afilter.push_str(&format!(",{}", eq_parts.join(",")));
+                }
+                // ノイズリダクション (anlmdn)
+                if effects.denoise_amount > 0.01 {
+                    let sigma = effects.denoise_amount * 0.01;
+                    afilter.push_str(&format!(",anlmdn=s={:.6}", sigma));
+                }
+                // ハイパスフィルター
+                if effects.highpass_freq > 1.0 {
+                    afilter.push_str(&format!(",highpass=f={:.0}", effects.highpass_freq));
                 }
             }
 

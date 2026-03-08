@@ -52,7 +52,10 @@
     "eqPresetFlat": "Flat",
     "eqPresetBassBoost": "Bass Boost",
     "eqPresetVocal": "Vocal Enhance",
-    "eqPresetTrebleCut": "Treble Cut"
+    "eqPresetTrebleCut": "Treble Cut",
+    "noiseReduction": "Noise Reduction",
+    "denoiseAmount": "Reduction Amount",
+    "highpassFreq": "Highpass (Hz)"
   },
   "transform": {
     "title": "Transform",

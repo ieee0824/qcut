@@ -229,6 +229,26 @@ export const EffectsPanel: React.FC = () => {
           />
 
           <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
+            {t('effects.noiseReduction')}
+          </h4>
+          <EffectSlider
+            label={t('effects.denoiseAmount')}
+            value={effects.denoiseAmount}
+            onChange={(v) => handleChange('denoiseAmount', v)}
+            min={0}
+            max={1}
+            step={0.01}
+          />
+          <EffectSlider
+            label={t('effects.highpassFreq')}
+            value={effects.highpassFreq}
+            onChange={(v) => handleChange('highpassFreq', v)}
+            min={0}
+            max={500}
+            step={10}
+          />
+
+          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
             {t('effects.fade')}
           </h4>
           <EffectSlider

@@ -52,7 +52,10 @@
     "eqPresetFlat": "フラット",
     "eqPresetBassBoost": "低音ブースト",
     "eqPresetVocal": "ボーカル強調",
-    "eqPresetTrebleCut": "高音カット"
+    "eqPresetTrebleCut": "高音カット",
+    "noiseReduction": "ノイズリダクション",
+    "denoiseAmount": "ノイズ除去量",
+    "highpassFreq": "ハイパス (Hz)"
   },
   "transform": {
     "title": "トランスフォーム",
