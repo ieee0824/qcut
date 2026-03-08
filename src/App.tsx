@@ -67,6 +67,7 @@ function App() {
     const projectStore = useProjectStore.getState();
     projectStore.checkAndRecoverAutosave();
     projectStore.startAutosave();
+    projectStore.loadRecentProjects();
     return () => {
       projectStore.stopAutosave();
     };
