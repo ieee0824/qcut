@@ -6,6 +6,8 @@
   "menu": {
     "file": "📁 File",
     "open": "Open...",
+    "save": "Save",
+    "saveAs": "Save As...",
     "recent": "Recent Files",
     "clear": "Clear History"
   },
@@ -155,7 +157,9 @@
     "framePrev": "Previous Frame",
     "zoomIn": "Zoom In Timeline",
     "zoomOut": "Zoom Out Timeline",
-    "showHelp": "Show Shortcuts"
+    "showHelp": "Show Shortcuts",
+    "save": "Save Project",
+    "saveAs": "Save As"
   },
   "export": {
     "title": "Export Video",

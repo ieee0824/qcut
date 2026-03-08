@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useTimelineStore } from '../store/timelineStore';
 import { useVideoPreviewStore } from '../store/videoPreviewStore';
 import { useShortcutStore, matchesBinding } from '../store/shortcutStore';
+import { useProjectStore } from '../store/projectStore';
 
 const FRAME_STEP = 1 / 30; // 1 frame at 30fps
 
@@ -112,6 +113,14 @@ export function useKeyboardShortcuts() {
 
           case 'showHelp':
             setHelpVisible(!helpVisible);
+            break;
+
+          case 'save':
+            useProjectStore.getState().saveProject();
+            break;
+
+          case 'saveAs':
+            useProjectStore.getState().saveProjectAs();
             break;
         }
 
