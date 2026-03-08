@@ -1,9 +1,8 @@
 import { useTimelineStore, Clip as ClipType } from '../../store/timelineStore';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTransitionPresetStore } from '../../store/transitionPresetStore';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { invoke } from '@tauri-apps/api/core';
 import { WaveformCanvas } from './WaveformCanvas';
 
 interface ClipProps {
@@ -29,7 +28,6 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     addClip,
     updateClip,
   } = useTimelineStore();
-  const [isExtracting, setIsExtracting] = useState(false);
   const allPresets = useTransitionPresetStore((s) => s.getAllPresets)();
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -188,49 +186,31 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     }
   }, [showTransitionSubmenu]);
 
-  const handleExtractAudio = useCallback(async (e: React.MouseEvent) => {
+  const handleExtractAudio = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowContextMenu(false);
-    if (!clip.filePath || isExtracting) return;
+    if (!clip.filePath) return;
 
-    setIsExtracting(true);
-    try {
-      const audioPath = await invoke<string>('extract_audio', { filePath: clip.filePath });
+    // 音声トラックを作成し、同じ動画ファイルを参照する音声クリップを配置
+    const audioTrackId = `track-audio-${Date.now()}`;
+    addTrack({ id: audioTrackId, type: 'audio', name: `${clip.name} (音声)`, clips: [] });
 
-      // 音声の長さを取得
-      const audio = new window.Audio();
-      const duration = await new Promise<number>((resolve, reject) => {
-        audio.onloadedmetadata = () => resolve(audio.duration);
-        audio.onerror = () => reject(new Error('音声ファイルの読み込みに失敗'));
-        audio.src = `asset://localhost/${encodeURIComponent(audioPath)}`;
-      });
+    addClip(audioTrackId, {
+      id: `clip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: `${clip.name} (音声)`,
+      startTime: clip.startTime,
+      duration: clip.duration,
+      filePath: clip.filePath,
+      sourceStartTime: clip.sourceStartTime,
+      sourceEndTime: clip.sourceEndTime,
+      color: '#6ecf6e',
+    });
 
-      // 音声トラックを作成
-      const audioTrackId = `track-audio-${Date.now()}`;
-      addTrack({ id: audioTrackId, type: 'audio', name: `${clip.name} (音声)`, clips: [] });
-
-      // 音声クリップを追加（元のビデオクリップと同じ位置・範囲）
-      addClip(audioTrackId, {
-        id: `clip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: `${clip.name} (音声)`,
-        startTime: clip.startTime,
-        duration: clip.duration,
-        filePath: audioPath,
-        sourceStartTime: clip.sourceStartTime,
-        sourceEndTime: Math.min(clip.sourceEndTime, duration),
-        color: '#6ecf6e',
-      });
-
-      // 元のビデオクリップをミュート
-      updateClip(trackId, clip.id, {
-        effects: { ...(clip.effects || {} as ClipType['effects']), volume: 0 } as ClipType['effects'],
-      });
-    } catch (err) {
-      console.error('音声分離に失敗:', err);
-    } finally {
-      setIsExtracting(false);
-    }
-  }, [clip, trackId, isExtracting, addTrack, addClip, updateClip]);
+    // 元のビデオクリップをミュート
+    updateClip(trackId, clip.id, {
+      effects: { ...(clip.effects || {} as ClipType['effects']), volume: 0 } as ClipType['effects'],
+    });
+  };
 
   const handleCloseContextMenu = () => {
     setShowContextMenu(false);
@@ -317,9 +297,8 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
               <button
                 className="context-menu-item"
                 onClick={handleExtractAudio}
-                disabled={isExtracting}
               >
-                🔊 {isExtracting ? '音声分離中...' : '音声を分離'}
+                🔊 音声を分離
               </button>
             )}
             <button className="context-menu-item" onClick={handleDelete}>
