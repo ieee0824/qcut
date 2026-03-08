@@ -4,7 +4,12 @@ import { render, screen } from '@testing-library/react';
 vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({
     setTitle: vi.fn(),
+    onCloseRequested: vi.fn(() => Promise.resolve(() => {})),
   }),
+}));
+
+vi.mock('@tauri-apps/plugin-dialog', () => ({
+  ask: vi.fn(),
 }));
 
 import App from '../App';
