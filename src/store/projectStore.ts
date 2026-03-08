@@ -12,6 +12,17 @@ export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
 let autosaveTimerId: number | null = null;
 let autosaveFilePath: string | null = null;
+let isRecoveringAutosave = false;
+
+/** テスト用: モジュールレベル変数をリセットする */
+export function _resetAutosaveState(): void {
+  if (autosaveTimerId !== null) {
+    clearTimeout(autosaveTimerId);
+  }
+  autosaveTimerId = null;
+  autosaveFilePath = null;
+  isRecoveringAutosave = false;
+}
 
 export const AUTOSAVE_DEBOUNCE_MS = 5 * 1000; // 編集操作後5秒で自動保存
 
@@ -364,6 +375,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   checkAndRecoverAutosave: async () => {
+    // React StrictMode による二重実行を防止
+    if (isRecoveringAutosave) return;
+    isRecoveringAutosave = true;
+
     try {
       const autosaveFiles = await invoke<string[]>('list_autosaves');
       if (autosaveFiles.length === 0) return;
@@ -385,6 +400,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           );
 
           if (recover) {
+            // loadStatus を 'loading' にして subscriber が autosave をスケジュールしないようにする
+            set({ loadStatus: 'loading' });
+
             applyProjectToStores(project);
 
             const name = originalPath
@@ -406,6 +424,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
                 set({ loadStatus: 'idle' });
               }
             }, 2000);
+
+            // 復旧後すぐに新しい autosave を作成し、強制終了時のデータ喪失を防ぐ
+            get().performAutosave();
           }
         } catch {
           // 壊れた自動保存ファイルも削除対象
@@ -418,6 +439,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }
     } catch (e) {
       console.error('[autosave] 復旧チェックに失敗:', e);
+    } finally {
+      isRecoveringAutosave = false;
     }
   },
 

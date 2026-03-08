@@ -14,7 +14,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 import { invoke } from '@tauri-apps/api/core';
 import { save, open, ask } from '@tauri-apps/plugin-dialog';
-import { useProjectStore } from '../store/projectStore';
+import { useProjectStore, _resetAutosaveState } from '../store/projectStore';
 import { useTimelineStore } from '../store/timelineStore';
 import { useExportStore } from '../store/exportStore';
 import { useVideoPreviewStore } from '../store/videoPreviewStore';
@@ -23,6 +23,7 @@ import type { ProjectFile } from '../types/projectFile';
 describe('projectStore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetAutosaveState();
     // Reset stores
     useProjectStore.setState({
       projectFilePath: null,
@@ -451,15 +452,23 @@ describe('projectStore', () => {
   });
 
   it('saveProject 成功時に自動保存ファイルが削除される', async () => {
-    // performAutosave で autosaveFilePath が設定済み（前のテストで /tmp/autosave-uuid.qcut）
-    vi.mocked(invoke).mockResolvedValue(undefined);
-    useProjectStore.setState({ projectFilePath: '/tmp/test.qcut', isDirty: true });
+    // まず performAutosave で autosaveFilePath を設定する
+    vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === 'get_autosave_path') return '/tmp/autosave-test-uuid.qcut';
+      if (cmd === 'save_project') return undefined;
+      if (cmd === 'delete_file') return undefined;
+      return undefined;
+    });
+    useProjectStore.setState({ isDirty: true, projectFilePath: '/tmp/test.qcut' });
+    await useProjectStore.getState().performAutosave();
 
+    // saveProject を実行
+    vi.mocked(invoke).mockResolvedValue(undefined);
     await useProjectStore.getState().saveProject();
 
     // delete_file が autosaveFilePath で呼ばれることを確認
     const deleteCall = vi.mocked(invoke).mock.calls.find((c) => c[0] === 'delete_file');
     expect(deleteCall).toBeDefined();
-    expect(deleteCall![1]).toEqual({ path: expect.stringContaining('autosave-') });
+    expect(deleteCall![1]).toEqual({ path: '/tmp/autosave-test-uuid.qcut' });
   });
 });
