@@ -207,7 +207,14 @@ export const EffectsPanel: React.FC = () => {
                 border: '1px solid #555',
                 borderRadius: '4px',
               }}
-              value=""
+              value={(() => {
+                const idx = EQ_PRESETS.findIndex(p =>
+                  p.values.eqLow === effects.eqLow &&
+                  p.values.eqMid === effects.eqMid &&
+                  p.values.eqHigh === effects.eqHigh
+                );
+                return idx >= 0 ? String(idx) : '';
+              })()}
             >
               <option value="" disabled>{t('effects.eqSelectPreset')}</option>
               {EQ_PRESETS.map((p, i) => (
@@ -297,7 +304,10 @@ export const EffectsPanel: React.FC = () => {
                 border: '1px solid #555',
                 borderRadius: '4px',
               }}
-              value=""
+              value={(() => {
+                const idx = REVERB_PRESETS.findIndex(p => p.values.reverbAmount === effects.reverbAmount);
+                return idx >= 0 ? String(idx) : '';
+              })()}
             >
               <option value="" disabled>{t('effects.reverbSelectPreset')}</option>
               {REVERB_PRESETS.map((p, i) => (
