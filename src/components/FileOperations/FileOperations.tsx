@@ -20,7 +20,7 @@ export const FileOperations: React.FC = () => {
 
   const { registerVideoUrl } = useVideoPreviewStore();
   const { addClip, addTrack, tracks } = useTimelineStore();
-  const { saveProject, saveProjectAs, saveStatus } = useProjectStore();
+  const { saveProject, saveProjectAs, saveStatus, openProject, loadStatus } = useProjectStore();
 
   const [showMenu, setShowMenu] = useState(false);
 
@@ -294,6 +294,32 @@ export const FileOperations: React.FC = () => {
               margin: '4px 0',
             }}
           />
+
+          {/* プロジェクトを開く */}
+          <button
+            onClick={() => { openProject(); setShowMenu(false); }}
+            disabled={loadStatus === 'loading'}
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '10px 16px',
+              textAlign: 'left',
+              backgroundColor: 'transparent',
+              color: '#fff',
+              border: 'none',
+              cursor: loadStatus === 'loading' ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              opacity: loadStatus === 'loading' ? 0.6 : 1,
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = '#3a3a3a')
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = 'transparent')
+            }
+          >
+            📁 {t('menu.openProject')}
+          </button>
 
           {/* ファイルを開く */}
           <button
