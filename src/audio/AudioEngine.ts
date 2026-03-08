@@ -57,7 +57,13 @@ export class AudioEngine {
     const ctx = this.getContext();
     if (!ctx) return;
 
-    const source = ctx.createMediaElementSource(audioElement);
+    let source: MediaElementAudioSourceNode;
+    try {
+      source = ctx.createMediaElementSource(audioElement);
+    } catch (e) {
+      console.error('[AudioEngine] createMediaElementSource failed:', e);
+      return;
+    }
     const highpass = ctx.createBiquadFilter();
     const eqLow = ctx.createBiquadFilter();
     const eqMid = ctx.createBiquadFilter();
