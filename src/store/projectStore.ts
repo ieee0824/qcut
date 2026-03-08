@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { ask, open, save } from '@tauri-apps/plugin-dialog';
 import type { ProjectFile } from '../types/projectFile';
 import { CURRENT_SCHEMA_VERSION } from '../types/projectFile';
 import { useTimelineStore } from './timelineStore';
@@ -233,6 +233,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   openProject: async () => {
+    if (get().isDirty) {
+      const proceed = await ask(
+        '未保存の変更があります。保存せずに別のプロジェクトを開きますか？',
+        { title: 'qcut', kind: 'warning' },
+      );
+      if (!proceed) return;
+    }
+
     const filePath = await open({
       multiple: false,
       filters: [

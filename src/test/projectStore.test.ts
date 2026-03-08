@@ -8,10 +8,11 @@ vi.mock('@tauri-apps/api/core', () => ({
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   save: vi.fn(),
   open: vi.fn(),
+  ask: vi.fn(),
 }));
 
 import { invoke } from '@tauri-apps/api/core';
-import { save, open } from '@tauri-apps/plugin-dialog';
+import { save, open, ask } from '@tauri-apps/plugin-dialog';
 import { useProjectStore } from '../store/projectStore';
 import { useTimelineStore } from '../store/timelineStore';
 import { useExportStore } from '../store/exportStore';
@@ -280,6 +281,41 @@ describe('projectStore', () => {
 
     expect(useProjectStore.getState().loadStatus).toBe('error');
     expect(useProjectStore.getState().loadError).toContain('新しいバージョン');
+  });
+
+  it('openProject で未保存変更がある場合に警告ダイアログを表示する', async () => {
+    useProjectStore.getState().markDirty();
+    vi.mocked(ask).mockResolvedValue(false);
+
+    await useProjectStore.getState().openProject();
+
+    expect(ask).toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('openProject で未保存変更があっても続行を選択すれば開く', async () => {
+    useProjectStore.getState().markDirty();
+    vi.mocked(ask).mockResolvedValue(true);
+    vi.mocked(open).mockResolvedValue('/tmp/test.qcut');
+    vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === 'read_project') return JSON.stringify(validProjectJson);
+      if (cmd === 'get_file_info') return { name: 'sample.mp4', path: '/videos/sample.mp4', size: 1000, last_modified: 0 };
+      return undefined;
+    });
+
+    await useProjectStore.getState().openProject();
+
+    expect(ask).toHaveBeenCalled();
+    expect(useProjectStore.getState().projectFilePath).toBe('/tmp/test.qcut');
+  });
+
+  it('openProject で未保存変更がない場合は警告なしで開く', async () => {
+    vi.mocked(open).mockResolvedValue(null);
+
+    await useProjectStore.getState().openProject();
+
+    expect(ask).not.toHaveBeenCalled();
+    expect(open).toHaveBeenCalled();
   });
 
   it('openProject でダイアログキャンセル時は読み込まない', async () => {
