@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
 use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -44,9 +45,35 @@ pub fn get_file_info(path: String) -> Result<FileInfo, String> {
 }
 
 /// ファイルダイアログを開く（ビデオファイル選択）
-/// 
+///
 /// 注意: フロントエンド側で dialog API を直接使用するため、このコマンドは現在使用されていません。
 #[tauri::command]
 pub fn open_file_dialog() -> Result<Option<String>, String> {
   Ok(None)
+}
+
+/// プロジェクトファイルを保存する
+#[tauri::command]
+pub fn save_project(path: String, content: String) -> Result<(), String> {
+  let file_path = Path::new(&path);
+
+  if let Some(parent) = file_path.parent() {
+    fs::create_dir_all(parent)
+      .map_err(|e| format!("ディレクトリの作成に失敗: {}", e))?;
+  }
+
+  let mut file = fs::File::create(file_path)
+    .map_err(|e| format!("ファイルの作成に失敗: {}", e))?;
+
+  file.write_all(content.as_bytes())
+    .map_err(|e| format!("ファイルの書き込みに失敗: {}", e))?;
+
+  Ok(())
+}
+
+/// プロジェクトファイルを読み込む
+#[tauri::command]
+pub fn read_project(path: String) -> Result<String, String> {
+  fs::read_to_string(&path)
+    .map_err(|e| format!("ファイルの読み込みに失敗: {}", e))
 }

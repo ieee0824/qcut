@@ -5,6 +5,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { useFileOperationsStore } from '@/store/fileOperationsStore';
 import { useVideoPreviewStore } from '@/store/videoPreviewStore';
 import { useTimelineStore } from '@/store/timelineStore';
+import { useProjectStore } from '@/store/projectStore';
 
 export const FileOperations: React.FC = () => {
   const { t } = useTranslation();
@@ -19,6 +20,7 @@ export const FileOperations: React.FC = () => {
 
   const { registerVideoUrl } = useVideoPreviewStore();
   const { addClip, addTrack, tracks } = useTimelineStore();
+  const { saveProject, saveProjectAs, saveStatus } = useProjectStore();
 
   const [showMenu, setShowMenu] = useState(false);
 
@@ -232,6 +234,67 @@ export const FileOperations: React.FC = () => {
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
           }}
         >
+          {/* 保存 */}
+          <button
+            onClick={() => { saveProject(); setShowMenu(false); }}
+            disabled={saveStatus === 'saving'}
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '10px 16px',
+              textAlign: 'left',
+              backgroundColor: 'transparent',
+              color: '#fff',
+              border: 'none',
+              cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              opacity: saveStatus === 'saving' ? 0.6 : 1,
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = '#3a3a3a')
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = 'transparent')
+            }
+          >
+            💾 {t('menu.save')}
+          </button>
+
+          {/* 名前を付けて保存 */}
+          <button
+            onClick={() => { saveProjectAs(); setShowMenu(false); }}
+            disabled={saveStatus === 'saving'}
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '10px 16px',
+              textAlign: 'left',
+              backgroundColor: 'transparent',
+              color: '#fff',
+              border: 'none',
+              cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              opacity: saveStatus === 'saving' ? 0.6 : 1,
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = '#3a3a3a')
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = 'transparent')
+            }
+          >
+            📄 {t('menu.saveAs')}
+          </button>
+
+          {/* 区切り線 */}
+          <div
+            style={{
+              height: '1px',
+              backgroundColor: '#3a3a3a',
+              margin: '4px 0',
+            }}
+          />
+
           {/* ファイルを開く */}
           <button
             onClick={handleOpenFile}

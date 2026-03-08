@@ -41,6 +41,8 @@ pub fn run() {
       commands::video::get_video_info,
       commands::files::get_file_info,
       commands::files::open_file_dialog,
+      commands::files::save_project,
+      commands::files::read_project,
       commands::plugins::list_plugin_dirs,
       commands::plugins::read_plugin_manifest,
       commands::plugins::read_plugin_file,

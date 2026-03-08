@@ -27,6 +27,8 @@ export const DEFAULT_SHORTCUTS: ShortcutEntry[] = [
   { id: 'zoomIn',      label: 'shortcut.zoomIn',      binding: { key: '=',         ctrlOrMeta: false, shift: false, alt: false } },
   { id: 'zoomOut',     label: 'shortcut.zoomOut',      binding: { key: '-',         ctrlOrMeta: false, shift: false, alt: false } },
   { id: 'showHelp',    label: 'shortcut.showHelp',    binding: { key: '?',         ctrlOrMeta: false, shift: true,  alt: false } },
+  { id: 'save',        label: 'shortcut.save',        binding: { key: 's',         ctrlOrMeta: true,  shift: false, alt: false } },
+  { id: 'saveAs',      label: 'shortcut.saveAs',      binding: { key: 's',         ctrlOrMeta: true,  shift: true,  alt: false } },
 ];
 
 const STORAGE_KEY = 'qcut-shortcuts';
