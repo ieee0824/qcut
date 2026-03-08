@@ -289,3 +289,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 }));
+
+// タイムラインの変更を監視して isDirty を自動更新
+useTimelineStore.subscribe(
+  (state, prevState) => {
+    if (state.tracks !== prevState.tracks) {
+      const { loadStatus } = useProjectStore.getState();
+      // プロジェクト読み込み中の変更は無視
+      if (loadStatus !== 'loading') {
+        useProjectStore.getState().markDirty();
+      }
+    }
+  },
+);
