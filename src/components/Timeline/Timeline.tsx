@@ -93,7 +93,8 @@ function Timeline() {
     if (isPanning) return;
 
     // クリップ以外の場所をクリックした場合は選択解除
-    if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.timeline-tracks')) {
+    if (!(e.target as HTMLElement).closest('.timeline-clip') &&
+        (e.target === e.currentTarget || (e.target as HTMLElement).closest('.timeline-tracks'))) {
       setSelectedClip(null, null);
     }
 
