@@ -43,12 +43,13 @@ function App() {
   useEffect(() => {
     const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
       if (useProjectStore.getState().isDirty) {
+        event.preventDefault();
         const confirmed = await ask(
           '未保存の変更があります。保存せずに終了しますか？',
           { title: 'qcut', kind: 'warning' },
         );
-        if (!confirmed) {
-          event.preventDefault();
+        if (confirmed) {
+          await getCurrentWindow().destroy();
         }
       }
     });
