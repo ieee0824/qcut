@@ -33,6 +33,7 @@ pub fn run() {
         }
 
         app.handle().plugin(log_builder.build())?;
+        log::info!("qcut started (debug build)");
       }
       Ok(())
     })

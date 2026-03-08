@@ -34,8 +34,6 @@ impl SqliteLogger {
             [],
         )?;
 
-        log::info!("SQLite logger initialized: {}", db_path.display());
-
         Ok(Self {
             conn: Mutex::new(conn),
         })
