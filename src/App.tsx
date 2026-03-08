@@ -45,7 +45,7 @@ function App() {
       if (useProjectStore.getState().isDirty) {
         event.preventDefault();
         const confirmed = await ask(
-          '未保存の変更があります。保存せずに終了しますか？',
+          t('project.unsavedCloseConfirm'),
           { title: 'qcut', kind: 'warning' },
         );
         if (confirmed) {
@@ -60,7 +60,7 @@ function App() {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, []);
+  }, [t]);
 
   // 自動保存の開始・停止とクラッシュ復旧チェック
   useEffect(() => {

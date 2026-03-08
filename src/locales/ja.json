@@ -165,6 +165,18 @@
     "saveAs": "名前を付けて保存",
     "openProject": "プロジェクトを開く"
   },
+  "project": {
+    "untitled": "無題のプロジェクト",
+    "invalidFile": "無効なプロジェクトファイルです",
+    "schemaNotFound": "スキーマバージョンが見つかりません",
+    "newerVersion": "このファイルはより新しいバージョン (v{{version}}) で作成されています。アプリを更新してください。",
+    "timelineNotFound": "タイムラインデータが見つかりません",
+    "unsavedOpenConfirm": "未保存の変更があります。保存せずに別のプロジェクトを開きますか？",
+    "unsavedCloseConfirm": "未保存の変更があります。保存せずに終了しますか？",
+    "missingFiles": "以下の素材ファイルが見つかりません:\n\n{{files}}",
+    "corruptFile": "不正なプロジェクトファイルです",
+    "autosaveRecover": "「{{name}}」の自動保存データが見つかりました。復旧しますか？"
+  },
   "export": {
     "title": "動画エクスポート",
     "button": "エクスポート",

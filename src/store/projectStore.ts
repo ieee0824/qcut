@@ -6,6 +6,7 @@ import { CURRENT_SCHEMA_VERSION } from '../types/projectFile';
 import { useTimelineStore } from './timelineStore';
 import { useExportStore } from './exportStore';
 import { useVideoPreviewStore } from './videoPreviewStore';
+import i18n from '../i18n';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
@@ -121,18 +122,18 @@ async function writeProjectFile(path: string, projectName: string): Promise<void
 function validateProjectFile(data: unknown): ProjectFile {
   const obj = data as Record<string, unknown>;
   if (!obj || typeof obj !== 'object') {
-    throw new Error('無効なプロジェクトファイルです');
+    throw new Error(i18n.t('project.invalidFile'));
   }
   if (typeof obj.schemaVersion !== 'number') {
-    throw new Error('スキーマバージョンが見つかりません');
+    throw new Error(i18n.t('project.schemaNotFound'));
   }
   if (obj.schemaVersion > CURRENT_SCHEMA_VERSION) {
     throw new Error(
-      `このファイルはより新しいバージョン (v${obj.schemaVersion}) で作成されています。アプリを更新してください。`
+      i18n.t('project.newerVersion', { version: obj.schemaVersion })
     );
   }
   if (!obj.timeline || typeof obj.timeline !== 'object') {
-    throw new Error('タイムラインデータが見つかりません');
+    throw new Error(i18n.t('project.timelineNotFound'));
   }
   return data as ProjectFile;
 }
@@ -205,7 +206,7 @@ async function checkMissingFiles(project: ProjectFile): Promise<string[]> {
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projectFilePath: null,
-  projectName: '無題のプロジェクト',
+  projectName: i18n.t('project.untitled'),
   isDirty: false,
   saveStatus: 'idle',
   saveError: null,
@@ -283,7 +284,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   openProject: async () => {
     if (get().isDirty) {
       const proceed = await ask(
-        '未保存の変更があります。保存せずに別のプロジェクトを開きますか？',
+        i18n.t('project.unsavedOpenConfirm'),
         { title: 'qcut', kind: 'warning' },
       );
       if (!proceed) return;
@@ -330,7 +331,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
       if (missing.length > 0) {
         await message(
-          `以下の素材ファイルが見つかりません:\n\n${missing.join('\n')}`,
+          i18n.t('project.missingFiles', { files: missing.join('\n') }),
           { title: 'qcut', kind: 'warning' },
         );
       }
@@ -344,7 +345,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const errorMsg = e instanceof Error ? e.message : String(e);
       console.error('[projectStore] loadProjectFromPath failed:', errorMsg);
       set({ loadStatus: 'error', loadError: errorMsg });
-      await message('不正なプロジェクトファイルです', { title: 'qcut', kind: 'error' });
+      await message(i18n.t('project.corruptFile'), { title: 'qcut', kind: 'error' });
     }
   },
 
@@ -415,7 +416,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
             : project.metadata.name;
 
           const recover = await ask(
-            `「${displayName}」の自動保存データが見つかりました。復旧しますか？`,
+            i18n.t('project.autosaveRecover', { name: displayName }),
             { title: 'qcut', kind: 'info' },
           );
 
