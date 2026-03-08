@@ -219,7 +219,16 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     if (videoRef.current) {
       const clip = findClipAtTime(currentTimeRef.current);
       const clipVolume = clip?.effects?.volume ?? 1.0;
-      videoRef.current.volume = Math.max(0, Math.min(1, (volume / 100) * clipVolume));
+      const allTracks = useTimelineStore.getState().tracks;
+      const videoTrack = clip ? allTracks.find(t => t.type === 'video' && t.clips.some(c => c.id === clip.id)) : undefined;
+      const hasSolo = allTracks.some(t => t.solo);
+      const isTrackMuted = videoTrack ? (videoTrack.mute || (hasSolo && !videoTrack.solo)) : false;
+      const trackVol = videoTrack?.volume ?? 1.0;
+      if (isTrackMuted) {
+        videoRef.current.volume = 0;
+      } else {
+        videoRef.current.volume = Math.max(0, Math.min(1, (volume / 100) * trackVol * clipVolume));
+      }
     }
   }, [volume, findClipAtTime, currentTimeRef]);
 

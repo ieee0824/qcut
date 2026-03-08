@@ -268,24 +268,36 @@ export const usePlaybackLoop = ({
             videoRef.current.style.opacity = '1';
           }
 
-          // クリップの音量エフェクトを適用（フェードイン/アウトも反映）
+          // クリップの音量エフェクトを適用（トラック音量 + フェードイン/アウトも反映）
           const clipVolume = clip.effects?.volume ?? 1.0;
           const uiVolume = useVideoPreviewStore.getState().volume / 100;
-          const audioFadeIn = clip.effects?.fadeIn ?? 0;
-          const audioFadeOut = clip.effects?.fadeOut ?? 0;
-          let audioFade = 1;
-          if (audioFadeIn > 0 || audioFadeOut > 0) {
-            const elapsedTime = currentTimeRef.current - clip.startTime;
-            const remainingTime = clipEndTime - currentTimeRef.current;
-            if (audioFadeIn > 0 && elapsedTime < audioFadeIn) {
-              audioFade = Math.min(audioFade, elapsedTime / audioFadeIn);
+
+          // トラックレベルの音量・ミュート・ソロを取得
+          const allTracks = useTimelineStore.getState().tracks;
+          const videoTrack = allTracks.find(t => t.type === 'video' && t.clips.some(c => c.id === clip.id));
+          const hasSolo = allTracks.some(t => t.solo);
+          const isTrackMuted = videoTrack ? (videoTrack.mute || (hasSolo && !videoTrack.solo)) : false;
+          const trackVol = videoTrack?.volume ?? 1.0;
+
+          if (isTrackMuted) {
+            videoRef.current.volume = 0;
+          } else {
+            const audioFadeIn = clip.effects?.fadeIn ?? 0;
+            const audioFadeOut = clip.effects?.fadeOut ?? 0;
+            let audioFade = 1;
+            if (audioFadeIn > 0 || audioFadeOut > 0) {
+              const elapsedTime = currentTimeRef.current - clip.startTime;
+              const remainingTime = clipEndTime - currentTimeRef.current;
+              if (audioFadeIn > 0 && elapsedTime < audioFadeIn) {
+                audioFade = Math.min(audioFade, elapsedTime / audioFadeIn);
+              }
+              if (audioFadeOut > 0 && remainingTime < audioFadeOut) {
+                audioFade = Math.min(audioFade, remainingTime / audioFadeOut);
+              }
+              audioFade = Math.max(0, Math.min(1, audioFade));
             }
-            if (audioFadeOut > 0 && remainingTime < audioFadeOut) {
-              audioFade = Math.min(audioFade, remainingTime / audioFadeOut);
-            }
-            audioFade = Math.max(0, Math.min(1, audioFade));
+            videoRef.current.volume = Math.max(0, Math.min(1, uiVolume * trackVol * clipVolume * audioFade));
           }
-          videoRef.current.volume = Math.max(0, Math.min(1, uiVolume * clipVolume * audioFade));
         }
       } else {
         // --- ギャップ区間 ---

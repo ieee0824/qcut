@@ -55,7 +55,7 @@
 }
 
 .timeline-track-headers {
-  width: 150px;
+  width: 170px;
   background-color: #252525;
   border-right: 1px solid #3a3a3a;
   flex-shrink: 0;
@@ -126,12 +126,57 @@
 .track-name {
   font-size: 0.875rem;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.track-type {
-  font-size: 0.75rem;
+.track-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+.track-mute-btn,
+.track-solo-btn {
+  background-color: #3a3a3a;
+  border: none;
   color: #888;
-  text-transform: uppercase;
+  width: 20px;
+  height: 18px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 0.625rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.track-mute-btn:hover,
+.track-solo-btn:hover {
+  background-color: #4a4a4a;
+}
+
+.track-mute-btn.active {
+  background-color: #d32f2f;
+  color: #fff;
+}
+
+.track-solo-btn.active {
+  background-color: #f9a825;
+  color: #1a1a1a;
+}
+
+.track-volume-slider {
+  width: 50px;
+  height: 4px;
+  accent-color: #4a9eff;
+  cursor: pointer;
+  flex-shrink: 1;
+  min-width: 30px;
 }
 
 .timeline-tracks-container {

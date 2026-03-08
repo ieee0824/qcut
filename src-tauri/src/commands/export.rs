@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
-use super::ffmpeg_builder::{build_ffmpeg_args, collect_text_clips, collect_video_clips};
+use super::ffmpeg_builder::{build_ffmpeg_args, collect_audio_clips, collect_text_clips, collect_video_clips};
 use super::progress_parser::ProgressParser;
 
 // --- データ構造 ---
@@ -93,6 +93,12 @@ pub struct ExportTrack {
     pub track_type: String,
     pub name: String,
     pub clips: Vec<ExportClip>,
+    #[serde(default = "default_volume")]
+    pub volume: f64,
+    #[serde(default)]
+    pub mute: bool,
+    #[serde(default)]
+    pub solo: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -158,20 +164,29 @@ pub async fn export_video(
         return Err("タイムラインにクリップがありません".to_string());
     }
 
+    let audio_track_clips = collect_audio_clips(&settings.tracks);
+    let text_clips = collect_text_clips(&settings.tracks);
+
     // ソースファイルの存在チェック
-    for clip in &video_clips {
-        if !clip.file_path.is_empty() && !Path::new(&clip.file_path).exists() {
+    for vtc in &video_clips {
+        if !vtc.clip.file_path.is_empty() && !Path::new(&vtc.clip.file_path).exists() {
             return Err(format!(
                 "ソースファイルが見つかりません: {}",
-                clip.file_path
+                vtc.clip.file_path
+            ));
+        }
+    }
+    for atc in &audio_track_clips {
+        if !atc.clip.file_path.is_empty() && !Path::new(&atc.clip.file_path).exists() {
+            return Err(format!(
+                "ソースファイルが見つかりません: {}",
+                atc.clip.file_path
             ));
         }
     }
 
-    let text_clips = collect_text_clips(&settings.tracks);
-
     // FFmpegコマンドを構築
-    let args = build_ffmpeg_args(&settings, &video_clips, &text_clips)?;
+    let args = build_ffmpeg_args(&settings, &video_clips, &text_clips, &audio_track_clips)?;
     log::info!("FFmpeg command: ffmpeg {}", args.join(" "));
 
     // FFmpegをサブプロセスとして起動
@@ -201,7 +216,7 @@ pub async fn export_video(
     } else {
         video_clips
             .iter()
-            .map(|c| c.start_time + c.duration)
+            .map(|c| c.clip.start_time + c.clip.duration)
             .fold(0.0_f64, f64::max)
     };
     log::info!("Export total_duration: {:.3}s", total_duration);

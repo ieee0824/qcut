@@ -1,6 +1,7 @@
 import { useTimelineStore } from '../../store/timelineStore';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Track from './Track';
 import Playhead from './Playhead';
 import './Timeline.css';
@@ -42,8 +43,12 @@ function Timeline() {
     setCurrentTime,
     setSelectedClip,
     removeTrack,
+    updateTrackVolume,
+    toggleMute,
+    toggleSolo,
   } = useTimelineStore();
 
+  const { t } = useTranslation();
   const videoPreviewStore = useVideoPreviewStore();
   const timelineContainerRef = useRef<HTMLDivElement>(null);
   const trackHeadersRef = useRef<HTMLDivElement>(null);
@@ -139,7 +144,32 @@ function Timeline() {
               <div key={track.id} className="timeline-track-header" data-track-type={track.type}>
                 <div className="track-header-info">
                   <span className="track-name">{displayName}</span>
-                  <span className="track-type">{track.type}</span>
+                  <div className="track-header-controls">
+                    <button
+                      className={`track-mute-btn${track.mute ? ' active' : ''}`}
+                      title={track.mute ? t('timeline.unmute') : t('timeline.mute')}
+                      onClick={() => toggleMute(track.id)}
+                    >
+                      M
+                    </button>
+                    <button
+                      className={`track-solo-btn${track.solo ? ' active' : ''}`}
+                      title={track.solo ? t('timeline.unSolo') : t('timeline.solo')}
+                      onClick={() => toggleSolo(track.id)}
+                    >
+                      S
+                    </button>
+                    <input
+                      type="range"
+                      className="track-volume-slider"
+                      min={0}
+                      max={2}
+                      step={0.01}
+                      value={track.volume}
+                      title={`${t('timeline.volume')}: ${Math.round(track.volume * 100)}%`}
+                      onChange={(e) => updateTrackVolume(track.id, parseFloat(e.target.value))}
+                    />
+                  </div>
                 </div>
                 <button
                   className="track-delete-btn"

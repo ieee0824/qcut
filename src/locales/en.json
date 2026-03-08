@@ -67,7 +67,12 @@
     "videoTracks": "Video Tracks",
     "audioTracks": "Audio Tracks",
     "addTrack": "Add Track",
-    "addAudioTrack": "Add Audio Track"
+    "addAudioTrack": "Add Audio Track",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "solo": "Solo",
+    "unSolo": "Unsolo",
+    "volume": "Volume"
   },
   "text": {
     "title": "Text",

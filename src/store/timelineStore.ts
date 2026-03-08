@@ -109,6 +109,9 @@ export interface Track {
   type: 'video' | 'audio' | 'text';
   name: string;
   clips: Clip[];
+  volume: number;  // 0〜2, default 1.0（トラック全体のゲイン）
+  mute: boolean;
+  solo: boolean;
 }
 
 export interface TimelineState {
@@ -138,8 +141,11 @@ export interface TimelineState {
   updateClip: (trackId: string, clipId: string, updates: Partial<Clip>) => void;
   updateClipSilent: (trackId: string, clipId: string, updates: Partial<Clip>) => void;
   commitHistory: () => void;
-  addTrack: (track: Track) => void;
+  addTrack: (track: Omit<Track, 'volume' | 'mute' | 'solo'> & Partial<Pick<Track, 'volume' | 'mute' | 'solo'>>) => void;
   removeTrack: (trackId: string) => void;
+  updateTrackVolume: (trackId: string, volume: number) => void;
+  toggleMute: (trackId: string) => void;
+  toggleSolo: (trackId: string) => void;
   moveClipToTrack: (fromTrackId: string, clipId: string, toTrackId: string) => void;
   zoomIn: () => void;
   zoomOut: () => void;
@@ -273,12 +279,41 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   addTrack: (track) => set((state) => {
     logAction('addTrack', `id=${track.id} type=${track.type}`);
-    return withHistory(state, [...state.tracks, track]);
+    const withDefaults: Track = { ...track, volume: track.volume ?? 1.0, mute: track.mute ?? false, solo: track.solo ?? false };
+    return withHistory(state, [...state.tracks, withDefaults]);
   }),
 
   removeTrack: (trackId) => set((state) => {
     logAction('removeTrack', `id=${trackId}`);
     return withHistory(state, state.tracks.filter(t => t.id !== trackId));
+  }),
+
+  updateTrackVolume: (trackId, volume) => set((state) => {
+    logAction('updateTrackVolume', `track=${trackId} volume=${volume.toFixed(2)}`);
+    const newTracks = state.tracks.map(t =>
+      t.id === trackId ? { ...t, volume } : t
+    );
+    return withHistory(state, newTracks);
+  }),
+
+  toggleMute: (trackId) => set((state) => {
+    const track = state.tracks.find(t => t.id === trackId);
+    if (!track) return state;
+    logAction('toggleMute', `track=${trackId} mute=${!track.mute}`);
+    const newTracks = state.tracks.map(t =>
+      t.id === trackId ? { ...t, mute: !t.mute } : t
+    );
+    return withHistory(state, newTracks);
+  }),
+
+  toggleSolo: (trackId) => set((state) => {
+    const track = state.tracks.find(t => t.id === trackId);
+    if (!track) return state;
+    logAction('toggleSolo', `track=${trackId} solo=${!track.solo}`);
+    const newTracks = state.tracks.map(t =>
+      t.id === trackId ? { ...t, solo: !t.solo } : t
+    );
+    return withHistory(state, newTracks);
   }),
 
   moveClipToTrack: (fromTrackId, clipId, toTrackId) => set((state) => {

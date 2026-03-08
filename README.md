@@ -41,6 +41,7 @@
 - 音量調整・フェードイン/フェードアウト
 - 3バンドイコライザー（Low 100Hz / Mid 1kHz / High 10kHz、±12dB）
 - EQプリセット（Flat・Bass Boost・Vocal・Treble Cut）
+- マルチトラック音声ミキシング（トラック音量・ミュート・ソロ、エクスポート時 amix 合成）
 - プレビュー再生時のエフェクト反映
 
 **テキスト・字幕**
@@ -87,7 +88,6 @@
 - キーフレームアニメーション ([#28](https://github.com/ieee0824/qcut/issues/28))
 - ノイズリダクション ([#70](https://github.com/ieee0824/qcut/issues/70))
 - 音声エフェクト（エコー、リバーブ） ([#71](https://github.com/ieee0824/qcut/issues/71))
-- マルチトラック音声ミキシング ([#68](https://github.com/ieee0824/qcut/issues/68))
 - プレビュー用プリレンダリング ([#59](https://github.com/ieee0824/qcut/issues/59))
 - LLMによる自然言語での動画編集操作 ([#82](https://github.com/ieee0824/qcut/issues/82))
 
