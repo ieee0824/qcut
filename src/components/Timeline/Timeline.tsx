@@ -86,17 +86,18 @@ function Timeline() {
       panStartX.current = e.clientX;
       panStartScrollLeft.current = timelineContainerRef.current?.scrollLeft || 0;
     }
+
+    // クリップ以外の場所をクリックした場合は選択解除
+    // mousedown で処理する（click だと isDragging の再レンダーで e.target がずれるため）
+    if (!(e.target as HTMLElement).closest('.timeline-clip') &&
+        (e.target === e.currentTarget || (e.target as HTMLElement).closest('.timeline-tracks'))) {
+      setSelectedClip(null, null);
+    }
   };
 
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // パンニング中はクリック処理をしない
     if (isPanning) return;
-
-    // クリップ以外の場所をクリックした場合は選択解除
-    if (!(e.target as HTMLElement).closest('.timeline-clip') &&
-        (e.target === e.currentTarget || (e.target as HTMLElement).closest('.timeline-tracks'))) {
-      setSelectedClip(null, null);
-    }
 
     // ルーラー領域のクリックのみシーク（トラック領域ではシークしない）
     if ((e.target as HTMLElement).closest('.timeline-ruler')) {
