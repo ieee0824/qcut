@@ -333,6 +333,22 @@ pub(crate) fn build_ffmpeg_args(
                 if effects.highpass_freq > 1.0 {
                     afilter.push_str(&format!(",highpass=f={:.0}", effects.highpass_freq));
                 }
+                // エコー
+                if effects.echo_delay > 1.0 {
+                    let decay = effects.echo_decay.clamp(0.01, 0.9);
+                    afilter.push_str(&format!(",aecho=0.8:0.9:{:.0}:{:.2}", effects.echo_delay, decay));
+                }
+                // リバーブ（マルチタップ aecho でシミュレート）
+                if effects.reverb_amount > 0.01 {
+                    let a = effects.reverb_amount;
+                    afilter.push_str(&format!(
+                        ",aecho=0.8:{:.2}:40|80|120:{:.2}|{:.2}|{:.2}",
+                        1.0 - a * 0.15,
+                        a * 0.4,
+                        a * 0.3,
+                        a * 0.2
+                    ));
+                }
             }
         }
         afilter.push_str(&format!("[{}]", a_label));
@@ -494,6 +510,22 @@ pub(crate) fn build_ffmpeg_args(
                 // ハイパスフィルター
                 if effects.highpass_freq > 1.0 {
                     afilter.push_str(&format!(",highpass=f={:.0}", effects.highpass_freq));
+                }
+                // エコー
+                if effects.echo_delay > 1.0 {
+                    let decay = effects.echo_decay.clamp(0.01, 0.9);
+                    afilter.push_str(&format!(",aecho=0.8:0.9:{:.0}:{:.2}", effects.echo_delay, decay));
+                }
+                // リバーブ（マルチタップ aecho でシミュレート）
+                if effects.reverb_amount > 0.01 {
+                    let a = effects.reverb_amount;
+                    afilter.push_str(&format!(
+                        ",aecho=0.8:{:.2}:40|80|120:{:.2}|{:.2}|{:.2}",
+                        1.0 - a * 0.15,
+                        a * 0.4,
+                        a * 0.3,
+                        a * 0.2
+                    ));
                 }
             }
 

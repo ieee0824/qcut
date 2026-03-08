@@ -15,6 +15,18 @@ const EQ_PRESETS: EqPreset[] = [
   { label: 'effects.eqPresetTrebleCut', values: { eqLow: 0, eqMid: 0, eqHigh: -6 } },
 ];
 
+interface ReverbPreset {
+  label: string;
+  values: { reverbAmount: number };
+}
+
+const REVERB_PRESETS: ReverbPreset[] = [
+  { label: 'effects.reverbOff', values: { reverbAmount: 0 } },
+  { label: 'effects.reverbSmallRoom', values: { reverbAmount: 0.3 } },
+  { label: 'effects.reverbHall', values: { reverbAmount: 0.6 } },
+  { label: 'effects.reverbChurch', values: { reverbAmount: 0.9 } },
+];
+
 interface EffectSliderProps {
   label: string;
   value: number;
@@ -195,7 +207,14 @@ export const EffectsPanel: React.FC = () => {
                 border: '1px solid #555',
                 borderRadius: '4px',
               }}
-              value=""
+              value={(() => {
+                const idx = EQ_PRESETS.findIndex(p =>
+                  p.values.eqLow === effects.eqLow &&
+                  p.values.eqMid === effects.eqMid &&
+                  p.values.eqHigh === effects.eqHigh
+                );
+                return idx >= 0 ? String(idx) : '';
+              })()}
             >
               <option value="" disabled>{t('effects.eqSelectPreset')}</option>
               {EQ_PRESETS.map((p, i) => (
@@ -246,6 +265,63 @@ export const EffectsPanel: React.FC = () => {
             min={0}
             max={500}
             step={10}
+          />
+
+          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
+            {t('effects.echoReverb')}
+          </h4>
+          <EffectSlider
+            label={t('effects.echoDelay')}
+            value={effects.echoDelay}
+            onChange={(v) => handleChange('echoDelay', v)}
+            min={0}
+            max={1000}
+            step={10}
+          />
+          <EffectSlider
+            label={t('effects.echoDecay')}
+            value={effects.echoDecay}
+            onChange={(v) => handleChange('echoDecay', v)}
+            min={0}
+            max={0.9}
+            step={0.01}
+          />
+          <div style={{ marginBottom: '8px' }}>
+            <select
+              onChange={(e) => {
+                const preset = REVERB_PRESETS[parseInt(e.target.value)];
+                if (!preset || !selectedTrackId || !selectedClipId) return;
+                updateClip(selectedTrackId, selectedClipId, {
+                  effects: { ...effects, ...preset.values },
+                });
+              }}
+              style={{
+                width: '100%',
+                padding: '4px',
+                fontSize: '12px',
+                backgroundColor: '#3a3a3a',
+                color: '#ccc',
+                border: '1px solid #555',
+                borderRadius: '4px',
+              }}
+              value={(() => {
+                const idx = REVERB_PRESETS.findIndex(p => p.values.reverbAmount === effects.reverbAmount);
+                return idx >= 0 ? String(idx) : '';
+              })()}
+            >
+              <option value="" disabled>{t('effects.reverbSelectPreset')}</option>
+              {REVERB_PRESETS.map((p, i) => (
+                <option key={i} value={i}>{t(p.label)}</option>
+              ))}
+            </select>
+          </div>
+          <EffectSlider
+            label={t('effects.reverbAmount')}
+            value={effects.reverbAmount}
+            onChange={(v) => handleChange('reverbAmount', v)}
+            min={0}
+            max={1}
+            step={0.01}
           />
 
           <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>

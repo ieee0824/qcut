@@ -55,7 +55,16 @@
     "eqPresetTrebleCut": "Treble Cut",
     "noiseReduction": "Noise Reduction",
     "denoiseAmount": "Reduction Amount",
-    "highpassFreq": "Highpass (Hz)"
+    "highpassFreq": "Highpass (Hz)",
+    "echoReverb": "Echo / Reverb",
+    "echoDelay": "Echo Delay (ms)",
+    "echoDecay": "Echo Decay",
+    "reverbAmount": "Reverb Amount",
+    "reverbSelectPreset": "Select Preset",
+    "reverbOff": "Off",
+    "reverbSmallRoom": "Small Room",
+    "reverbHall": "Hall",
+    "reverbChurch": "Church"
   },
   "transform": {
     "title": "Transform",

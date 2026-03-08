@@ -55,7 +55,16 @@
     "eqPresetTrebleCut": "高音カット",
     "noiseReduction": "ノイズリダクション",
     "denoiseAmount": "ノイズ除去量",
-    "highpassFreq": "ハイパス (Hz)"
+    "highpassFreq": "ハイパス (Hz)",
+    "echoReverb": "エコー / リバーブ",
+    "echoDelay": "エコー遅延 (ms)",
+    "echoDecay": "エコー減衰",
+    "reverbAmount": "リバーブ量",
+    "reverbSelectPreset": "プリセットから選択",
+    "reverbOff": "オフ",
+    "reverbSmallRoom": "小部屋",
+    "reverbHall": "ホール",
+    "reverbChurch": "教会"
   },
   "transform": {
     "title": "トランスフォーム",

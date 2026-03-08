@@ -38,6 +38,16 @@ pub struct ClipEffects {
     pub denoise_amount: f64,
     #[serde(default)]
     pub highpass_freq: f64,
+    #[serde(default)]
+    pub echo_delay: f64,
+    #[serde(default = "default_echo_decay")]
+    pub echo_decay: f64,
+    #[serde(default)]
+    pub reverb_amount: f64,
+}
+
+fn default_echo_decay() -> f64 {
+    0.3
 }
 
 fn default_volume() -> f64 {
