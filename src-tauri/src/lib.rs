@@ -44,7 +44,6 @@ pub fn run() {
       commands::files::save_project,
       commands::files::read_project,
       commands::files::get_autosave_path,
-      commands::files::delete_autosave,
       commands::files::delete_file,
       commands::files::list_autosaves,
       commands::plugins::list_plugin_dirs,

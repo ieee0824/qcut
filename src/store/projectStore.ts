@@ -11,6 +11,7 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
 let autosaveTimerId: number | null = null;
+let autosaveFilePath: string | null = null;
 
 export const AUTOSAVE_INTERVAL_MS = 2 * 60 * 1000; // 2分
 
@@ -339,16 +340,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (!isDirty) return;
 
     try {
-      const projectPath = projectFilePath ?? '';
-      const autosavePath = await invoke<string>('get_autosave_path', { projectPath });
+      // 初回は UUID パスを生成、以降は同じパスに上書き
+      if (!autosaveFilePath) {
+        autosaveFilePath = await invoke<string>('get_autosave_path');
+      }
       const projectFile = buildProjectFile(projectName);
       // 元のプロジェクトファイルパスを metadata に記録（復旧時に使用）
       if (projectFilePath) {
         projectFile.metadata.originalPath = projectFilePath;
       }
       const content = JSON.stringify(projectFile, null, 2);
-      await invoke('save_project', { path: autosavePath, content });
-      console.info('[autosave] 自動保存完了:', autosavePath);
+      await invoke('save_project', { path: autosaveFilePath, content });
+      console.info('[autosave] 自動保存完了:', autosaveFilePath);
     } catch (e) {
       console.error('[autosave] 自動保存に失敗:', e);
     }
@@ -413,9 +416,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   deleteAutosave: async () => {
+    if (!autosaveFilePath) return;
     try {
-      const projectPath = get().projectFilePath ?? '';
-      await invoke('delete_autosave', { projectPath });
+      await invoke('delete_file', { path: autosaveFilePath });
+      autosaveFilePath = null;
     } catch (e) {
       console.error('[autosave] 削除に失敗:', e);
     }
