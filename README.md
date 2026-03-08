@@ -65,7 +65,42 @@
 - Node.js (v20.19+) / npm
 - Rust (最新安定版)
 - Tauri CLI
-- FFmpeg（動画エクスポートに必要）
+- FFmpeg（動画エクスポートに必要、下記のビルドオプション参照）
+
+### FFmpeg のセットアップ
+
+テキストオーバーレイ機能を使用するには、`drawtext` フィルター（freetype / fontconfig）が有効な FFmpeg が必要です。
+
+**macOS (Homebrew):**
+
+標準の `brew install ffmpeg` では drawtext フィルターが含まれません。`homebrew-ffmpeg` tap を使用してください。
+
+```bash
+# 標準版がインストール済みの場合は先にアンインストール
+brew uninstall ffmpeg
+
+# homebrew-ffmpeg tap を追加してインストール（freetype がデフォルトで有効）
+brew tap homebrew-ffmpeg/ffmpeg
+brew install homebrew-ffmpeg/ffmpeg/ffmpeg
+```
+
+**Ubuntu / Debian:**
+
+```bash
+sudo apt install ffmpeg libfreetype6-dev libfontconfig1-dev
+```
+
+**Windows:**
+
+[gyan.dev](https://www.gyan.dev/ffmpeg/builds/) から full build をダウンロードし、PATH に追加してください。full build には drawtext フィルターが含まれています。
+
+**確認方法:**
+
+```bash
+ffmpeg -filters 2>/dev/null | grep drawtext
+```
+
+`drawtext` が表示されれば OK です。
 
 ### 開発手順
 

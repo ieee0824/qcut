@@ -7,6 +7,9 @@ export interface VideoPreviewState {
   duration: number; // 秒単位
   volume: number; // 0-100
 
+  // プレビューコンテナサイズ
+  previewContainerHeight: number;
+
   // 動画ファイル情報
   videoFile: File | null;
   videoUrl: string | null;
@@ -14,6 +17,7 @@ export interface VideoPreviewState {
 
   // 操作メソッド
   setIsPlaying: (playing: boolean) => void;
+  setPreviewContainerHeight: (height: number) => void;
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
   setVolume: (volume: number) => void;
@@ -28,11 +32,13 @@ export const useVideoPreviewStore = create<VideoPreviewState>((set) => ({
   currentTime: 0,
   duration: 0,
   volume: 100,
+  previewContainerHeight: 0,
   videoFile: null,
   videoUrl: null,
   videoUrls: {},
 
   setIsPlaying: (playing) => set({ isPlaying: playing }),
+  setPreviewContainerHeight: (height) => set({ previewContainerHeight: height }),
   setCurrentTime: (time) => set({ currentTime: time }),
   setDuration: (duration) => set({ duration }),
   setVolume: (volume) => set({ volume: Math.max(0, Math.min(100, volume)) }),

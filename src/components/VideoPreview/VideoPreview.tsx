@@ -26,9 +26,24 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     setIsPlaying,
     setCurrentTime: setVideoPreviewCurrentTime,
     setDuration,
+    setPreviewContainerHeight,
   } = useVideoPreviewStore();
 
   const tracks = useTimelineStore((s) => s.tracks);
+
+  // プレビューコンテナの高さを監視
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = previewContainerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setPreviewContainerHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [setPreviewContainerHeight]);
 
   // 共有 ref（複数フックで使用するため親で作成）
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -267,7 +282,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       }}
     >
       {/* ビデオプレイヤー */}
-      <div style={{ position: 'relative', width: '100%', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div ref={previewContainerRef} style={{ position: 'relative', width: '100%', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <video
           ref={videoRef}
           onLoadedMetadata={handleMetadata}

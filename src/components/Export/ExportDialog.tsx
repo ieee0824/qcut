@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { save } from '@tauri-apps/plugin-dialog';
 import { useExportStore, ExportFormat } from '../../store/exportStore';
 import { useTimelineStore } from '../../store/timelineStore';
+import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import './ExportDialog.css';
 
 interface ExportProgressPayload {
@@ -56,6 +57,7 @@ export const ExportDialog: React.FC = () => {
   } = useExportStore();
   const tracks = useTimelineStore((s) => s.tracks);
   const duration = useTimelineStore((s) => s.duration);
+  const previewContainerHeight = useVideoPreviewStore((s) => s.previewContainerHeight);
 
   // バックエンドからの進捗イベントをリッスン
   useEffect(() => {
@@ -109,12 +111,13 @@ export const ExportDialog: React.FC = () => {
           outputPath,
           tracks,
           totalDuration: duration,
+          previewHeight: previewContainerHeight > 0 ? previewContainerHeight : settings.height,
         },
       });
     } catch (e) {
       setError(String(e));
     }
-  }, [outputPath, settings, tracks, duration, setStatus, setProgress, setError, t]);
+  }, [outputPath, settings, tracks, duration, previewContainerHeight, setStatus, setProgress, setError, t]);
 
   const handleCancel = useCallback(async () => {
     try {
