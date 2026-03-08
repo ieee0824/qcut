@@ -39,7 +39,7 @@ function App() {
     getCurrentWindow().setTitle(title);
   }, [projectName, isDirty]);
 
-  // 未保存変更がある状態でウィンドウを閉じる時に警告
+  // 未保存変更がある状態でウィンドウを閉じる時に警告、正常終了時に自動保存ファイルを削除
   useEffect(() => {
     const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
       if (useProjectStore.getState().isDirty) {
@@ -49,12 +49,26 @@ function App() {
           { title: 'qcut', kind: 'warning' },
         );
         if (confirmed) {
+          await useProjectStore.getState().deleteAutosave();
           await getCurrentWindow().destroy();
         }
+      } else {
+        // 未保存変更がない場合も自動保存ファイルを削除して正常終了
+        await useProjectStore.getState().deleteAutosave();
       }
     });
     return () => {
       unlisten.then((fn) => fn());
+    };
+  }, []);
+
+  // 自動保存の開始・停止とクラッシュ復旧チェック
+  useEffect(() => {
+    const projectStore = useProjectStore.getState();
+    projectStore.checkAndRecoverAutosave();
+    projectStore.startAutosave();
+    return () => {
+      projectStore.stopAutosave();
     };
   }, []);
 

@@ -33,6 +33,8 @@ export interface ProjectMetadata {
   name: string;
   /** プロジェクトファイルの保存先ディレクトリからの相対パスで素材を参照するための基準パス */
   basePath?: string;
+  /** 自動保存時に元のプロジェクトファイルパスを記録する（復旧時に使用） */
+  originalPath?: string;
 }
 
 // --- タイムライン ---
