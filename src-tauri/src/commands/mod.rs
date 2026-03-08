@@ -6,4 +6,5 @@ pub mod ffmpeg_builder;
 pub mod progress_parser;
 pub mod presets;
 pub mod waveform;
+pub mod logging;
 

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { logAction } from './actionLogger';
 
 export interface ClipEffects {
   brightness: number;  // 0〜2, default 1.0
@@ -206,6 +207,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   setIsPlaying: (playing) => set({ isPlaying: playing }),
 
   addClip: (trackId, clip) => set((state) => {
+    logAction('addClip', `track=${trackId} clip=${clip.name}`);
     const newTracks = state.tracks.map(track =>
       track.id === trackId
         ? { ...track, clips: [...track.clips, clip] }
@@ -215,6 +217,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   }),
 
   removeClip: (trackId, clipId) => set((state) => {
+    logAction('removeClip', `track=${trackId} clip=${clipId}`);
     const newTracks = state.tracks
       .map((track) =>
         track.id === trackId
@@ -233,6 +236,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   }),
 
   updateClip: (trackId, clipId, updates) => set((state) => {
+    logAction('updateClip', `track=${trackId} clip=${clipId} keys=${Object.keys(updates).join(',')}`);
     const newTracks = state.tracks.map(track =>
       track.id === trackId
         ? {
@@ -267,16 +271,19 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     return { _history: history, _historyIndex: history.length - 1 };
   }),
 
-  addTrack: (track) => set((state) =>
-    withHistory(state, [...state.tracks, track])
-  ),
+  addTrack: (track) => set((state) => {
+    logAction('addTrack', `id=${track.id} type=${track.type}`);
+    return withHistory(state, [...state.tracks, track]);
+  }),
 
-  removeTrack: (trackId) => set((state) =>
-    withHistory(state, state.tracks.filter(t => t.id !== trackId))
-  ),
+  removeTrack: (trackId) => set((state) => {
+    logAction('removeTrack', `id=${trackId}`);
+    return withHistory(state, state.tracks.filter(t => t.id !== trackId));
+  }),
 
   moveClipToTrack: (fromTrackId, clipId, toTrackId) => set((state) => {
     if (fromTrackId === toTrackId) return state;
+    logAction('moveClipToTrack', `clip=${clipId} from=${fromTrackId} to=${toTrackId}`);
     const fromTrack = state.tracks.find(t => t.id === fromTrackId);
     if (!fromTrack) return state;
     const clip = fromTrack.clips.find(c => c.id === clipId);
@@ -307,6 +314,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   // トランジション
   setTransition: (trackId, clipId, transition) => set((state) => {
+    logAction('setTransition', `track=${trackId} clip=${clipId} type=${transition.type}`);
     const newTracks = state.tracks.map(track =>
       track.id === trackId
         ? {
@@ -321,6 +329,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   }),
 
   removeTransition: (trackId, clipId) => set((state) => {
+    logAction('removeTransition', `track=${trackId} clip=${clipId}`);
     const newTracks = state.tracks.map(track =>
       track.id === trackId
         ? {
@@ -341,6 +350,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   }),
 
   splitClipAtTime: (trackId, clipId, splitTime) => set((state) => {
+    logAction('splitClipAtTime', `track=${trackId} clip=${clipId} time=${splitTime.toFixed(2)}`);
     const track = state.tracks.find(t => t.id === trackId);
     if (!track) return state;
 
@@ -383,6 +393,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   deleteSelectedClip: () => set((state) => {
     if (!state.selectedClipId || !state.selectedTrackId) return state;
+    logAction('deleteSelectedClip', `track=${state.selectedTrackId} clip=${state.selectedClipId}`);
 
     const newTracks = state.tracks
       .map((track) =>
@@ -405,6 +416,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   // Undo/Redo
   undo: () => set((state) => {
     if (state._historyIndex <= 0) return state;
+    logAction('undo', `index=${state._historyIndex - 1}`);
     const newIndex = state._historyIndex - 1;
     return {
       tracks: JSON.parse(JSON.stringify(state._history[newIndex])),
@@ -416,6 +428,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   redo: () => set((state) => {
     if (state._historyIndex >= state._history.length - 1) return state;
+    logAction('redo', `index=${state._historyIndex + 1}`);
     const newIndex = state._historyIndex + 1;
     return {
       tracks: JSON.parse(JSON.stringify(state._history[newIndex])),
@@ -434,6 +447,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   // クリップボード
   copySelectedClip: () => set((state) => {
     if (!state.selectedClipId || !state.selectedTrackId) return state;
+    logAction('copySelectedClip', `track=${state.selectedTrackId} clip=${state.selectedClipId}`);
     const track = state.tracks.find(t => t.id === state.selectedTrackId);
     const clip = track?.clips.find(c => c.id === state.selectedClipId);
     if (!track || !clip) return state;
@@ -442,6 +456,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   pasteClip: () => set((state) => {
     if (!state._clipboard) return state;
+    logAction('pasteClip', `clip=${state._clipboard.clip.name}`);
     const { clip, trackId: sourceTrackId, trackType: sourceType } = state._clipboard;
 
     // ペースト先: 選択中トラック → コピー元トラック → 同タイプの最初のトラック
