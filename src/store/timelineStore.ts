@@ -137,6 +137,7 @@ export interface TimelineState {
   updateClip: (trackId: string, clipId: string, updates: Partial<Clip>) => void;
   addTrack: (track: Track) => void;
   removeTrack: (trackId: string) => void;
+  moveClipToTrack: (fromTrackId: string, clipId: string, toTrackId: string) => void;
   zoomIn: () => void;
   zoomOut: () => void;
 
@@ -250,6 +251,27 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   removeTrack: (trackId) => set((state) =>
     withHistory(state, state.tracks.filter(t => t.id !== trackId))
   ),
+
+  moveClipToTrack: (fromTrackId, clipId, toTrackId) => set((state) => {
+    if (fromTrackId === toTrackId) return state;
+    const fromTrack = state.tracks.find(t => t.id === fromTrackId);
+    if (!fromTrack) return state;
+    const clip = fromTrack.clips.find(c => c.id === clipId);
+    if (!clip) return state;
+    const newTracks = state.tracks.map(track => {
+      if (track.id === fromTrackId) {
+        return { ...track, clips: track.clips.filter(c => c.id !== clipId) };
+      }
+      if (track.id === toTrackId) {
+        return { ...track, clips: [...track.clips, clip] };
+      }
+      return track;
+    });
+    return {
+      ...withHistory(state, newTracks),
+      selectedTrackId: toTrackId,
+    };
+  }),
 
   // ズーム
   zoomIn: () => set((state) => ({
