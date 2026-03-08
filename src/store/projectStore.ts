@@ -287,8 +287,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }, 2000);
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error('[projectStore] loadProjectFromPath failed:', errorMsg);
       set({ loadStatus: 'error', loadError: errorMsg });
-      await message(errorMsg, { title: 'qcut', kind: 'error' });
+      await message('不正なプロジェクトファイルです', { title: 'qcut', kind: 'error' });
     }
   },
 }));
