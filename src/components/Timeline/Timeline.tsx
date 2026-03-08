@@ -41,12 +41,14 @@ function Timeline() {
     zoomOut,
     setCurrentTime,
     setSelectedClip,
+    removeTrack,
   } = useTimelineStore();
 
   const videoPreviewStore = useVideoPreviewStore();
   const timelineContainerRef = useRef<HTMLDivElement>(null);
   const trackHeadersRef = useRef<HTMLDivElement>(null);
   const [isPanning, setIsPanning] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ trackId: string; trackName: string; clipCount: number } | null>(null);
   const panStartX = useRef(0);
   const panStartScrollLeft = useRef(0);
 
@@ -133,8 +135,23 @@ function Timeline() {
 
             return (
               <div key={track.id} className="timeline-track-header" data-track-type={track.type}>
-                <span className="track-name">{displayName}</span>
-                <span className="track-type">{track.type}</span>
+                <div className="track-header-info">
+                  <span className="track-name">{displayName}</span>
+                  <span className="track-type">{track.type}</span>
+                </div>
+                <button
+                  className="track-delete-btn"
+                  title="トラックを削除"
+                  onClick={() => {
+                    if (track.clips.length > 0) {
+                      setConfirmDelete({ trackId: track.id, trackName: track.name, clipCount: track.clips.length });
+                    } else {
+                      removeTrack(track.id);
+                    }
+                  }}
+                >
+                  ×
+                </button>
               </div>
             );
           })}
@@ -171,6 +188,18 @@ function Timeline() {
           </div>
         </div>
       </div>
+
+      {confirmDelete && (
+        <div className="confirm-dialog-overlay" onClick={() => setConfirmDelete(null)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <p>「{confirmDelete.trackName}」にはクリップが{confirmDelete.clipCount}件あります。削除しますか？</p>
+            <div className="confirm-dialog-buttons">
+              <button className="confirm-dialog-cancel" onClick={() => setConfirmDelete(null)}>キャンセル</button>
+              <button className="confirm-dialog-ok" onClick={() => { removeTrack(confirmDelete.trackId); setConfirmDelete(null); }}>削除</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
