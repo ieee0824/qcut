@@ -17,14 +17,17 @@ export const useAudioTrackPlayback = () => {
   const audioMapRef = useRef<Map<string, AudioEntry>>(new Map());
   const rafRef = useRef<number | null>(null);
 
-  // 音声トラックのクリップ一覧を取得
-  const getAudioClips = useCallback((): (Clip & { trackId: string })[] => {
+  // 音声トラックのクリップ一覧を取得（トラックレベルの volume/mute 情報付き）
+  const getAudioClips = useCallback((): (Clip & { trackId: string; trackVolume: number; trackMuted: boolean })[] => {
     const tracks = useTimelineStore.getState().tracks;
-    const result: (Clip & { trackId: string })[] = [];
+    const hasSolo = tracks.some(t => t.solo);
+    const result: (Clip & { trackId: string; trackVolume: number; trackMuted: boolean })[] = [];
     for (const track of tracks) {
       if (track.type === 'audio') {
+        // ソロモード: ソロが1つでもあれば、ソロでないトラックはミュート扱い
+        const isMuted = track.mute || (hasSolo && !track.solo);
         for (const clip of track.clips) {
-          result.push({ ...clip, trackId: track.id });
+          result.push({ ...clip, trackId: track.id, trackVolume: track.volume, trackMuted: isMuted });
         }
       }
     }
@@ -79,19 +82,24 @@ export const useAudioTrackPlayback = () => {
         const relativeTime = currentTime - clip.startTime;
         const sourceTime = clip.sourceStartTime + relativeTime;
 
-        // 音量計算（エフェクト + フェード + UI音量）
-        const clipVolume = clip.effects?.volume ?? 1.0;
-        const fadeIn = clip.effects?.fadeIn ?? 0;
-        const fadeOut = clip.effects?.fadeOut ?? 0;
-        let audioFade = 1;
-        if (fadeIn > 0 && relativeTime < fadeIn) {
-          audioFade = Math.min(audioFade, relativeTime / fadeIn);
+        // 音量計算（トラックミュート + トラック音量 + エフェクト + フェード + UI音量）
+        if (clip.trackMuted) {
+          audio.volume = 0;
+        } else {
+          const clipVolume = clip.effects?.volume ?? 1.0;
+          const trackVol = clip.trackVolume;
+          const fadeIn = clip.effects?.fadeIn ?? 0;
+          const fadeOut = clip.effects?.fadeOut ?? 0;
+          let audioFade = 1;
+          if (fadeIn > 0 && relativeTime < fadeIn) {
+            audioFade = Math.min(audioFade, relativeTime / fadeIn);
+          }
+          const remaining = clipEnd - currentTime;
+          if (fadeOut > 0 && remaining < fadeOut) {
+            audioFade = Math.min(audioFade, remaining / fadeOut);
+          }
+          audio.volume = Math.max(0, Math.min(1, uiVolume * trackVol * clipVolume * audioFade));
         }
-        const remaining = clipEnd - currentTime;
-        if (fadeOut > 0 && remaining < fadeOut) {
-          audioFade = Math.min(audioFade, remaining / fadeOut);
-        }
-        audio.volume = Math.max(0, Math.min(1, uiVolume * clipVolume * audioFade));
 
         if (isPlaying) {
           // 再生位置が大きくずれていたらシーク

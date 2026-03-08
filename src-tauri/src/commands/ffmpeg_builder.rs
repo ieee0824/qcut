@@ -60,18 +60,65 @@ pub(crate) fn get_format_profile(key: &str) -> &'static FormatProfile {
 
 // --- ヘルパー関数 ---
 
-pub(crate) fn collect_video_clips(tracks: &[ExportTrack]) -> Result<Vec<&ExportClip>, String> {
-    let mut clips: Vec<&ExportClip> = tracks
+pub(crate) struct VideoTrackClip<'a> {
+    pub clip: &'a ExportClip,
+    pub track_volume: f64,
+    pub track_muted: bool,
+}
+
+pub(crate) fn collect_video_clips(tracks: &[ExportTrack]) -> Result<Vec<VideoTrackClip<'_>>, String> {
+    let has_solo = tracks.iter().any(|t| t.solo);
+    let mut clips: Vec<VideoTrackClip> = tracks
         .iter()
         .filter(|t| t.track_type == "video")
-        .flat_map(|t| &t.clips)
+        .flat_map(|t| {
+            let is_muted = t.mute || (has_solo && !t.solo);
+            t.clips.iter().map(move |c| VideoTrackClip {
+                clip: c,
+                track_volume: t.volume,
+                track_muted: is_muted,
+            })
+        })
         .collect();
     clips.sort_by(|a, b| {
-        a.start_time
-            .partial_cmp(&b.start_time)
+        a.clip.start_time
+            .partial_cmp(&b.clip.start_time)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     Ok(clips)
+}
+
+pub(crate) struct AudioTrackClip<'a> {
+    pub clip: &'a ExportClip,
+    pub track_volume: f64,
+}
+
+pub(crate) fn collect_audio_clips(tracks: &[ExportTrack]) -> Vec<AudioTrackClip<'_>> {
+    let has_solo = tracks.iter().any(|t| t.solo);
+    let mut clips: Vec<AudioTrackClip> = Vec::new();
+    for track in tracks {
+        if track.track_type != "audio" {
+            continue;
+        }
+        // ミュート判定: 明示ミュート or (ソロが存在 & 自トラックがソロでない)
+        let is_muted = track.mute || (has_solo && !track.solo);
+        if is_muted {
+            continue;
+        }
+        for clip in &track.clips {
+            clips.push(AudioTrackClip {
+                clip,
+                track_volume: track.volume,
+            });
+        }
+    }
+    clips.sort_by(|a, b| {
+        a.clip
+            .start_time
+            .partial_cmp(&b.clip.start_time)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    clips
 }
 
 pub(crate) fn collect_text_clips(tracks: &[ExportTrack]) -> Vec<&ExportClip> {
@@ -104,8 +151,9 @@ fn transition_to_xfade(t: &str) -> &str {
 
 pub(crate) fn build_ffmpeg_args(
     settings: &ExportSettings,
-    video_clips: &[&ExportClip],
+    video_clips: &[VideoTrackClip],
     text_clips: &[&ExportClip],
+    audio_track_clips: &[AudioTrackClip],
 ) -> Result<Vec<String>, String> {
     let mut args: Vec<String> = vec!["-y".into(), "-progress".into(), "pipe:1".into()];
     let mut filter_parts: Vec<String> = Vec::new();
@@ -114,11 +162,20 @@ pub(crate) fn build_ffmpeg_args(
     let mut input_index: usize = 0;
 
     // 入力ファイルの重複排除とインデックスマッピング
-    for clip in video_clips {
-        if !clip.file_path.is_empty() && !input_map.contains_key(&clip.file_path) {
-            input_map.insert(clip.file_path.clone(), input_index);
+    for vtc in video_clips {
+        if !vtc.clip.file_path.is_empty() && !input_map.contains_key(&vtc.clip.file_path) {
+            input_map.insert(vtc.clip.file_path.clone(), input_index);
             input_args.push("-i".into());
-            input_args.push(clip.file_path.clone());
+            input_args.push(vtc.clip.file_path.clone());
+            input_index += 1;
+        }
+    }
+    // 音声トラックの入力ファイルも追加
+    for atc in audio_track_clips {
+        if !atc.clip.file_path.is_empty() && !input_map.contains_key(&atc.clip.file_path) {
+            input_map.insert(atc.clip.file_path.clone(), input_index);
+            input_args.push("-i".into());
+            input_args.push(atc.clip.file_path.clone());
             input_index += 1;
         }
     }
@@ -143,7 +200,8 @@ pub(crate) fn build_ffmpeg_args(
     let mut segments: Vec<SegmentInfo> = Vec::new();
     let mut current_time = 0.0;
 
-    for (i, clip) in video_clips.iter().enumerate() {
+    for (i, vtc) in video_clips.iter().enumerate() {
+        let clip = vtc.clip;
         // クリップ前のギャップを黒フレームで埋める
         if clip.start_time > current_time + 0.01 {
             let gap_duration = clip.start_time - current_time;
@@ -234,30 +292,38 @@ pub(crate) fn build_ffmpeg_args(
             "[{}:a]atrim=start={:.3}:end={:.3},asetpts=PTS-STARTPTS",
             idx, clip.source_start_time, clip.source_end_time
         );
-        if let Some(ref effects) = clip.effects {
-            if (effects.volume - 1.0).abs() > 0.01 {
-                afilter.push_str(&format!(",volume={:.2}", effects.volume));
+
+        // トラックミュート時は音量0、それ以外はトラック音量 × クリップ音量
+        if vtc.track_muted {
+            afilter.push_str(",volume=0");
+        } else {
+            let clip_vol = clip.effects.as_ref().map(|e| e.volume).unwrap_or(1.0);
+            let combined_volume = clip_vol * vtc.track_volume;
+            if (combined_volume - 1.0).abs() > 0.01 {
+                afilter.push_str(&format!(",volume={:.2}", combined_volume));
             }
-            if effects.fade_in > 0.01 {
-                afilter.push_str(&format!(",afade=t=in:st=0:d={:.3}", effects.fade_in));
-            }
-            if effects.fade_out > 0.01 {
-                let fade_out_start = (audio_duration - effects.fade_out).max(0.0);
-                afilter.push_str(&format!(",afade=t=out:st={:.3}:d={:.3}", fade_out_start, effects.fade_out));
-            }
-            // イコライザー (3バンド: Low 100Hz shelf, Mid 1kHz peaking, High 10kHz shelf)
-            if effects.eq_low.abs() > 0.1 || effects.eq_mid.abs() > 0.1 || effects.eq_high.abs() > 0.1 {
-                let mut eq_parts: Vec<String> = Vec::new();
-                if effects.eq_low.abs() > 0.1 {
-                    eq_parts.push(format!("equalizer=f=100:t=h:w=200:g={:.1}", effects.eq_low));
+            if let Some(ref effects) = clip.effects {
+                if effects.fade_in > 0.01 {
+                    afilter.push_str(&format!(",afade=t=in:st=0:d={:.3}", effects.fade_in));
                 }
-                if effects.eq_mid.abs() > 0.1 {
-                    eq_parts.push(format!("equalizer=f=1000:t=q:w=1.0:g={:.1}", effects.eq_mid));
+                if effects.fade_out > 0.01 {
+                    let fade_out_start = (audio_duration - effects.fade_out).max(0.0);
+                    afilter.push_str(&format!(",afade=t=out:st={:.3}:d={:.3}", fade_out_start, effects.fade_out));
                 }
-                if effects.eq_high.abs() > 0.1 {
-                    eq_parts.push(format!("equalizer=f=10000:t=h:w=200:g={:.1}", effects.eq_high));
+                // イコライザー (3バンド: Low 100Hz shelf, Mid 1kHz peaking, High 10kHz shelf)
+                if effects.eq_low.abs() > 0.1 || effects.eq_mid.abs() > 0.1 || effects.eq_high.abs() > 0.1 {
+                    let mut eq_parts: Vec<String> = Vec::new();
+                    if effects.eq_low.abs() > 0.1 {
+                        eq_parts.push(format!("equalizer=f=100:t=h:w=200:g={:.1}", effects.eq_low));
+                    }
+                    if effects.eq_mid.abs() > 0.1 {
+                        eq_parts.push(format!("equalizer=f=1000:t=q:w=1.0:g={:.1}", effects.eq_mid));
+                    }
+                    if effects.eq_high.abs() > 0.1 {
+                        eq_parts.push(format!("equalizer=f=10000:t=h:w=200:g={:.1}", effects.eq_high));
+                    }
+                    afilter.push_str(&format!(",{}", eq_parts.join(",")));
                 }
-                afilter.push_str(&format!(",{}", eq_parts.join(",")));
             }
         }
         afilter.push_str(&format!("[{}]", a_label));
@@ -344,7 +410,7 @@ pub(crate) fn build_ffmpeg_args(
     }
 
     let mut final_v_label = "outv".to_string();
-    let final_a_label = "outa".to_string();
+    let mut final_a_label = "outa".to_string();
     let n = combined.len();
 
     if n == 1 {
@@ -360,6 +426,86 @@ pub(crate) fn build_ffmpeg_args(
             "{}concat=n={}:v=1:a=1[{}][{}]",
             concat_inputs, n, final_v_label, final_a_label
         ));
+    }
+
+    // --- 音声トラッククリップのミキシング ---
+    if !audio_track_clips.is_empty() {
+        // 各音声クリップにフィルターチェーンを構築し、タイムライン上の位置に配置
+        let mut audio_stream_labels: Vec<String> = Vec::new();
+
+        for (i, atc) in audio_track_clips.iter().enumerate() {
+            let clip = atc.clip;
+            let idx = input_map
+                .get(&clip.file_path)
+                .ok_or_else(|| format!("音声入力インデックスが見つかりません: {}", clip.file_path))?;
+
+            let label = format!("at{}", i);
+
+            let mut afilter = format!(
+                "[{}:a]atrim=start={:.3}:end={:.3},asetpts=PTS-STARTPTS",
+                idx, clip.source_start_time, clip.source_end_time
+            );
+
+            // クリップレベルの音量エフェクト
+            let clip_volume = clip.effects.as_ref().map(|e| e.volume).unwrap_or(1.0);
+            let combined_volume = clip_volume * atc.track_volume;
+            if (combined_volume - 1.0).abs() > 0.01 {
+                afilter.push_str(&format!(",volume={:.2}", combined_volume));
+            }
+
+            // フェードイン/アウト
+            if let Some(ref effects) = clip.effects {
+                let audio_duration = clip.source_end_time - clip.source_start_time;
+                if effects.fade_in > 0.01 {
+                    afilter.push_str(&format!(",afade=t=in:st=0:d={:.3}", effects.fade_in));
+                }
+                if effects.fade_out > 0.01 {
+                    let fade_out_start = (audio_duration - effects.fade_out).max(0.0);
+                    afilter.push_str(&format!(",afade=t=out:st={:.3}:d={:.3}", fade_out_start, effects.fade_out));
+                }
+                // イコライザー
+                if effects.eq_low.abs() > 0.1 || effects.eq_mid.abs() > 0.1 || effects.eq_high.abs() > 0.1 {
+                    let mut eq_parts: Vec<String> = Vec::new();
+                    if effects.eq_low.abs() > 0.1 {
+                        eq_parts.push(format!("equalizer=f=100:t=h:w=200:g={:.1}", effects.eq_low));
+                    }
+                    if effects.eq_mid.abs() > 0.1 {
+                        eq_parts.push(format!("equalizer=f=1000:t=q:w=1.0:g={:.1}", effects.eq_mid));
+                    }
+                    if effects.eq_high.abs() > 0.1 {
+                        eq_parts.push(format!("equalizer=f=10000:t=h:w=200:g={:.1}", effects.eq_high));
+                    }
+                    afilter.push_str(&format!(",{}", eq_parts.join(",")));
+                }
+            }
+
+            // adelay でタイムライン上の開始位置に配置（ミリ秒単位）
+            let delay_ms = (clip.start_time * 1000.0).round() as i64;
+            if delay_ms > 0 {
+                afilter.push_str(&format!(",adelay={}|{}", delay_ms, delay_ms));
+            }
+
+            // apad で total_duration まで無音パディング
+            afilter.push_str(&format!(",apad=whole_dur={:.3}", settings.total_duration));
+
+            afilter.push_str(&format!("[{}]", label));
+            filter_parts.push(afilter);
+            audio_stream_labels.push(label);
+        }
+
+        // 映像音声と音声トラックを amix でミキシング
+        let prev_a_label = final_a_label.clone();
+        let mixed_label = "amixed".to_string();
+        let total_inputs = 1 + audio_stream_labels.len();
+        let mut amix_inputs = format!("[{}]", prev_a_label);
+        for label in &audio_stream_labels {
+            amix_inputs.push_str(&format!("[{}]", label));
+        }
+        filter_parts.push(format!(
+            "{}amix=inputs={}:duration=longest:normalize=0[{}]",
+            amix_inputs, total_inputs, mixed_label
+        ));
+        final_a_label = mixed_label;
     }
 
     // テキストオーバーレイ（drawtext）
