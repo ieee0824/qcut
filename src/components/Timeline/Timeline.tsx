@@ -48,6 +48,7 @@ function Timeline() {
   const timelineContainerRef = useRef<HTMLDivElement>(null);
   const trackHeadersRef = useRef<HTMLDivElement>(null);
   const [isPanning, setIsPanning] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ trackId: string; trackName: string; clipCount: number } | null>(null);
   const panStartX = useRef(0);
   const panStartScrollLeft = useRef(0);
 
@@ -143,11 +144,10 @@ function Timeline() {
                   title="トラックを削除"
                   onClick={() => {
                     if (track.clips.length > 0) {
-                      if (!window.confirm(`「${track.name}」にはクリップが${track.clips.length}件あります。削除しますか？`)) {
-                        return;
-                      }
+                      setConfirmDelete({ trackId: track.id, trackName: track.name, clipCount: track.clips.length });
+                    } else {
+                      removeTrack(track.id);
                     }
-                    removeTrack(track.id);
                   }}
                 >
                   ×
@@ -188,6 +188,18 @@ function Timeline() {
           </div>
         </div>
       </div>
+
+      {confirmDelete && (
+        <div className="confirm-dialog-overlay" onClick={() => setConfirmDelete(null)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <p>「{confirmDelete.trackName}」にはクリップが{confirmDelete.clipCount}件あります。削除しますか？</p>
+            <div className="confirm-dialog-buttons">
+              <button className="confirm-dialog-cancel" onClick={() => setConfirmDelete(null)}>キャンセル</button>
+              <button className="confirm-dialog-ok" onClick={() => { removeTrack(confirmDelete.trackId); setConfirmDelete(null); }}>削除</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
