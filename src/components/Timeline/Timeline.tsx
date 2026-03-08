@@ -41,6 +41,7 @@ function Timeline() {
     zoomOut,
     setCurrentTime,
     setSelectedClip,
+    removeTrack,
   } = useTimelineStore();
 
   const videoPreviewStore = useVideoPreviewStore();
@@ -133,8 +134,24 @@ function Timeline() {
 
             return (
               <div key={track.id} className="timeline-track-header" data-track-type={track.type}>
-                <span className="track-name">{displayName}</span>
-                <span className="track-type">{track.type}</span>
+                <div className="track-header-info">
+                  <span className="track-name">{displayName}</span>
+                  <span className="track-type">{track.type}</span>
+                </div>
+                <button
+                  className="track-delete-btn"
+                  title="トラックを削除"
+                  onClick={() => {
+                    if (track.clips.length > 0) {
+                      if (!window.confirm(`「${track.name}」にはクリップが${track.clips.length}件あります。削除しますか？`)) {
+                        return;
+                      }
+                    }
+                    removeTrack(track.id);
+                  }}
+                >
+                  ×
+                </button>
               </div>
             );
           })}
