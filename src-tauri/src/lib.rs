@@ -53,6 +53,7 @@ pub fn run() {
       commands::presets::write_transition_presets,
       commands::waveform::get_waveform,
       commands::logging::log_action,
+      commands::audio::extract_audio,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
