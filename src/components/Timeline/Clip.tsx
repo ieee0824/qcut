@@ -42,12 +42,15 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
   const hasTransition = !!clip.transition;
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).classList.contains('clip-resize-handle')) {
-      setIsResizing(true);
-    } else {
-      setIsDragging(true);
-      dragStartX.current = e.clientX;
-      dragStartTime.current = clip.startTime;
+    if (e.button === 0) {
+      // 左クリックのみドラッグ/リサイズを開始
+      if ((e.target as HTMLElement).classList.contains('clip-resize-handle')) {
+        setIsResizing(true);
+      } else {
+        setIsDragging(true);
+        dragStartX.current = e.clientX;
+        dragStartTime.current = clip.startTime;
+      }
     }
     // クリップを選択
     setSelectedClip(trackId, clip.id);
