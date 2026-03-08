@@ -165,6 +165,18 @@
     "saveAs": "Save As",
     "openProject": "Open Project"
   },
+  "project": {
+    "untitled": "Untitled Project",
+    "invalidFile": "Invalid project file",
+    "schemaNotFound": "Schema version not found",
+    "newerVersion": "This file was created with a newer version (v{{version}}). Please update the app.",
+    "timelineNotFound": "Timeline data not found",
+    "unsavedOpenConfirm": "You have unsaved changes. Open another project without saving?",
+    "unsavedCloseConfirm": "You have unsaved changes. Quit without saving?",
+    "missingFiles": "The following asset files are missing:\n\n{{files}}",
+    "corruptFile": "Invalid project file",
+    "autosaveRecover": "Autosave data for \"{{name}}\" was found. Would you like to recover it?"
+  },
   "export": {
     "title": "Export Video",
     "button": "Export",
