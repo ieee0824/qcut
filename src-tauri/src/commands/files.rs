@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileInfo {
@@ -76,4 +77,37 @@ pub fn save_project(path: String, content: String) -> Result<(), String> {
 pub fn read_project(path: String) -> Result<String, String> {
   fs::read_to_string(&path)
     .map_err(|e| format!("ファイルの読み込みに失敗: {}", e))
+}
+
+/// 自動保存ファイルのパスを取得する
+#[tauri::command]
+pub fn get_autosave_path(app_handle: tauri::AppHandle) -> Result<String, String> {
+  let app_data = app_handle.path().app_data_dir()
+    .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
+  let autosave_path = app_data.join("autosave.qcut");
+  autosave_path.to_str()
+    .map(|s| s.to_string())
+    .ok_or_else(|| "パスの変換に失敗".to_string())
+}
+
+/// 自動保存ファイルを削除する
+#[tauri::command]
+pub fn delete_autosave(app_handle: tauri::AppHandle) -> Result<(), String> {
+  let app_data = app_handle.path().app_data_dir()
+    .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
+  let autosave_path = app_data.join("autosave.qcut");
+  if autosave_path.exists() {
+    fs::remove_file(&autosave_path)
+      .map_err(|e| format!("自動保存ファイルの削除に失敗: {}", e))?;
+  }
+  Ok(())
+}
+
+/// 自動保存ファイルが存在するか確認する
+#[tauri::command]
+pub fn has_autosave(app_handle: tauri::AppHandle) -> Result<bool, String> {
+  let app_data = app_handle.path().app_data_dir()
+    .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
+  let autosave_path = app_data.join("autosave.qcut");
+  Ok(autosave_path.exists())
 }
