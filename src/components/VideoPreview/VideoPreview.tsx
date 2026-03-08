@@ -6,6 +6,7 @@ import { useTextOverlays } from './useTextOverlays';
 import { useTransitionEffect } from './useTransitionEffect';
 import { useVideoSwitching } from './useVideoSwitching';
 import { usePlaybackLoop } from './usePlaybackLoop';
+import { useAudioTrackPlayback } from './useAudioTrackPlayback';
 
 interface VideoPreviewProps {
   width?: string;
@@ -125,6 +126,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const hasCurrentClip = currentClip !== null && currentVideoUrl !== null;
 
   // --- カスタムフック ---
+  useAudioTrackPlayback();
+
   const { textOverlays, textCurrentTime, calcTextOpacity, calcTextTranslateY } = useTextOverlays();
 
   const {

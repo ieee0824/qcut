@@ -1,4 +1,4 @@
-import { useTimelineStore, Clip as ClipType } from '../../store/timelineStore';
+import { useTimelineStore, Clip as ClipType, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTransitionPresetStore } from '../../store/transitionPresetStore';
 import { useState, useRef, useEffect } from 'react';
@@ -24,6 +24,9 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     setTransition,
     removeTransition,
     moveClipToTrack,
+    addTrack,
+    addClip,
+    updateClip,
   } = useTimelineStore();
   const allPresets = useTransitionPresetStore((s) => s.getAllPresets)();
   const [isDragging, setIsDragging] = useState(false);
@@ -183,6 +186,32 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     }
   }, [showTransitionSubmenu]);
 
+  const handleExtractAudio = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowContextMenu(false);
+    if (!clip.filePath) return;
+
+    // 音声トラックを作成し、同じ動画ファイルを参照する音声クリップを配置
+    const audioTrackId = `track-audio-${Date.now()}`;
+    addTrack({ id: audioTrackId, type: 'audio', name: `${clip.name} (音声)`, clips: [] });
+
+    addClip(audioTrackId, {
+      id: `clip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: `${clip.name} (音声)`,
+      startTime: clip.startTime,
+      duration: clip.duration,
+      filePath: clip.filePath,
+      sourceStartTime: clip.sourceStartTime,
+      sourceEndTime: clip.sourceEndTime,
+      color: '#6ecf6e',
+    });
+
+    // 元のビデオクリップをミュート
+    updateClip(trackId, clip.id, {
+      effects: { ...DEFAULT_EFFECTS, ...clip.effects, volume: 0 },
+    });
+  };
+
   const handleCloseContextMenu = () => {
     setShowContextMenu(false);
   };
@@ -262,6 +291,14 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
             {hasTransition && (
               <button className="context-menu-item" onClick={handleRemoveTransition}>
                 🔄 {t('transition.remove')}
+              </button>
+            )}
+            {trackType === 'video' && clip.filePath && (
+              <button
+                className="context-menu-item"
+                onClick={handleExtractAudio}
+              >
+                🔊 音声を分離
               </button>
             )}
             <button className="context-menu-item" onClick={handleDelete}>
