@@ -45,6 +45,8 @@ export default [
         Uint8Array: 'readonly',
         Uint8ClampedArray: 'readonly',
         ArrayBuffer: 'readonly',
+        ResizeObserver: 'readonly',
+        ResizeObserverEntry: 'readonly',
       },
     },
     plugins: {

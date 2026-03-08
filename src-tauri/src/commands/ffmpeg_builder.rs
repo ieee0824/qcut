@@ -383,9 +383,16 @@ pub(crate) fn build_ffmpeg_args(
             let start = clip.start_time;
             let end = clip.start_time + clip.duration;
 
+            // フォントサイズをプレビューコンテナ高さ → エクスポート解像度にスケーリング
+            let scaled_fontsize = if settings.preview_height > 0.0 {
+                ((tp.font_size as f64) * (h as f64) / settings.preview_height).round() as u32
+            } else {
+                tp.font_size
+            };
+
             let mut drawtext = format!(
                 "[{}]drawtext=text='{}':fontsize={}:fontcolor={}:x={}:y={}:enable='between(t,{:.3},{:.3})'",
-                prev_label, escaped_text, tp.font_size, fontcolor, x_expr, y_expr, start, end
+                prev_label, escaped_text, scaled_fontsize, fontcolor, x_expr, y_expr, start, end
             );
 
             if tp.bold {

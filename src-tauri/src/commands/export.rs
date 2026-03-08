@@ -106,6 +106,7 @@ pub struct ExportSettings {
     pub output_path: String,
     pub tracks: Vec<ExportTrack>,
     pub total_duration: f64,
+    pub preview_height: f64,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -182,15 +183,16 @@ pub async fn export_video(
         .spawn()
         .map_err(|e| format!("FFmpegの起動に失敗しました: {}", e))?;
 
-    // stderrをドレインするスレッド（バッファ詰まり防止）
+    // stderrをドレインするスレッド（バッファ詰まり防止 + ログ出力）
     let stderr = child.stderr.take();
-    std::thread::spawn(move || {
+    let stderr_handle = std::thread::spawn(move || {
+        let mut output = String::new();
         if let Some(stderr) = stderr {
             use std::io::Read;
-            let mut buf = [0u8; 4096];
             let mut reader = stderr;
-            while reader.read(&mut buf).unwrap_or(0) > 0 {}
+            let _ = reader.read_to_string(&mut output);
         }
+        output
     });
 
     // totalDuration が 0 または未設定の場合、クリップから出力時間を自動計算
@@ -218,6 +220,12 @@ pub async fn export_video(
     let status = child
         .wait()
         .map_err(|e| format!("FFmpegの終了待ちに失敗: {}", e))?;
+
+    // stderrの内容をログに出力
+    let stderr_output = stderr_handle.join().unwrap_or_default();
+    if !stderr_output.is_empty() {
+        log::info!("FFmpeg stderr:\n{}", stderr_output);
+    }
 
     // エンコード完了後のキャンセルフラグチェック:
     // キャンセルが押されていてもプロセスが正常完了していれば complete として扱う
