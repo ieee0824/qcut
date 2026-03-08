@@ -280,6 +280,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         saveError: null,
       });
 
+      if (missing.length > 0) {
+        await message(
+          `以下の素材ファイルが見つかりません:\n\n${missing.join('\n')}`,
+          { title: 'qcut', kind: 'warning' },
+        );
+      }
+
       setTimeout(() => {
         if (get().loadStatus === 'loaded') {
           set({ loadStatus: 'idle' });
