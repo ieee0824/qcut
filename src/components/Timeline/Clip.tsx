@@ -1,4 +1,4 @@
-import { useTimelineStore, Clip as ClipType } from '../../store/timelineStore';
+import { useTimelineStore, Clip as ClipType, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTransitionPresetStore } from '../../store/transitionPresetStore';
 import { useState, useRef, useEffect } from 'react';
@@ -208,7 +208,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
 
     // 元のビデオクリップをミュート
     updateClip(trackId, clip.id, {
-      effects: { ...(clip.effects || {} as ClipType['effects']), volume: 0 } as ClipType['effects'],
+      effects: { ...DEFAULT_EFFECTS, ...clip.effects, volume: 0 },
     });
   };
 
