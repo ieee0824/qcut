@@ -9,6 +9,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   save: vi.fn(),
   open: vi.fn(),
   ask: vi.fn(),
+  message: vi.fn(),
 }));
 
 import { invoke } from '@tauri-apps/api/core';

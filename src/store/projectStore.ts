@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
-import { ask, open, save } from '@tauri-apps/plugin-dialog';
+import { ask, message, open, save } from '@tauri-apps/plugin-dialog';
 import type { ProjectFile } from '../types/projectFile';
 import { CURRENT_SCHEMA_VERSION } from '../types/projectFile';
 import { useTimelineStore } from './timelineStore';
@@ -196,8 +196,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         }
       }, 2000);
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      set({ saveStatus: 'error', saveError: message });
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      set({ saveStatus: 'error', saveError: errorMsg });
+      await message(errorMsg, { title: 'qcut', kind: 'error' });
     }
   },
 
@@ -227,8 +228,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         }
       }, 2000);
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      set({ saveStatus: 'error', saveError: message });
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      set({ saveStatus: 'error', saveError: errorMsg });
+      await message(errorMsg, { title: 'qcut', kind: 'error' });
     }
   },
 
@@ -284,8 +286,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         }
       }, 2000);
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      set({ loadStatus: 'error', loadError: message });
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      set({ loadStatus: 'error', loadError: errorMsg });
+      await message(errorMsg, { title: 'qcut', kind: 'error' });
     }
   },
 }));
