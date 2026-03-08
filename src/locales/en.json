@@ -10,7 +10,9 @@
     "saveAs": "Save As...",
     "openProject": "Open Project...",
     "recent": "Recent Files",
-    "clear": "Clear History"
+    "recentProjects": "Recent Projects",
+    "clear": "Clear History",
+    "clearProjects": "Clear Project History"
   },
   "button": {
     "play": "▶",

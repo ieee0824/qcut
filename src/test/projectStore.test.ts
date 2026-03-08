@@ -471,4 +471,91 @@ describe('projectStore', () => {
     expect(deleteCall).toBeDefined();
     expect(deleteCall![1]).toEqual({ path: '/tmp/autosave-test-uuid.qcut' });
   });
+
+  // --- 最近のプロジェクト ---
+
+  it('loadRecentProjects でファイルを読み込み存在確認する', async () => {
+    const recentData = [
+      { name: 'Project1', path: '/tmp/project1.qcut', lastOpened: 1000 },
+      { name: 'Project2', path: '/tmp/project2.qcut', lastOpened: 2000 },
+    ];
+    vi.mocked(invoke).mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === 'read_recent_projects') return JSON.stringify(recentData);
+      if (cmd === 'get_file_info') {
+        if ((args as { path: string }).path === '/tmp/project2.qcut') throw new Error('not found');
+        return { name: 'project1.qcut', path: '/tmp/project1.qcut', size: 100, last_modified: 0 };
+      }
+      return undefined;
+    });
+
+    await useProjectStore.getState().loadRecentProjects();
+
+    const { recentProjects } = useProjectStore.getState();
+    expect(recentProjects).toHaveLength(2);
+    expect(recentProjects[0].exists).toBe(true);
+    expect(recentProjects[1].exists).toBe(false);
+  });
+
+  it('addRecentProject で先頭に追加され最大10件に制限される', async () => {
+    const existing = Array.from({ length: 10 }, (_, i) => ({
+      name: `Project${i}`,
+      path: `/tmp/project${i}.qcut`,
+      lastOpened: i * 1000,
+      exists: true,
+    }));
+    useProjectStore.setState({ recentProjects: existing });
+    vi.mocked(invoke).mockResolvedValue(undefined);
+
+    await useProjectStore.getState().addRecentProject('NewProject', '/tmp/new.qcut');
+
+    const { recentProjects } = useProjectStore.getState();
+    expect(recentProjects).toHaveLength(10);
+    expect(recentProjects[0].name).toBe('NewProject');
+    expect(recentProjects[0].path).toBe('/tmp/new.qcut');
+    // 末尾の1件（project9）が削除されている
+    expect(recentProjects.find((p) => p.path === '/tmp/project9.qcut')).toBeUndefined();
+  });
+
+  it('addRecentProject で重複パスは先頭に移動する', async () => {
+    const existing = [
+      { name: 'A', path: '/tmp/a.qcut', lastOpened: 1000, exists: true },
+      { name: 'B', path: '/tmp/b.qcut', lastOpened: 2000, exists: true },
+    ];
+    useProjectStore.setState({ recentProjects: existing });
+    vi.mocked(invoke).mockResolvedValue(undefined);
+
+    await useProjectStore.getState().addRecentProject('B-updated', '/tmp/b.qcut');
+
+    const { recentProjects } = useProjectStore.getState();
+    expect(recentProjects).toHaveLength(2);
+    expect(recentProjects[0].path).toBe('/tmp/b.qcut');
+    expect(recentProjects[0].name).toBe('B-updated');
+  });
+
+  it('removeRecentProject で指定パスを削除する', async () => {
+    const existing = [
+      { name: 'A', path: '/tmp/a.qcut', lastOpened: 1000, exists: true },
+      { name: 'B', path: '/tmp/b.qcut', lastOpened: 2000, exists: true },
+    ];
+    useProjectStore.setState({ recentProjects: existing });
+    vi.mocked(invoke).mockResolvedValue(undefined);
+
+    await useProjectStore.getState().removeRecentProject('/tmp/a.qcut');
+
+    const { recentProjects } = useProjectStore.getState();
+    expect(recentProjects).toHaveLength(1);
+    expect(recentProjects[0].path).toBe('/tmp/b.qcut');
+  });
+
+  it('clearRecentProjects で全件削除する', async () => {
+    useProjectStore.setState({
+      recentProjects: [{ name: 'A', path: '/tmp/a.qcut', lastOpened: 1000, exists: true }],
+    });
+    vi.mocked(invoke).mockResolvedValue(undefined);
+
+    await useProjectStore.getState().clearRecentProjects();
+
+    expect(useProjectStore.getState().recentProjects).toHaveLength(0);
+    expect(invoke).toHaveBeenCalledWith('write_recent_projects', { content: '[]' });
+  });
 });

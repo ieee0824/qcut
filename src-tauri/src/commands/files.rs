@@ -80,6 +80,33 @@ pub fn read_project(path: String) -> Result<String, String> {
     .map_err(|e| format!("ファイルの読み込みに失敗: {}", e))
 }
 
+/// 最近のプロジェクト一覧を読み込む
+#[tauri::command]
+pub fn read_recent_projects(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let app_data = app_handle.path().app_data_dir()
+        .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
+    let path = app_data.join("recent_projects.json");
+    if !path.exists() {
+        return Ok("[]".to_string());
+    }
+    fs::read_to_string(&path)
+        .map_err(|e| format!("ファイルの読み込みに失敗: {}", e))
+}
+
+/// 最近のプロジェクト一覧を書き込む
+#[tauri::command]
+pub fn write_recent_projects(app_handle: tauri::AppHandle, content: String) -> Result<(), String> {
+    let app_data = app_handle.path().app_data_dir()
+        .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
+    let path = app_data.join("recent_projects.json");
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("ディレクトリの作成に失敗: {}", e))?;
+    }
+    fs::write(&path, content)
+        .map_err(|e| format!("ファイルの書き込みに失敗: {}", e))
+}
+
 /// UUIDベースの自動保存ファイルパスを生成する
 #[tauri::command]
 pub fn get_autosave_path(app_handle: tauri::AppHandle) -> Result<String, String> {

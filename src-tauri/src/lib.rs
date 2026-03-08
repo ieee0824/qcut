@@ -46,6 +46,8 @@ pub fn run() {
       commands::files::get_autosave_path,
       commands::files::delete_file,
       commands::files::list_autosaves,
+      commands::files::read_recent_projects,
+      commands::files::write_recent_projects,
       commands::plugins::list_plugin_dirs,
       commands::plugins::read_plugin_manifest,
       commands::plugins::read_plugin_file,

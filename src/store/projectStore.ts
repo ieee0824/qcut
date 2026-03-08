@@ -25,6 +25,14 @@ export function _resetAutosaveState(): void {
 }
 
 export const AUTOSAVE_DEBOUNCE_MS = 5 * 1000; // 編集操作後5秒で自動保存
+export const MAX_RECENT_PROJECTS = 10;
+
+export interface RecentProject {
+  name: string;
+  path: string;
+  lastOpened: number;
+  exists?: boolean;
+}
 
 export interface ProjectState {
   projectFilePath: string | null;
@@ -35,6 +43,7 @@ export interface ProjectState {
   loadStatus: LoadStatus;
   loadError: string | null;
   missingFiles: string[];
+  recentProjects: RecentProject[];
 
   setProjectFilePath: (path: string | null) => void;
   setProjectName: (name: string) => void;
@@ -53,6 +62,12 @@ export interface ProjectState {
   performAutosave: () => Promise<void>;
   checkAndRecoverAutosave: () => Promise<void>;
   deleteAutosave: () => Promise<void>;
+
+  // 最近のプロジェクト
+  loadRecentProjects: () => Promise<void>;
+  addRecentProject: (name: string, path: string) => Promise<void>;
+  removeRecentProject: (path: string) => Promise<void>;
+  clearRecentProjects: () => Promise<void>;
 }
 
 function buildProjectFile(projectName: string): ProjectFile {
@@ -197,6 +212,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   loadStatus: 'idle',
   loadError: null,
   missingFiles: [],
+  recentProjects: [],
 
   setProjectFilePath: (path) => set({ projectFilePath: path }),
   setProjectName: (name) => set({ projectName: name }),
@@ -216,6 +232,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({ isDirty: false, saveStatus: 'saved', saveError: null });
       // 手動保存成功時に自動保存ファイルを削除
       get().deleteAutosave();
+      get().addRecentProject(projectName, projectFilePath);
       setTimeout(() => {
         if (get().saveStatus === 'saved') {
           set({ saveStatus: 'idle' });
@@ -250,6 +267,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({ isDirty: false, saveStatus: 'saved', saveError: null });
       // 手動保存成功時に自動保存ファイルを削除
       get().deleteAutosave();
+      get().addRecentProject(name, filePath);
       setTimeout(() => {
         if (get().saveStatus === 'saved') {
           set({ saveStatus: 'idle' });
@@ -307,6 +325,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         saveStatus: 'idle',
         saveError: null,
       });
+
+      get().addRecentProject(name, path);
 
       if (missing.length > 0) {
         await message(
@@ -451,6 +471,70 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       autosaveFilePath = null;
     } catch (e) {
       console.error('[autosave] 削除に失敗:', e);
+    }
+  },
+
+  // --- 最近のプロジェクト ---
+
+  loadRecentProjects: async () => {
+    try {
+      const json = await invoke<string>('read_recent_projects');
+      const projects: RecentProject[] = JSON.parse(json);
+
+      // 各ファイルの存在確認
+      const checked = await Promise.all(
+        projects.map(async (p) => {
+          try {
+            await invoke('get_file_info', { path: p.path });
+            return { ...p, exists: true };
+          } catch {
+            return { ...p, exists: false };
+          }
+        }),
+      );
+
+      set({ recentProjects: checked });
+    } catch (e) {
+      console.error('[recentProjects] 読み込みに失敗:', e);
+    }
+  },
+
+  addRecentProject: async (name: string, path: string) => {
+    const { recentProjects } = get();
+    const filtered = recentProjects.filter((p) => p.path !== path);
+    const updated: RecentProject[] = [
+      { name, path, lastOpened: Date.now(), exists: true },
+      ...filtered,
+    ].slice(0, MAX_RECENT_PROJECTS);
+
+    set({ recentProjects: updated });
+
+    try {
+      const toSave = updated.map(({ name, path, lastOpened }) => ({ name, path, lastOpened }));
+      await invoke('write_recent_projects', { content: JSON.stringify(toSave) });
+    } catch (e) {
+      console.error('[recentProjects] 書き込みに失敗:', e);
+    }
+  },
+
+  removeRecentProject: async (path: string) => {
+    const updated = get().recentProjects.filter((p) => p.path !== path);
+    set({ recentProjects: updated });
+
+    try {
+      const toSave = updated.map(({ name, path, lastOpened }) => ({ name, path, lastOpened }));
+      await invoke('write_recent_projects', { content: JSON.stringify(toSave) });
+    } catch (e) {
+      console.error('[recentProjects] 書き込みに失敗:', e);
+    }
+  },
+
+  clearRecentProjects: async () => {
+    set({ recentProjects: [] });
+    try {
+      await invoke('write_recent_projects', { content: '[]' });
+    } catch (e) {
+      console.error('[recentProjects] クリアに失敗:', e);
     }
   },
 }));

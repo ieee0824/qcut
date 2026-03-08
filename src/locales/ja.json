@@ -10,7 +10,9 @@
     "saveAs": "名前を付けて保存...",
     "openProject": "プロジェクトを開く...",
     "recent": "最近のファイル",
-    "clear": "履歴をクリア"
+    "recentProjects": "最近のプロジェクト",
+    "clear": "履歴をクリア",
+    "clearProjects": "プロジェクト履歴をクリア"
   },
   "button": {
     "play": "▶",

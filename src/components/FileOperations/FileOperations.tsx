@@ -20,7 +20,10 @@ export const FileOperations: React.FC = () => {
 
   const { registerVideoUrl } = useVideoPreviewStore();
   const { addClip, addTrack, tracks } = useTimelineStore();
-  const { saveProject, saveProjectAs, saveStatus, openProject, loadStatus } = useProjectStore();
+  const {
+    saveProject, saveProjectAs, saveStatus, openProject, loadStatus,
+    recentProjects, loadProjectFromPath, clearRecentProjects, removeRecentProject, isDirty,
+  } = useProjectStore();
 
   const [showMenu, setShowMenu] = useState(false);
 
@@ -198,6 +201,19 @@ export const FileOperations: React.FC = () => {
     }
   };
 
+  const handleOpenRecentProject = async (path: string) => {
+    if (isDirty) {
+      const { ask } = await import('@tauri-apps/plugin-dialog');
+      const proceed = await ask(
+        '未保存の変更があります。保存せずに別のプロジェクトを開きますか？',
+        { title: 'qcut', kind: 'warning' },
+      );
+      if (!proceed) return;
+    }
+    setShowMenu(false);
+    await loadProjectFromPath(path);
+  };
+
 
   return (
     <div style={{ position: 'relative' }}>
@@ -346,6 +362,120 @@ export const FileOperations: React.FC = () => {
           >
             📂 {t('menu.open')}
           </button>
+
+          {/* 区切り線 - 最近のプロジェクト */}
+          {recentProjects.length > 0 && (
+            <div
+              style={{
+                height: '1px',
+                backgroundColor: '#3a3a3a',
+                margin: '4px 0',
+              }}
+            />
+          )}
+
+          {/* 最近のプロジェクト */}
+          {recentProjects.length > 0 && (
+            <div>
+              <div
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '12px',
+                  color: '#999',
+                  fontWeight: 'bold',
+                }}
+              >
+                {t('menu.recentProjects')}
+              </div>
+              {recentProjects.map((project) => (
+                <button
+                  key={project.path}
+                  onClick={() => {
+                    if (project.exists) {
+                      handleOpenRecentProject(project.path);
+                    }
+                  }}
+                  disabled={!project.exists}
+                  title={project.path}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    padding: '8px 16px',
+                    textAlign: 'left',
+                    backgroundColor: 'transparent',
+                    color: project.exists ? '#bbb' : '#666',
+                    border: 'none',
+                    cursor: project.exists ? 'pointer' : 'not-allowed',
+                    fontSize: '13px',
+                    opacity: project.exists ? 1 : 0.5,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (project.exists) e.currentTarget.style.backgroundColor = '#3a3a3a';
+                  }}
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = 'transparent')
+                  }
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {project.name}
+                  </span>
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeRecentProject(project.path);
+                    }}
+                    style={{
+                      marginLeft: '8px',
+                      color: '#666',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#666')}
+                  >
+                    ✕
+                  </span>
+                </button>
+              ))}
+
+              <div
+                style={{
+                  height: '1px',
+                  backgroundColor: '#3a3a3a',
+                  margin: '4px 0',
+                }}
+              />
+
+              <button
+                onClick={() => {
+                  clearRecentProjects();
+                  setShowMenu(false);
+                }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '8px 16px',
+                  textAlign: 'left',
+                  backgroundColor: 'transparent',
+                  color: '#999',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = '#3a3a3a')
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = 'transparent')
+                }
+              >
+                🗑️ {t('menu.clearProjects')}
+              </button>
+            </div>
+          )}
 
           {/* 区切り線 */}
           {recentFiles.length > 0 && (
