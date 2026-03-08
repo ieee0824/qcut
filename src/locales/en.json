@@ -8,6 +8,7 @@
     "open": "Open...",
     "save": "Save",
     "saveAs": "Save As...",
+    "openProject": "Open Project...",
     "recent": "Recent Files",
     "clear": "Clear History"
   },
@@ -159,7 +160,8 @@
     "zoomOut": "Zoom Out Timeline",
     "showHelp": "Show Shortcuts",
     "save": "Save Project",
-    "saveAs": "Save As"
+    "saveAs": "Save As",
+    "openProject": "Open Project"
   },
   "export": {
     "title": "Export Video",

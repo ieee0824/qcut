@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { ask } from '@tauri-apps/plugin-dialog';
 import './App.css';
 import Timeline from './components/Timeline/Timeline';
 import { VideoPreview } from './components/VideoPreview/VideoPreview';
@@ -15,6 +17,7 @@ import { DEFAULT_TEXT_PROPERTIES } from './store/timelineStore';
 import { useVideoPreviewStore } from './store/videoPreviewStore';
 import { useExportStore } from './store/exportStore';
 import { useShortcutStore } from './store/shortcutStore';
+import { useProjectStore } from './store/projectStore';
 import { PluginManager } from './plugin-system';
 import { parseSRT, parseASS, subtitlesToTrack, trackToSubtitles, exportSRT, exportASS } from './utils/subtitles';
 
@@ -27,6 +30,33 @@ function App() {
   const pluginManagerRef = useRef<PluginManager | null>(null);
 
   useKeyboardShortcuts();
+
+  // ウィンドウタイトルをプロジェクト名と未保存状態に連動させる
+  const projectName = useProjectStore((s) => s.projectName);
+  const isDirty = useProjectStore((s) => s.isDirty);
+  useEffect(() => {
+    const title = isDirty ? `${projectName}* - qcut` : `${projectName} - qcut`;
+    getCurrentWindow().setTitle(title);
+  }, [projectName, isDirty]);
+
+  // 未保存変更がある状態でウィンドウを閉じる時に警告
+  useEffect(() => {
+    const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
+      if (useProjectStore.getState().isDirty) {
+        event.preventDefault();
+        const confirmed = await ask(
+          '未保存の変更があります。保存せずに終了しますか？',
+          { title: 'qcut', kind: 'warning' },
+        );
+        if (confirmed) {
+          await getCurrentWindow().destroy();
+        }
+      }
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   useEffect(() => {
     const manager = new PluginManager();

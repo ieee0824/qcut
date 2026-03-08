@@ -29,6 +29,7 @@ export const DEFAULT_SHORTCUTS: ShortcutEntry[] = [
   { id: 'showHelp',    label: 'shortcut.showHelp',    binding: { key: '?',         ctrlOrMeta: false, shift: true,  alt: false } },
   { id: 'save',        label: 'shortcut.save',        binding: { key: 's',         ctrlOrMeta: true,  shift: false, alt: false } },
   { id: 'saveAs',      label: 'shortcut.saveAs',      binding: { key: 's',         ctrlOrMeta: true,  shift: true,  alt: false } },
+  { id: 'openProject', label: 'shortcut.openProject', binding: { key: 'o',         ctrlOrMeta: true,  shift: false, alt: false } },
 ];
 
 const STORAGE_KEY = 'qcut-shortcuts';

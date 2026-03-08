@@ -1,12 +1,14 @@
 import { create } from 'zustand';
-import { invoke } from '@tauri-apps/api/core';
-import { save } from '@tauri-apps/plugin-dialog';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { ask, message, open, save } from '@tauri-apps/plugin-dialog';
 import type { ProjectFile } from '../types/projectFile';
 import { CURRENT_SCHEMA_VERSION } from '../types/projectFile';
 import { useTimelineStore } from './timelineStore';
 import { useExportStore } from './exportStore';
+import { useVideoPreviewStore } from './videoPreviewStore';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
 export interface ProjectState {
   projectFilePath: string | null;
@@ -14,6 +16,9 @@ export interface ProjectState {
   isDirty: boolean;
   saveStatus: SaveStatus;
   saveError: string | null;
+  loadStatus: LoadStatus;
+  loadError: string | null;
+  missingFiles: string[];
 
   setProjectFilePath: (path: string | null) => void;
   setProjectName: (name: string) => void;
@@ -22,6 +27,8 @@ export interface ProjectState {
 
   saveProject: () => Promise<void>;
   saveProjectAs: () => Promise<void>;
+  openProject: () => Promise<void>;
+  loadProjectFromPath: (path: string) => Promise<void>;
 }
 
 function buildProjectFile(projectName: string): ProjectFile {
@@ -72,12 +79,100 @@ async function writeProjectFile(path: string, projectName: string): Promise<void
   await invoke('save_project', { path, content });
 }
 
+function validateProjectFile(data: unknown): ProjectFile {
+  const obj = data as Record<string, unknown>;
+  if (!obj || typeof obj !== 'object') {
+    throw new Error('無効なプロジェクトファイルです');
+  }
+  if (typeof obj.schemaVersion !== 'number') {
+    throw new Error('スキーマバージョンが見つかりません');
+  }
+  if (obj.schemaVersion > CURRENT_SCHEMA_VERSION) {
+    throw new Error(
+      `このファイルはより新しいバージョン (v${obj.schemaVersion}) で作成されています。アプリを更新してください。`
+    );
+  }
+  if (!obj.timeline || typeof obj.timeline !== 'object') {
+    throw new Error('タイムラインデータが見つかりません');
+  }
+  return data as ProjectFile;
+}
+
+function applyProjectToStores(project: ProjectFile): void {
+  // タイムラインをリセットしてトラックを復元
+  useTimelineStore.setState({
+    tracks: project.timeline.tracks.map((track) => ({
+      id: track.id,
+      type: track.type,
+      name: track.name,
+      volume: track.volume,
+      mute: track.mute,
+      solo: track.solo,
+      clips: track.clips.map((clip) => ({
+        id: clip.id,
+        name: clip.name,
+        startTime: clip.startTime,
+        duration: clip.duration,
+        color: clip.color,
+        filePath: clip.filePath,
+        sourceStartTime: clip.sourceStartTime,
+        sourceEndTime: clip.sourceEndTime,
+        effects: clip.effects,
+        textProperties: clip.textProperties,
+        transition: clip.transition,
+      })),
+    })),
+    selectedClipId: null,
+    selectedTrackId: null,
+    currentTime: 0,
+    isPlaying: false,
+    _history: [project.timeline.tracks],
+    _historyIndex: 0,
+  });
+
+  // 動画ファイルの URL を videoPreviewStore に登録
+  const videoPreview = useVideoPreviewStore.getState();
+  for (const track of project.timeline.tracks) {
+    if (track.type === 'text') continue;
+    for (const clip of track.clips) {
+      if (clip.filePath) {
+        const assetUrl = convertFileSrc(clip.filePath);
+        videoPreview.registerVideoUrl(clip.filePath, assetUrl);
+      }
+    }
+  }
+
+  // エクスポート設定を復元
+  if (project.exportSettings) {
+    useExportStore.getState().setSettings(project.exportSettings);
+  }
+}
+
+async function checkMissingFiles(project: ProjectFile): Promise<string[]> {
+  const missing: string[] = [];
+  for (const track of project.timeline.tracks) {
+    for (const clip of track.clips) {
+      if (clip.filePath && track.type !== 'text') {
+        try {
+          await invoke('get_file_info', { path: clip.filePath });
+        } catch {
+          missing.push(clip.filePath);
+        }
+      }
+    }
+  }
+  return missing;
+}
+
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projectFilePath: null,
   projectName: '無題のプロジェクト',
   isDirty: false,
   saveStatus: 'idle',
   saveError: null,
+  loadStatus: 'idle',
+  loadError: null,
+  missingFiles: [],
 
   setProjectFilePath: (path) => set({ projectFilePath: path }),
   setProjectName: (name) => set({ projectName: name }),
@@ -101,8 +196,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         }
       }, 2000);
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      set({ saveStatus: 'error', saveError: message });
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      set({ saveStatus: 'error', saveError: errorMsg });
+      await message(errorMsg, { title: 'qcut', kind: 'error' });
     }
   },
 
@@ -132,8 +228,88 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         }
       }, 2000);
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      set({ saveStatus: 'error', saveError: message });
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      set({ saveStatus: 'error', saveError: errorMsg });
+      await message(errorMsg, { title: 'qcut', kind: 'error' });
+    }
+  },
+
+  openProject: async () => {
+    if (get().isDirty) {
+      const proceed = await ask(
+        '未保存の変更があります。保存せずに別のプロジェクトを開きますか？',
+        { title: 'qcut', kind: 'warning' },
+      );
+      if (!proceed) return;
+    }
+
+    const filePath = await open({
+      multiple: false,
+      filters: [
+        { name: 'qcut Project', extensions: ['qcut'] },
+      ],
+    });
+
+    if (!filePath) return;
+    await get().loadProjectFromPath(filePath as string);
+  },
+
+  loadProjectFromPath: async (path: string) => {
+    set({ loadStatus: 'loading', loadError: null, missingFiles: [] });
+    try {
+      const content = await invoke<string>('read_project', { path });
+      const parsed = JSON.parse(content);
+      const project = validateProjectFile(parsed);
+
+      const missing = await checkMissingFiles(project);
+
+      applyProjectToStores(project);
+
+      const name = path.split('/').pop()?.replace(/\.qcut$/, '')
+        ?? path.split('\\').pop()?.replace(/\.qcut$/, '')
+        ?? project.metadata.name;
+
+      set({
+        projectFilePath: path,
+        projectName: name,
+        isDirty: false,
+        loadStatus: 'loaded',
+        loadError: null,
+        missingFiles: missing,
+        saveStatus: 'idle',
+        saveError: null,
+      });
+
+      if (missing.length > 0) {
+        await message(
+          `以下の素材ファイルが見つかりません:\n\n${missing.join('\n')}`,
+          { title: 'qcut', kind: 'warning' },
+        );
+      }
+
+      setTimeout(() => {
+        if (get().loadStatus === 'loaded') {
+          set({ loadStatus: 'idle' });
+        }
+      }, 2000);
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error('[projectStore] loadProjectFromPath failed:', errorMsg);
+      set({ loadStatus: 'error', loadError: errorMsg });
+      await message('不正なプロジェクトファイルです', { title: 'qcut', kind: 'error' });
     }
   },
 }));
+
+// タイムラインの変更を監視して isDirty を自動更新
+useTimelineStore.subscribe(
+  (state, prevState) => {
+    if (state.tracks !== prevState.tracks) {
+      const { loadStatus } = useProjectStore.getState();
+      // プロジェクト読み込み中の変更は無視
+      if (loadStatus !== 'loading') {
+        useProjectStore.getState().markDirty();
+      }
+    }
+  },
+);

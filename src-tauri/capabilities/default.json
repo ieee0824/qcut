@@ -7,9 +7,13 @@
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-set-title",
+    "core:window:allow-destroy",
     "dialog:default",
     "dialog:allow-save",
     "dialog:allow-open",
+    "dialog:allow-ask",
+    "dialog:allow-message",
     "fs:default",
     "fs:allow-read",
     "fs:allow-write",

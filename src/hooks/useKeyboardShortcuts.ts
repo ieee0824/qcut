@@ -122,6 +122,10 @@ export function useKeyboardShortcuts() {
           case 'saveAs':
             useProjectStore.getState().saveProjectAs();
             break;
+
+          case 'openProject':
+            useProjectStore.getState().openProject();
+            break;
         }
 
         return; // Only handle the first match
