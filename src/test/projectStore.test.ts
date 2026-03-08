@@ -352,31 +352,31 @@ describe('projectStore', () => {
   });
 
   it('performAutosave は isDirty が true の場合に自動保存する', async () => {
-    vi.mocked(invoke).mockResolvedValue(undefined);
     vi.mocked(invoke).mockImplementation(async (cmd: string) => {
-      if (cmd === 'get_autosave_path') return '/tmp/autosave.qcut';
+      if (cmd === 'get_autosave_path') return '/tmp/autosave-abc.qcut';
       return undefined;
     });
     useProjectStore.setState({ isDirty: true, projectName: 'テスト' });
 
     await useProjectStore.getState().performAutosave();
 
-    expect(invoke).toHaveBeenCalledWith('get_autosave_path');
+    expect(invoke).toHaveBeenCalledWith('get_autosave_path', { projectPath: '' });
     expect(invoke).toHaveBeenCalledWith('save_project', {
-      path: '/tmp/autosave.qcut',
+      path: '/tmp/autosave-abc.qcut',
       content: expect.any(String),
     });
   });
 
   it('performAutosave は元のプロジェクトパスを metadata に記録する', async () => {
     vi.mocked(invoke).mockImplementation(async (cmd: string) => {
-      if (cmd === 'get_autosave_path') return '/tmp/autosave.qcut';
+      if (cmd === 'get_autosave_path') return '/tmp/autosave-abc.qcut';
       return undefined;
     });
     useProjectStore.setState({ isDirty: true, projectName: 'テスト', projectFilePath: '/tmp/original.qcut' });
 
     await useProjectStore.getState().performAutosave();
 
+    expect(invoke).toHaveBeenCalledWith('get_autosave_path', { projectPath: '/tmp/original.qcut' });
     const saveCall = vi.mocked(invoke).mock.calls.find((c) => c[0] === 'save_project');
     expect(saveCall).toBeDefined();
     const args = saveCall![1] as { content: string };
@@ -386,7 +386,7 @@ describe('projectStore', () => {
 
   it('checkAndRecoverAutosave は自動保存ファイルがない場合何もしない', async () => {
     vi.mocked(invoke).mockImplementation(async (cmd: string) => {
-      if (cmd === 'has_autosave') return false;
+      if (cmd === 'list_autosaves') return [];
       return undefined;
     });
 
@@ -401,10 +401,9 @@ describe('projectStore', () => {
       metadata: { ...validProjectJson.metadata, originalPath: '/tmp/original.qcut' },
     };
     vi.mocked(invoke).mockImplementation(async (cmd: string) => {
-      if (cmd === 'has_autosave') return true;
-      if (cmd === 'get_autosave_path') return '/tmp/autosave.qcut';
+      if (cmd === 'list_autosaves') return ['/tmp/autosave-abc.qcut'];
       if (cmd === 'read_project') return JSON.stringify(autosaveProject);
-      if (cmd === 'delete_autosave') return undefined;
+      if (cmd === 'delete_file') return undefined;
       return undefined;
     });
     vi.mocked(ask).mockResolvedValue(true);
@@ -414,22 +413,21 @@ describe('projectStore', () => {
     expect(useProjectStore.getState().projectFilePath).toBe('/tmp/original.qcut');
     expect(useProjectStore.getState().isDirty).toBe(true);
     expect(useTimelineStore.getState().tracks).toHaveLength(1);
-    expect(invoke).toHaveBeenCalledWith('delete_autosave');
+    expect(invoke).toHaveBeenCalledWith('delete_file', { path: '/tmp/autosave-abc.qcut' });
   });
 
   it('checkAndRecoverAutosave で復旧を拒否しても自動保存ファイルは削除される', async () => {
     vi.mocked(invoke).mockImplementation(async (cmd: string) => {
-      if (cmd === 'has_autosave') return true;
-      if (cmd === 'get_autosave_path') return '/tmp/autosave.qcut';
+      if (cmd === 'list_autosaves') return ['/tmp/autosave-abc.qcut'];
       if (cmd === 'read_project') return JSON.stringify(validProjectJson);
-      if (cmd === 'delete_autosave') return undefined;
+      if (cmd === 'delete_file') return undefined;
       return undefined;
     });
     vi.mocked(ask).mockResolvedValue(false);
 
     await useProjectStore.getState().checkAndRecoverAutosave();
 
-    expect(invoke).toHaveBeenCalledWith('delete_autosave');
+    expect(invoke).toHaveBeenCalledWith('delete_file', { path: '/tmp/autosave-abc.qcut' });
     // プロジェクトは復元されていない
     expect(useProjectStore.getState().projectFilePath).toBeNull();
   });
@@ -454,6 +452,6 @@ describe('projectStore', () => {
 
     await useProjectStore.getState().saveProject();
 
-    expect(invoke).toHaveBeenCalledWith('delete_autosave');
+    expect(invoke).toHaveBeenCalledWith('delete_autosave', { projectPath: '/tmp/test.qcut' });
   });
 });

@@ -335,20 +335,20 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   performAutosave: async () => {
-    const { isDirty, projectName } = get();
+    const { isDirty, projectName, projectFilePath } = get();
     if (!isDirty) return;
 
     try {
-      const autosavePath = await invoke<string>('get_autosave_path');
+      const projectPath = projectFilePath ?? '';
+      const autosavePath = await invoke<string>('get_autosave_path', { projectPath });
       const projectFile = buildProjectFile(projectName);
       // 元のプロジェクトファイルパスを metadata に記録（復旧時に使用）
-      const { projectFilePath } = get();
       if (projectFilePath) {
         projectFile.metadata.originalPath = projectFilePath;
       }
       const content = JSON.stringify(projectFile, null, 2);
       await invoke('save_project', { path: autosavePath, content });
-      console.info('[autosave] 自動保存完了');
+      console.info('[autosave] 自動保存完了:', autosavePath);
     } catch (e) {
       console.error('[autosave] 自動保存に失敗:', e);
     }
@@ -356,58 +356,66 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   checkAndRecoverAutosave: async () => {
     try {
-      const hasFile = await invoke<boolean>('has_autosave');
-      if (!hasFile) return;
+      const autosaveFiles = await invoke<string[]>('list_autosaves');
+      if (autosaveFiles.length === 0) return;
 
-      const autosavePath = await invoke<string>('get_autosave_path');
-      const content = await invoke<string>('read_project', { path: autosavePath });
-      const parsed = JSON.parse(content);
-      const project = validateProjectFile(parsed);
+      for (const autosavePath of autosaveFiles) {
+        try {
+          const content = await invoke<string>('read_project', { path: autosavePath });
+          const parsed = JSON.parse(content);
+          const project = validateProjectFile(parsed);
 
-      const recover = await ask(
-        '前回の編集内容が自動保存されています。復旧しますか？',
-        { title: 'qcut', kind: 'info' },
-      );
+          const originalPath = project.metadata.originalPath;
+          const displayName = originalPath
+            ? (originalPath.split('/').pop() ?? originalPath.split('\\').pop() ?? project.metadata.name)
+            : project.metadata.name;
 
-      if (recover) {
-        applyProjectToStores(project);
+          const recover = await ask(
+            `「${displayName}」の自動保存データが見つかりました。復旧しますか？`,
+            { title: 'qcut', kind: 'info' },
+          );
 
-        const originalPath = project.metadata.originalPath ?? null;
-        const name = originalPath
-          ? (originalPath.split('/').pop()?.replace(/\.qcut$/, '')
-            ?? originalPath.split('\\').pop()?.replace(/\.qcut$/, '')
-            ?? project.metadata.name)
-          : project.metadata.name;
+          if (recover) {
+            applyProjectToStores(project);
 
-        set({
-          projectFilePath: originalPath,
-          projectName: name,
-          isDirty: true,
-          loadStatus: 'loaded',
-          loadError: null,
-        });
+            const name = originalPath
+              ? (originalPath.split('/').pop()?.replace(/\.qcut$/, '')
+                ?? originalPath.split('\\').pop()?.replace(/\.qcut$/, '')
+                ?? project.metadata.name)
+              : project.metadata.name;
 
-        setTimeout(() => {
-          if (get().loadStatus === 'loaded') {
-            set({ loadStatus: 'idle' });
+            set({
+              projectFilePath: originalPath ?? null,
+              projectName: name,
+              isDirty: true,
+              loadStatus: 'loaded',
+              loadError: null,
+            });
+
+            setTimeout(() => {
+              if (get().loadStatus === 'loaded') {
+                set({ loadStatus: 'idle' });
+              }
+            }, 2000);
           }
-        }, 2000);
-      }
+        } catch {
+          // 壊れた自動保存ファイルも削除対象
+        }
 
-      // 復旧してもしなくても自動保存ファイルを削除
-      await invoke('delete_autosave');
+        // 復旧してもしなくても自動保存ファイルを削除
+        try {
+          await invoke('delete_file', { path: autosavePath });
+        } catch { /* ignore */ }
+      }
     } catch (e) {
       console.error('[autosave] 復旧チェックに失敗:', e);
-      // 壊れた自動保存ファイルは削除
-      try {
-        await invoke('delete_autosave');
-      } catch { /* ignore */ }
     }
   },
 
   deleteAutosave: async () => {
     try {
-      await invoke('delete_autosave');
+      const projectPath = get().projectFilePath ?? '';
+      await invoke('delete_autosave', { projectPath });
     } catch (e) {
       console.error('[autosave] 削除に失敗:', e);
     }
