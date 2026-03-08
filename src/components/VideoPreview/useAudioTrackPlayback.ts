@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useTimelineStore, Clip } from '../../store/timelineStore';
+import { useTimelineStore, Clip, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
+import { audioEngine } from '../../audio/AudioEngine';
 
 interface AudioEntry {
   audio: globalThis.HTMLAudioElement;
@@ -10,6 +11,7 @@ interface AudioEntry {
 
 /**
  * 音声トラックのクリップをプレビュー再生するフック。
+ * Web Audio API を使って EQ・ハイパス・エコー・リバーブをリアルタイムに反映する。
  * タイムライン上の currentTime に合わせて Audio 要素を再生/停止/シークする。
  */
 export const useAudioTrackPlayback = () => {
@@ -34,20 +36,26 @@ export const useAudioTrackPlayback = () => {
     return result;
   }, []);
 
-  // Audio 要素を取得（なければ作成）
+  // Audio 要素を取得（なければ作成し、AudioEngine に接続）
   const getOrCreateAudio = useCallback((clip: Clip): AudioEntry => {
     const existing = audioMapRef.current.get(clip.id);
     if (existing && existing.filePath === clip.filePath) {
+      // AudioEngine にまだ接続されていなければ接続
+      if (!audioEngine.hasGraph(clip.id)) {
+        audioEngine.connect(clip.id, existing.audio);
+      }
       return existing;
     }
 
     // 古い要素があれば破棄
     if (existing) {
+      audioEngine.disconnect(clip.id);
       existing.audio.pause();
       existing.audio.src = '';
     }
 
     const audio = new window.Audio();
+    audio.crossOrigin = 'anonymous';
     const videoUrls = useVideoPreviewStore.getState().videoUrls;
     const url = videoUrls[clip.filePath];
     if (url) {
@@ -57,6 +65,9 @@ export const useAudioTrackPlayback = () => {
       audio.src = `asset://localhost/${encodeURIComponent(clip.filePath)}`;
     }
     audio.preload = 'auto';
+
+    // Web Audio API に接続（AudioContext 経由で音声出力するため volume は 1 固定）
+    audioEngine.connect(clip.id, audio);
 
     const entry: AudioEntry = { audio, clipId: clip.id, filePath: clip.filePath };
     audioMapRef.current.set(clip.id, entry);
@@ -82,9 +93,10 @@ export const useAudioTrackPlayback = () => {
         const relativeTime = currentTime - clip.startTime;
         const sourceTime = clip.sourceStartTime + relativeTime;
 
-        // 音量計算（トラックミュート + トラック音量 + エフェクト + フェード + UI音量）
+        // 合成ボリュームを計算（トラックミュート + トラック音量 + エフェクト + フェード + UI音量）
+        let combinedVolume: number;
         if (clip.trackMuted) {
-          audio.volume = 0;
+          combinedVolume = 0;
         } else {
           const clipVolume = clip.effects?.volume ?? 1.0;
           const trackVol = clip.trackVolume;
@@ -98,8 +110,12 @@ export const useAudioTrackPlayback = () => {
           if (fadeOut > 0 && remaining < fadeOut) {
             audioFade = Math.min(audioFade, remaining / fadeOut);
           }
-          audio.volume = Math.max(0, Math.min(1, uiVolume * trackVol * clipVolume * audioFade));
+          combinedVolume = Math.max(0, Math.min(1, uiVolume * trackVol * clipVolume * audioFade));
         }
+
+        // AudioEngine でエフェクトとボリュームを更新
+        const effects = clip.effects ?? DEFAULT_EFFECTS;
+        audioEngine.updateEffects(clip.id, effects, combinedVolume);
 
         if (isPlaying) {
           // 再生位置が大きくずれていたらシーク
@@ -168,7 +184,8 @@ export const useAudioTrackPlayback = () => {
         window.cancelAnimationFrame(rafRef.current);
       }
       // 全 Audio 要素を破棄
-      for (const entry of audioMap.values()) {
+      for (const [clipId, entry] of audioMap) {
+        audioEngine.disconnect(clipId);
         entry.audio.pause();
         entry.audio.src = '';
       }
@@ -189,6 +206,7 @@ export const useAudioTrackPlayback = () => {
       }
       for (const [clipId, entry] of audioMapRef.current) {
         if (!audioClipIds.has(clipId)) {
+          audioEngine.disconnect(clipId);
           entry.audio.pause();
           entry.audio.src = '';
           audioMapRef.current.delete(clipId);

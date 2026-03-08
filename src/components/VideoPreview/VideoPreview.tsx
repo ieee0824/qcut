@@ -1,12 +1,15 @@
 import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
-import { useTimelineStore } from '../../store/timelineStore';
+import { useTimelineStore, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import { useTextOverlays } from './useTextOverlays';
 import { useTransitionEffect } from './useTransitionEffect';
 import { useVideoSwitching } from './useVideoSwitching';
 import { usePlaybackLoop } from './usePlaybackLoop';
 import { useAudioTrackPlayback } from './useAudioTrackPlayback';
+import { audioEngine } from '../../audio/AudioEngine';
+
+const VIDEO_AUDIO_ID = '__video_main__';
 
 interface VideoPreviewProps {
   width?: string;
@@ -128,6 +131,13 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   // --- カスタムフック ---
   useAudioTrackPlayback();
 
+  // video 要素の AudioEngine 接続をクリーンアップ
+  useEffect(() => {
+    return () => {
+      audioEngine.disconnect(VIDEO_AUDIO_ID);
+    };
+  }, []);
+
   const { textOverlays, textCurrentTime, calcTextOpacity, calcTextTranslateY } = useTextOverlays();
 
   const {
@@ -214,9 +224,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   }, [isPlaying, startPlaybackLoop, stopPlaybackLoop, setVideoPreviewCurrentTime, transitionVideoRef, isInTransitionRef, currentTimeRef]);
 
-  // --- 音量の同期 ---
+  // --- 音量の同期（Web Audio API 経由） ---
   useEffect(() => {
     if (videoRef.current) {
+      if (!audioEngine.hasGraph(VIDEO_AUDIO_ID)) {
+        audioEngine.connect(VIDEO_AUDIO_ID, videoRef.current);
+      }
       const clip = findClipAtTime(currentTimeRef.current);
       const clipVolume = clip?.effects?.volume ?? 1.0;
       const allTracks = useTimelineStore.getState().tracks;
@@ -224,11 +237,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       const hasSolo = allTracks.some(t => t.solo);
       const isTrackMuted = videoTrack ? (videoTrack.mute || (hasSolo && !videoTrack.solo)) : false;
       const trackVol = videoTrack?.volume ?? 1.0;
-      if (isTrackMuted) {
-        videoRef.current.volume = 0;
-      } else {
-        videoRef.current.volume = Math.max(0, Math.min(1, (volume / 100) * trackVol * clipVolume));
-      }
+      const combinedVolume = isTrackMuted ? 0 : Math.max(0, Math.min(1, (volume / 100) * trackVol * clipVolume));
+      const effects = clip?.effects ?? DEFAULT_EFFECTS;
+      audioEngine.updateEffects(VIDEO_AUDIO_ID, effects, combinedVolume);
     }
   }, [volume, findClipAtTime, currentTimeRef]);
 
