@@ -34,6 +34,10 @@ pub struct ClipEffects {
     pub eq_mid: f64,
     #[serde(default)]
     pub eq_high: f64,
+    #[serde(default)]
+    pub denoise_amount: f64,
+    #[serde(default)]
+    pub highpass_freq: f64,
 }
 
 fn default_volume() -> f64 {
