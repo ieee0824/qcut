@@ -19,7 +19,8 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     setSelectedClip,
     selectedClipId,
     splitClipAtTime,
-    updateClip,
+    updateClipSilent,
+    commitHistory,
     setTransition,
     removeTransition,
     moveClipToTrack,
@@ -70,7 +71,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
       const deltaTime = deltaX / pixelsPerSecond;
       let newStartTime = dragStartTime.current + deltaTime;
       newStartTime = Math.max(0, newStartTime);
-      updateClip(currentTrackId, clip.id, { startTime: newStartTime });
+      updateClipSilent(currentTrackId, clip.id, { startTime: newStartTime });
 
       // 垂直方向: ドロップ先トラックの判定
       const trackEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('.timeline-track') as HTMLElement | null;
@@ -91,6 +92,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
 
     const handleMouseUp = () => {
       document.querySelectorAll('.timeline-track.drop-target').forEach(el => el.classList.remove('drop-target'));
+      commitHistory();
       setIsDragging(false);
     };
 
@@ -101,7 +103,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, pixelsPerSecond, trackId, clip.id, updateClip, moveClipToTrack]);
+  }, [isDragging, pixelsPerSecond, trackId, clip.id, updateClipSilent, commitHistory, moveClipToTrack]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();

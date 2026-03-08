@@ -135,6 +135,8 @@ export interface TimelineState {
   addClip: (trackId: string, clip: Clip) => void;
   removeClip: (trackId: string, clipId: string) => void;
   updateClip: (trackId: string, clipId: string, updates: Partial<Clip>) => void;
+  updateClipSilent: (trackId: string, clipId: string, updates: Partial<Clip>) => void;
+  commitHistory: () => void;
   addTrack: (track: Track) => void;
   removeTrack: (trackId: string) => void;
   moveClipToTrack: (fromTrackId: string, clipId: string, toTrackId: string) => void;
@@ -242,6 +244,27 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         : track
     );
     return withHistory(state, newTracks);
+  }),
+
+  updateClipSilent: (trackId, clipId, updates) => set((state) => {
+    const newTracks = state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip =>
+              clip.id === clipId ? { ...clip, ...updates } : clip
+            ),
+          }
+        : track
+    );
+    return { tracks: newTracks };
+  }),
+
+  commitHistory: () => set((state) => {
+    const history = state._history.slice(0, state._historyIndex + 1);
+    history.push(JSON.parse(JSON.stringify(state.tracks)));
+    if (history.length > MAX_HISTORY) history.shift();
+    return { _history: history, _historyIndex: history.length - 1 };
   }),
 
   addTrack: (track) => set((state) =>
