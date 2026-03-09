@@ -100,12 +100,13 @@ interface EffectSliderProps {
   label: string;
   value: number;
   onChange: (value: number) => void;
+  onCommit?: () => void;
   min?: number;
   max?: number;
   step?: number;
 }
 
-const EffectSlider: React.FC<EffectSliderProps> = ({ label, value, onChange, min = 0, max = 2, step = 0.01 }) => {
+const EffectSlider: React.FC<EffectSliderProps> = ({ label, value, onChange, onCommit, min = 0, max = 2, step = 0.01 }) => {
   return (
     <div style={{ marginBottom: '12px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
@@ -119,6 +120,7 @@ const EffectSlider: React.FC<EffectSliderProps> = ({ label, value, onChange, min
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
+        onPointerUp={() => onCommit?.()}
         style={{ width: '100%', cursor: 'pointer' }}
       />
     </div>
@@ -156,12 +158,16 @@ export const EffectsPanel: React.FC = () => {
   const handleChange = useCallback(
     (key: keyof ClipEffects, value: number) => {
       if (!selectedTrackId || !selectedClipId) return;
-      updateClip(selectedTrackId, selectedClipId, {
+      updateClipSilent(selectedTrackId, selectedClipId, {
         effects: { ...effects, [key]: value },
       });
     },
-    [selectedTrackId, selectedClipId, effects, updateClip],
+    [selectedTrackId, selectedClipId, effects, updateClipSilent],
   );
+
+  const handleSliderCommit = useCallback(() => {
+    commitHistory();
+  }, [commitHistory]);
 
   const handleBatchChange = useCallback(
     (updates: Partial<ClipEffects>) => {
@@ -213,21 +219,25 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.brightness')}
               value={effects.brightness}
               onChange={(v) => handleChange('brightness', v)}
+              onCommit={handleSliderCommit}
             />
             <EffectSlider
               label={t('effects.contrast')}
               value={effects.contrast}
               onChange={(v) => handleChange('contrast', v)}
+              onCommit={handleSliderCommit}
             />
             <EffectSlider
               label={t('effects.saturation')}
               value={effects.saturation}
               onChange={(v) => handleChange('saturation', v)}
+              onCommit={handleSliderCommit}
             />
             <EffectSlider
               label={t('effects.colorTemperature')}
               value={effects.colorTemperature}
               onChange={(v) => handleChange('colorTemperature', v)}
+              onCommit={handleSliderCommit}
               min={-1}
               max={1}
               step={0.01}
@@ -236,6 +246,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.hue')}
               value={effects.hue}
               onChange={(v) => handleChange('hue', v)}
+              onCommit={handleSliderCommit}
               min={-180}
               max={180}
               step={1}
@@ -247,6 +258,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.hslRedSat')}
               value={effects.hslRedSat}
               onChange={(v) => handleChange('hslRedSat', v)}
+              onCommit={handleSliderCommit}
               min={-1}
               max={1}
               step={0.01}
@@ -255,6 +267,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.hslYellowSat')}
               value={effects.hslYellowSat}
               onChange={(v) => handleChange('hslYellowSat', v)}
+              onCommit={handleSliderCommit}
               min={-1}
               max={1}
               step={0.01}
@@ -263,6 +276,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.hslGreenSat')}
               value={effects.hslGreenSat}
               onChange={(v) => handleChange('hslGreenSat', v)}
+              onCommit={handleSliderCommit}
               min={-1}
               max={1}
               step={0.01}
@@ -271,6 +285,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.hslCyanSat')}
               value={effects.hslCyanSat}
               onChange={(v) => handleChange('hslCyanSat', v)}
+              onCommit={handleSliderCommit}
               min={-1}
               max={1}
               step={0.01}
@@ -279,6 +294,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.hslBlueSat')}
               value={effects.hslBlueSat}
               onChange={(v) => handleChange('hslBlueSat', v)}
+              onCommit={handleSliderCommit}
               min={-1}
               max={1}
               step={0.01}
@@ -287,6 +303,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.hslMagentaSat')}
               value={effects.hslMagentaSat}
               onChange={(v) => handleChange('hslMagentaSat', v)}
+              onCommit={handleSliderCommit}
               min={-1}
               max={1}
               step={0.01}
@@ -302,6 +319,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('transform.rotation')}
               value={effects.rotation}
               onChange={(v) => handleChange('rotation', v)}
+              onCommit={handleSliderCommit}
               min={-180}
               max={180}
               step={1}
@@ -310,6 +328,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('transform.scaleX')}
               value={effects.scaleX}
               onChange={(v) => handleChange('scaleX', v)}
+              onCommit={handleSliderCommit}
               min={0.1}
               max={3}
               step={0.01}
@@ -318,6 +337,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('transform.scaleY')}
               value={effects.scaleY}
               onChange={(v) => handleChange('scaleY', v)}
+              onCommit={handleSliderCommit}
               min={0.1}
               max={3}
               step={0.01}
@@ -326,6 +346,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('transform.positionX')}
               value={effects.positionX}
               onChange={(v) => handleChange('positionX', v)}
+              onCommit={handleSliderCommit}
               min={-500}
               max={500}
               step={1}
@@ -334,6 +355,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('transform.positionY')}
               value={effects.positionY}
               onChange={(v) => handleChange('positionY', v)}
+              onCommit={handleSliderCommit}
               min={-500}
               max={500}
               step={1}
@@ -345,6 +367,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.volume')}
               value={effects.volume}
               onChange={(v) => handleChange('volume', v)}
+              onCommit={handleSliderCommit}
               min={0}
               max={2}
               step={0.01}
@@ -389,6 +412,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.eqLow')}
               value={effects.eqLow}
               onChange={(v) => handleChange('eqLow', v)}
+              onCommit={handleSliderCommit}
               min={-12}
               max={12}
               step={0.5}
@@ -397,6 +421,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.eqMid')}
               value={effects.eqMid}
               onChange={(v) => handleChange('eqMid', v)}
+              onCommit={handleSliderCommit}
               min={-12}
               max={12}
               step={0.5}
@@ -405,6 +430,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.eqHigh')}
               value={effects.eqHigh}
               onChange={(v) => handleChange('eqHigh', v)}
+              onCommit={handleSliderCommit}
               min={-12}
               max={12}
               step={0.5}
@@ -416,6 +442,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.denoiseAmount')}
               value={effects.denoiseAmount}
               onChange={(v) => handleChange('denoiseAmount', v)}
+              onCommit={handleSliderCommit}
               min={0}
               max={1}
               step={0.01}
@@ -424,6 +451,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.highpassFreq')}
               value={effects.highpassFreq}
               onChange={(v) => handleChange('highpassFreq', v)}
+              onCommit={handleSliderCommit}
               min={0}
               max={500}
               step={10}
@@ -435,6 +463,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.echoDelay')}
               value={effects.echoDelay}
               onChange={(v) => handleChange('echoDelay', v)}
+              onCommit={handleSliderCommit}
               min={0}
               max={1000}
               step={10}
@@ -443,6 +472,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.echoDecay')}
               value={effects.echoDecay}
               onChange={(v) => handleChange('echoDecay', v)}
+              onCommit={handleSliderCommit}
               min={0}
               max={0.9}
               step={0.01}
@@ -480,6 +510,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.reverbAmount')}
               value={effects.reverbAmount}
               onChange={(v) => handleChange('reverbAmount', v)}
+              onCommit={handleSliderCommit}
               min={0}
               max={1}
               step={0.01}
@@ -491,6 +522,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.fadeIn')}
               value={effects.fadeIn}
               onChange={(v) => handleChange('fadeIn', v)}
+              onCommit={handleSliderCommit}
               min={0}
               max={3}
               step={0.1}
@@ -499,6 +531,7 @@ export const EffectsPanel: React.FC = () => {
               label={t('effects.fadeOut')}
               value={effects.fadeOut}
               onChange={(v) => handleChange('fadeOut', v)}
+              onCommit={handleSliderCommit}
               min={0}
               max={3}
               step={0.1}
