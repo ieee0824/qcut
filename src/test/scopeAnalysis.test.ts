@@ -103,4 +103,31 @@ describe('computeHistogram', () => {
     for (let i = 0; i < 256; i++) totalR += result.r[i];
     expect(totalR).toBe(2); // 全ピクセルがカウントされる
   });
+
+  it('should clamp step=0 to 1 and not infinite loop', () => {
+    const pixels = new Uint8ClampedArray([10, 20, 30, 255, 40, 50, 60, 255]);
+    const result = computeHistogram(pixels, 0);
+    let total = 0;
+    for (let i = 0; i < 256; i++) total += result.r[i];
+    expect(total).toBe(2);
+  });
+
+  it('should clamp negative step to 1', () => {
+    const pixels = new Uint8ClampedArray([10, 20, 30, 255]);
+    const result = computeHistogram(pixels, -5);
+    expect(result.r[10]).toBe(1);
+  });
+
+  it('should round fractional step to nearest integer', () => {
+    const pixels = new Uint8ClampedArray([
+      10, 0, 0, 255,
+      20, 0, 0, 255,
+      30, 0, 0, 255,
+    ]);
+    // step=1.7 rounds to 2, samples pixel 0 and 2
+    const result = computeHistogram(pixels, 1.7);
+    expect(result.r[10]).toBe(1);
+    expect(result.r[20]).toBe(0);
+    expect(result.r[30]).toBe(1);
+  });
 });

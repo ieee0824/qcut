@@ -18,7 +18,8 @@ export function computeHistogram(
   const b = new Uint32Array(256);
   const luma = new Uint32Array(256);
 
-  const stride = step * 4;
+  const safeStep = Math.max(1, Math.round(step));
+  const stride = safeStep * 4;
   for (let i = 0; i < pixels.length; i += stride) {
     const rv = pixels[i];
     const gv = pixels[i + 1];
