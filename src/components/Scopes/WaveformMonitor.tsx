@@ -39,8 +39,9 @@ function drawWaveform(
   const colScale = w / data.columns;
 
   for (let col = 0; col < data.columns; col++) {
-    const px = (col * colScale) | 0;
-    if (px >= w) continue;
+    const pxStart = (col * colScale) | 0;
+    const pxEnd = Math.min(w, ((col + 1) * colScale) | 0);
+    if (pxStart >= w) continue;
 
     for (let luma = 0; luma < 256; luma++) {
       const count = data.density[col * 256 + luma];
@@ -52,13 +53,20 @@ function drawWaveform(
       const py = (h - 1 - ((luma / 255) * (h - 1)) | 0);
       if (py < 0 || py >= h) continue;
 
-      const oi = (py * w + px) * 4;
       // 緑フォスファースタイル
+      const rVal = (intensity * 60) | 0;
       const g = (intensity * 255) | 0;
-      out[oi] = (intensity * 60) | 0;
-      out[oi + 1] = Math.max(out[oi + 1], g);
-      out[oi + 2] = (intensity * 30) | 0;
-      out[oi + 3] = Math.max(out[oi + 3], Math.min(255, (intensity * 400) | 0));
+      const bVal = (intensity * 30) | 0;
+      const a = Math.min(255, (intensity * 400) | 0);
+
+      // カラムに対応するピクセル幅を全て埋める
+      for (let px = pxStart; px < pxEnd; px++) {
+        const oi = (py * w + px) * 4;
+        out[oi] = Math.max(out[oi], rVal);
+        out[oi + 1] = Math.max(out[oi + 1], g);
+        out[oi + 2] = Math.max(out[oi + 2], bVal);
+        out[oi + 3] = Math.max(out[oi + 3], a);
+      }
     }
   }
 
