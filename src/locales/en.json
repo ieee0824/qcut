@@ -43,6 +43,8 @@
     "brightness": "Brightness",
     "contrast": "Contrast",
     "saturation": "Saturation",
+    "colorTemperature": "Color Temperature",
+    "hue": "Hue",
     "reset": "Reset",
     "audio": "Audio",
     "volume": "Volume",

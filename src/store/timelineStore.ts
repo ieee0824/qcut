@@ -5,6 +5,8 @@ export interface ClipEffects {
   brightness: number;  // 0〜2, default 1.0
   contrast: number;    // 0〜2, default 1.0
   saturation: number;  // 0〜2, default 1.0
+  colorTemperature: number;  // -1〜1, default 0 (negative=cool, positive=warm)
+  hue: number;               // -180〜180, default 0
   rotation: number;    // -180〜180, default 0
   scaleX: number;      // 0.1〜3, default 1.0
   scaleY: number;      // 0.1〜3, default 1.0
@@ -27,6 +29,8 @@ export const DEFAULT_EFFECTS: ClipEffects = {
   brightness: 1.0,
   contrast: 1.0,
   saturation: 1.0,
+  colorTemperature: 0,
+  hue: 0,
   rotation: 0,
   scaleX: 1.0,
   scaleY: 1.0,

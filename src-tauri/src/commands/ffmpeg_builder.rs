@@ -249,6 +249,31 @@ pub(crate) fn build_ffmpeg_args(
                 ));
             }
 
+            // 色相シフト
+            if effects.hue.abs() > 0.1 {
+                vfilter.push_str(&format!(",hue=h={:.1}", effects.hue));
+            }
+
+            // 色温度（colorbalance フィルタで近似）
+            if effects.color_temperature.abs() > 0.01 {
+                let t = effects.color_temperature;
+                if t > 0.0 {
+                    let rs = t * 0.3;
+                    let bs = -t * 0.3;
+                    vfilter.push_str(&format!(
+                        ",colorbalance=rs={:.2}:bs={:.2}:rm={:.2}:bm={:.2}",
+                        rs, bs, rs * 0.5, bs * 0.5
+                    ));
+                } else {
+                    let bs = -t * 0.3;
+                    let rs = t * 0.3;
+                    vfilter.push_str(&format!(
+                        ",colorbalance=rs={:.2}:bs={:.2}:rm={:.2}:bm={:.2}",
+                        rs, bs, rs * 0.5, bs * 0.5
+                    ));
+                }
+            }
+
             // スケール
             if (effects.scale_x - 1.0).abs() > 0.01 || (effects.scale_y - 1.0).abs() > 0.01 {
                 vfilter.push_str(&format!(

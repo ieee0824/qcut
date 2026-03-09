@@ -43,6 +43,8 @@
     "brightness": "明るさ",
     "contrast": "コントラスト",
     "saturation": "彩度",
+    "colorTemperature": "色温度",
+    "hue": "色相",
     "reset": "リセット",
     "audio": "オーディオ",
     "volume": "音量",
