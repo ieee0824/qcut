@@ -190,6 +190,17 @@
     "corruptFile": "不正なプロジェクトファイルです",
     "autosaveRecover": "「{{name}}」の自動保存データが見つかりました。復旧しますか？"
   },
+  "timecode": {
+    "title": "タイムコード",
+    "enable": "タイムコードを表示",
+    "startDateTime": "開始日時",
+    "format": "表示フォーマット",
+    "fontSize": "フォントサイズ",
+    "fontColor": "フォントカラー",
+    "positionX": "位置X",
+    "positionY": "位置Y",
+    "reset": "リセット"
+  },
   "export": {
     "title": "動画エクスポート",
     "button": "エクスポート",

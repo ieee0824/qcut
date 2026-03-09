@@ -113,6 +113,28 @@ export const DEFAULT_TEXT_PROPERTIES: TextProperties = {
   animationDuration: 0.3,
 };
 
+export type TimecodeFormat = 'ymd-hm' | 'md-hm' | 'hms' | 'hm';
+
+export interface TimecodeOverlay {
+  enabled: boolean;
+  startDateTime: number;       // epoch milliseconds (開始日時)
+  format: TimecodeFormat;
+  positionX: number;           // 0〜100 (%), default 50
+  positionY: number;           // 0〜100 (%), default 10
+  fontSize: number;            // 16〜120, default 24
+  fontColor: string;           // hex, default '#ffffff'
+}
+
+export const DEFAULT_TIMECODE_OVERLAY: TimecodeOverlay = {
+  enabled: false,
+  startDateTime: Date.now(),
+  format: 'hm',
+  positionX: 50,
+  positionY: 10,
+  fontSize: 24,
+  fontColor: '#ffffff',
+};
+
 export type TransitionType =
   | 'crossfade'
   | 'wipe-left'
@@ -146,6 +168,9 @@ export interface Clip {
 
   // トランジション（前のクリップとの境界に適用）
   transition?: ClipTransition;
+
+  // タイムコードオーバーレイ
+  timecodeOverlay?: TimecodeOverlay;
 }
 
 export interface Track {

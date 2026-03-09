@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTimelineStore, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import { useTextOverlays } from './useTextOverlays';
+import { useTimecodeOverlay } from './useTimecodeOverlay';
 import { useTransitionEffect } from './useTransitionEffect';
 import { useVideoSwitching } from './useVideoSwitching';
 import { usePlaybackLoop } from './usePlaybackLoop';
@@ -147,6 +148,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   }, []);
 
   const { textOverlays, textCurrentTime, calcTextOpacity, calcTextTranslateY } = useTextOverlays();
+  const { timecodeDisplay } = useTimecodeOverlay();
 
   const {
     transitionVideoRef,
@@ -435,6 +437,26 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             </div>
           );
         })}
+        {/* タイムコードオーバーレイ */}
+        {timecodeDisplay && (
+          <div
+            style={{
+              position: 'absolute',
+              left: `${timecodeDisplay.overlay.positionX}%`,
+              top: `${timecodeDisplay.overlay.positionY}%`,
+              transform: 'translate(-50%, -50%)',
+              fontSize: `${timecodeDisplay.overlay.fontSize}px`,
+              fontFamily: 'monospace',
+              color: timecodeDisplay.overlay.fontColor,
+              textShadow: '1px 1px 3px rgba(0,0,0,0.8), -1px -1px 3px rgba(0,0,0,0.8)',
+              pointerEvents: 'none',
+              zIndex: 11,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {timecodeDisplay.text}
+          </div>
+        )}
       </div>
 
       {/* プリロード用（非表示） */}

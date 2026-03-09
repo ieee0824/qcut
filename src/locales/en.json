@@ -190,6 +190,17 @@
     "corruptFile": "Invalid project file",
     "autosaveRecover": "Autosave data for \"{{name}}\" was found. Would you like to recover it?"
   },
+  "timecode": {
+    "title": "Timecode",
+    "enable": "Show timecode",
+    "startDateTime": "Start date/time",
+    "format": "Display format",
+    "fontSize": "Font size",
+    "fontColor": "Font color",
+    "positionX": "Position X",
+    "positionY": "Position Y",
+    "reset": "Reset"
+  },
   "export": {
     "title": "Export Video",
     "button": "Export",

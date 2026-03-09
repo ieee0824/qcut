@@ -110,6 +110,28 @@ pub struct TextProperties {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
+pub struct TimecodeOverlay {
+    pub enabled: bool,
+    pub start_date_time: f64,  // epoch milliseconds
+    pub format: String,        // "ymd-hm" | "md-hm" | "hms" | "hm"
+    #[serde(default = "default_timecode_position_x")]
+    pub position_x: f64,
+    #[serde(default = "default_timecode_position_y")]
+    pub position_y: f64,
+    #[serde(default = "default_timecode_font_size")]
+    pub font_size: u32,
+    #[serde(default = "default_timecode_font_color")]
+    pub font_color: String,
+}
+
+fn default_timecode_position_x() -> f64 { 50.0 }
+fn default_timecode_position_y() -> f64 { 10.0 }
+fn default_timecode_font_size() -> u32 { 24 }
+fn default_timecode_font_color() -> String { "#ffffff".to_string() }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct ExportTransition {
     #[serde(rename = "type")]
     pub transition_type: String,
@@ -130,6 +152,7 @@ pub struct ExportClip {
     pub effects: Option<ClipEffects>,
     pub text_properties: Option<TextProperties>,
     pub transition: Option<ExportTransition>,
+    pub timecode_overlay: Option<TimecodeOverlay>,
 }
 
 #[derive(Debug, Deserialize)]
