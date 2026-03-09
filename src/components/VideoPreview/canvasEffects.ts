@@ -236,14 +236,20 @@ export function renderFrame(
   video: HTMLVideoElement,
   effects: ClipEffects,
 ): void {
+  // Skip if video is not ready (HAVE_CURRENT_DATA = 2)
+  if (video.readyState < 2) return;
+
   const { gl, texture, uniforms } = pipeline;
 
-  // Resize canvas to match video dimensions
+  // Resize canvas to match video's intrinsic dimensions (aspect ratio preserved by CSS object-fit)
   const canvas = gl.canvas as HTMLCanvasElement;
-  if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-    gl.viewport(0, 0, canvas.width, canvas.height);
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (vw === 0 || vh === 0) return;
+  if (canvas.width !== vw || canvas.height !== vh) {
+    canvas.width = vw;
+    canvas.height = vh;
+    gl.viewport(0, 0, vw, vh);
   }
 
   // Upload video frame as texture
