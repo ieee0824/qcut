@@ -19,12 +19,16 @@ interface AudioNodeGraph {
 /**
  * Web Audio API を使って音声エフェクトをリアルタイムにプレビューするエンジン。
  * クリップごとに AudioNodeGraph を構築し、エフェクトパラメータを動的に更新する。
+ *
+ * MediaElementAudioSourceNode は 1 つの HTMLMediaElement に対して一度しか作成できない。
+ * React StrictMode の二重実行に対応するため、source ノードを要素単位でキャッシュする。
  */
 export class AudioEngine {
   private context: AudioContext | null = null;
   private graphs: Map<string, AudioNodeGraph> = new Map();
-  // HTMLAudioElement は 1つの MediaElementSourceNode にしか接続できないため追跡する
   private connectedElements: Map<string, HTMLAudioElement> = new Map();
+  // HTMLMediaElement → MediaElementAudioSourceNode のキャッシュ（一度作ったら再利用）
+  private sourceCache: WeakMap<HTMLAudioElement, MediaElementAudioSourceNode> = new WeakMap();
 
   private getContext(): AudioContext | null {
     if (typeof AudioContext === 'undefined') {
@@ -57,13 +61,18 @@ export class AudioEngine {
     const ctx = this.getContext();
     if (!ctx) return;
 
-    let source: MediaElementAudioSourceNode;
-    try {
-      source = ctx.createMediaElementSource(audioElement);
-    } catch (e) {
-      console.error('[AudioEngine] createMediaElementSource failed:', e);
-      return;
+    // source ノードはキャッシュから取得（同一要素に2回 createMediaElementSource は呼べない）
+    let source = this.sourceCache.get(audioElement);
+    if (!source) {
+      try {
+        source = ctx.createMediaElementSource(audioElement);
+      } catch (e) {
+        console.error('[AudioEngine] createMediaElementSource failed:', e);
+        return;
+      }
+      this.sourceCache.set(audioElement, source);
     }
+
     const highpass = ctx.createBiquadFilter();
     const eqLow = ctx.createBiquadFilter();
     const eqMid = ctx.createBiquadFilter();
@@ -111,13 +120,6 @@ export class AudioEngine {
 
     // ノードグラフの接続:
     // source → highpass → eqLow → eqMid → eqHigh → [echo split] → [reverb split] → gain → destination
-    //
-    // Echo: input → echoDry → merge
-    //        input → echoDelay → echoMix → merge
-    //        echoDelay → echoFeedback → echoDelay (feedback loop)
-    //
-    // Reverb: input → reverbDry → merge
-    //          input → reverbConvolver → reverbMix → merge
 
     source.connect(highpass);
     highpass.connect(eqLow);
@@ -212,10 +214,12 @@ export class AudioEngine {
 
   /**
    * クリップのノードグラフを破棄する。
+   * source ノードは WeakMap にキャッシュされたまま残る（再接続時に再利用するため）。
    */
   disconnect(clipId: string): void {
     const graph = this.graphs.get(clipId);
     if (graph) {
+      // source は disconnect のみ（キャッシュに残すので破棄しない）
       try { graph.source.disconnect(); } catch { /* already disconnected */ }
       try { graph.highpass.disconnect(); } catch { /* already disconnected */ }
       try { graph.eqLow.disconnect(); } catch { /* already disconnected */ }
