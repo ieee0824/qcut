@@ -274,6 +274,24 @@ pub(crate) fn build_ffmpeg_args(
                 }
             }
 
+            // HSL 色域別彩度調整（huesaturation フィルタ）
+            let hsl_colors: &[(&str, f64)] = &[
+                ("r", effects.hsl_red_sat),
+                ("y", effects.hsl_yellow_sat),
+                ("g", effects.hsl_green_sat),
+                ("c", effects.hsl_cyan_sat),
+                ("b", effects.hsl_blue_sat),
+                ("m", effects.hsl_magenta_sat),
+            ];
+            for (color_key, sat_val) in hsl_colors {
+                if sat_val.abs() > 0.01 {
+                    vfilter.push_str(&format!(
+                        ",huesaturation=saturation={:.2}:colors={}",
+                        sat_val, color_key
+                    ));
+                }
+            }
+
             // スケール
             if (effects.scale_x - 1.0).abs() > 0.01 || (effects.scale_y - 1.0).abs() > 0.01 {
                 vfilter.push_str(&format!(

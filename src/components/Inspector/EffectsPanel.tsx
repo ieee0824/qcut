@@ -147,6 +147,58 @@ export const EffectsPanel: React.FC = () => {
           />
 
           <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
+            {t('effects.hsl')}
+          </h4>
+          <EffectSlider
+            label={t('effects.hslRedSat')}
+            value={effects.hslRedSat}
+            onChange={(v) => handleChange('hslRedSat', v)}
+            min={-1}
+            max={1}
+            step={0.01}
+          />
+          <EffectSlider
+            label={t('effects.hslYellowSat')}
+            value={effects.hslYellowSat}
+            onChange={(v) => handleChange('hslYellowSat', v)}
+            min={-1}
+            max={1}
+            step={0.01}
+          />
+          <EffectSlider
+            label={t('effects.hslGreenSat')}
+            value={effects.hslGreenSat}
+            onChange={(v) => handleChange('hslGreenSat', v)}
+            min={-1}
+            max={1}
+            step={0.01}
+          />
+          <EffectSlider
+            label={t('effects.hslCyanSat')}
+            value={effects.hslCyanSat}
+            onChange={(v) => handleChange('hslCyanSat', v)}
+            min={-1}
+            max={1}
+            step={0.01}
+          />
+          <EffectSlider
+            label={t('effects.hslBlueSat')}
+            value={effects.hslBlueSat}
+            onChange={(v) => handleChange('hslBlueSat', v)}
+            min={-1}
+            max={1}
+            step={0.01}
+          />
+          <EffectSlider
+            label={t('effects.hslMagentaSat')}
+            value={effects.hslMagentaSat}
+            onChange={(v) => handleChange('hslMagentaSat', v)}
+            min={-1}
+            max={1}
+            step={0.01}
+          />
+
+          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
             {t('transform.title')}
           </h4>
           <EffectSlider
