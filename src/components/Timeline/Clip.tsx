@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { WaveformCanvas } from './WaveformCanvas';
 import { useDragClip } from './useDragClip';
 import { ClipContextMenu } from './ClipContextMenu';
+import { calculateClipPosition, calculateContextMenuTime } from './clipUtils';
 
 interface ClipProps {
   clip: ClipType;
@@ -30,8 +31,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     pixelsPerSecond,
   });
 
-  const left = clip.startTime * pixelsPerSecond;
-  const width = clip.duration * pixelsPerSecond;
+  const { left, width } = calculateClipPosition(clip.startTime, clip.duration, pixelsPerSecond);
   const isSelected = selectedClipId === clip.id;
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -63,8 +63,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     if (clipEl) {
       const rect = clipEl.getBoundingClientRect();
       const relX = e.clientX - rect.left;
-      const relTime = relX / pixelsPerSecond;
-      const time = clip.startTime + Math.max(0, Math.min(relTime, clip.duration));
+      const time = calculateContextMenuTime(clip.startTime, clip.duration, relX, pixelsPerSecond);
       useTimelineStore.getState().setCurrentTime(time);
       useVideoPreviewStore.getState().setCurrentTime(time);
     }

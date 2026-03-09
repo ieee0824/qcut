@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, Clip as ClipType, DEFAULT_EFFECTS, type TransitionType } from '../../store/timelineStore';
 import { TransitionSubmenu } from './TransitionSubmenu';
+import { clampMenuPosition } from './clipUtils';
 
 interface ClipContextMenuProps {
   clip: ClipType;
@@ -83,17 +84,15 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
     if (!contextMenuRef.current) return;
     const menu = contextMenuRef.current;
     const rect = menu.getBoundingClientRect();
-    let { x, y } = menuPos;
-    if (rect.right > window.innerWidth) {
-      x = window.innerWidth - rect.width;
-    }
-    if (rect.bottom > window.innerHeight) {
-      y = window.innerHeight - rect.height;
-    }
-    if (x < 0) x = 0;
-    if (y < 0) y = 0;
-    if (x !== menuPos.x || y !== menuPos.y) {
-      setMenuPos({ x, y });
+    const clamped = clampMenuPosition(
+      menuPos,
+      rect.width,
+      rect.height,
+      window.innerWidth,
+      window.innerHeight,
+    );
+    if (clamped.x !== menuPos.x || clamped.y !== menuPos.y) {
+      setMenuPos(clamped);
     }
   }, [menuPos]);
 

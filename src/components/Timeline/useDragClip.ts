@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
+import { calculateDragNewStartTime } from './clipUtils';
 
 interface UseDragClipParams {
   clipId: string;
@@ -34,9 +35,7 @@ export function useDragClip({ clipId, trackId, startTime, pixelsPerSecond }: Use
     const handleMouseMove = (e: globalThis.MouseEvent) => {
       // 水平方向の移動
       const deltaX = e.clientX - dragStartX.current;
-      const deltaTime = deltaX / pixelsPerSecond;
-      let newStartTime = dragStartTime.current + deltaTime;
-      newStartTime = Math.max(0, newStartTime);
+      const newStartTime = calculateDragNewStartTime(dragStartTime.current, deltaX, pixelsPerSecond);
       updateClipSilent(currentTrackId, clipId, { startTime: newStartTime });
 
       // 垂直方向: ドロップ先トラックの判定
