@@ -143,6 +143,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     videoRef,
     pipelineRef,
     needsCanvas,
+    effects: currentClip?.effects,
   });
 
   useAudioTrackPlayback();
