@@ -13,6 +13,15 @@ export interface ClipEffects {
   hslCyanSat: number;        // -1〜1, default 0 (色域別彩度: シアン)
   hslBlueSat: number;        // -1〜1, default 0 (色域別彩度: 青)
   hslMagentaSat: number;     // -1〜1, default 0 (色域別彩度: マゼンタ)
+  liftR: number;             // -1〜1, default 0 (リフト: シャドウ赤)
+  liftG: number;             // -1〜1, default 0 (リフト: シャドウ緑)
+  liftB: number;             // -1〜1, default 0 (リフト: シャドウ青)
+  gammaR: number;            // -1〜1, default 0 (ガンマ: ミッドトーン赤)
+  gammaG: number;            // -1〜1, default 0 (ガンマ: ミッドトーン緑)
+  gammaB: number;            // -1〜1, default 0 (ガンマ: ミッドトーン青)
+  gainR: number;             // -1〜1, default 0 (ゲイン: ハイライト赤)
+  gainG: number;             // -1〜1, default 0 (ゲイン: ハイライト緑)
+  gainB: number;             // -1〜1, default 0 (ゲイン: ハイライト青)
   rotation: number;    // -180〜180, default 0
   scaleX: number;      // 0.1〜3, default 1.0
   scaleY: number;      // 0.1〜3, default 1.0
@@ -43,6 +52,15 @@ export const DEFAULT_EFFECTS: ClipEffects = {
   hslCyanSat: 0,
   hslBlueSat: 0,
   hslMagentaSat: 0,
+  liftR: 0,
+  liftG: 0,
+  liftB: 0,
+  gammaR: 0,
+  gammaG: 0,
+  gammaB: 0,
+  gainR: 0,
+  gainG: 0,
+  gainB: 0,
   rotation: 0,
   scaleX: 1.0,
   scaleY: 1.0,

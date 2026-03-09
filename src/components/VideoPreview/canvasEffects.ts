@@ -13,7 +13,16 @@ export function needsCanvasPipeline(effects: ClipEffects): boolean {
     Math.abs(effects.hslGreenSat) > EPS ||
     Math.abs(effects.hslCyanSat) > EPS ||
     Math.abs(effects.hslBlueSat) > EPS ||
-    Math.abs(effects.hslMagentaSat) > EPS
+    Math.abs(effects.hslMagentaSat) > EPS ||
+    Math.abs(effects.liftR) > EPS ||
+    Math.abs(effects.liftG) > EPS ||
+    Math.abs(effects.liftB) > EPS ||
+    Math.abs(effects.gammaR) > EPS ||
+    Math.abs(effects.gammaG) > EPS ||
+    Math.abs(effects.gammaB) > EPS ||
+    Math.abs(effects.gainR) > EPS ||
+    Math.abs(effects.gainG) > EPS ||
+    Math.abs(effects.gainB) > EPS
   );
 }
 
@@ -48,6 +57,11 @@ uniform float u_hslGreenSat;
 uniform float u_hslCyanSat;
 uniform float u_hslBlueSat;
 uniform float u_hslMagentaSat;
+
+// Lift/Gamma/Gain (3-way color correction)
+uniform vec3 u_lift;   // shadow color shift
+uniform vec3 u_gamma;  // midtone color shift
+uniform vec3 u_gain;   // highlight color shift
 
 vec3 rgb2hsl(vec3 c) {
   float maxC = max(c.r, max(c.g, c.b));
@@ -142,6 +156,15 @@ void main() {
     result.b = clamp(result.b, 0.0, 1.0);
   }
 
+  // 3-way color correction: Lift/Gamma/Gain
+  // Lift: shifts shadows (black point) — result + lift * (1 - result)
+  // Gain: scales highlights — result * (1 + gain)
+  // Gamma: midtone curve — pow(result, 1 / (1 + gamma))
+  result = result + u_lift * (vec3(1.0) - result);
+  result = result * (vec3(1.0) + u_gain);
+  vec3 gammaExp = vec3(1.0) / max(vec3(1.0) + u_gamma, vec3(0.01));
+  result = pow(clamp(result, vec3(0.0), vec3(1.0)), gammaExp);
+
   gl_FragColor = vec4(clamp(result, 0.0, 1.0), texColor.a);
 }
 `;
@@ -221,6 +244,7 @@ export function initWebGLPipeline(canvas: HTMLCanvasElement): WebGLPipeline | nu
     'u_brightness', 'u_contrast', 'u_saturation', 'u_hue', 'u_colorTemp',
     'u_hslRedSat', 'u_hslYellowSat', 'u_hslGreenSat',
     'u_hslCyanSat', 'u_hslBlueSat', 'u_hslMagentaSat',
+    'u_lift', 'u_gamma', 'u_gain',
   ];
   const uniforms: Record<string, WebGLUniformLocation> = {};
   for (const name of uniformNames) {
@@ -268,6 +292,9 @@ export function renderFrame(
   gl.uniform1f(uniforms['u_hslCyanSat'], effects.hslCyanSat);
   gl.uniform1f(uniforms['u_hslBlueSat'], effects.hslBlueSat);
   gl.uniform1f(uniforms['u_hslMagentaSat'], effects.hslMagentaSat);
+  gl.uniform3f(uniforms['u_lift'], effects.liftR, effects.liftG, effects.liftB);
+  gl.uniform3f(uniforms['u_gamma'], effects.gammaR, effects.gammaG, effects.gammaB);
+  gl.uniform3f(uniforms['u_gain'], effects.gainR, effects.gainG, effects.gainB);
 
   // Draw
   gl.drawArrays(gl.TRIANGLES, 0, 6);
