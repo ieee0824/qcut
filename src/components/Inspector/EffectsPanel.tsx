@@ -63,6 +63,8 @@ export const EffectsPanel: React.FC = () => {
   const selectedTrackId = useTimelineStore((s) => s.selectedTrackId);
   const tracks = useTimelineStore((s) => s.tracks);
   const updateClip = useTimelineStore((s) => s.updateClip);
+  const updateClipSilent = useTimelineStore((s) => s.updateClipSilent);
+  const commitHistory = useTimelineStore((s) => s.commitHistory);
 
   const selectedClip = useMemo(() => {
     if (!selectedClipId || !selectedTrackId) return null;
@@ -87,12 +89,16 @@ export const EffectsPanel: React.FC = () => {
   const handleBatchChange = useCallback(
     (updates: Partial<ClipEffects>) => {
       if (!selectedTrackId || !selectedClipId) return;
-      updateClip(selectedTrackId, selectedClipId, {
+      updateClipSilent(selectedTrackId, selectedClipId, {
         effects: { ...effects, ...updates },
       });
     },
-    [selectedTrackId, selectedClipId, effects, updateClip],
+    [selectedTrackId, selectedClipId, effects, updateClipSilent],
   );
+
+  const handleBatchCommit = useCallback(() => {
+    commitHistory();
+  }, [commitHistory]);
 
   const handleReset = useCallback(() => {
     if (!selectedTrackId || !selectedClipId) return;
@@ -209,7 +215,7 @@ export const EffectsPanel: React.FC = () => {
             step={0.01}
           />
 
-          <ColorWheelPanel effects={effects} onBatchChange={handleBatchChange} />
+          <ColorWheelPanel effects={effects} onBatchChange={handleBatchChange} onCommit={handleBatchCommit} />
 
           <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
             {t('transform.title')}

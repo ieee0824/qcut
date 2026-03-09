@@ -6,9 +6,10 @@ import type { ClipEffects } from '../../store/timelineStore';
 interface ColorWheelPanelProps {
   effects: ClipEffects;
   onBatchChange: (updates: Partial<ClipEffects>) => void;
+  onCommit: () => void;
 }
 
-export const ColorWheelPanel: React.FC<ColorWheelPanelProps> = ({ effects, onBatchChange }) => {
+export const ColorWheelPanel: React.FC<ColorWheelPanelProps> = ({ effects, onBatchChange, onCommit }) => {
   const { t } = useTranslation();
 
   const handleLiftChange = useCallback(
@@ -59,6 +60,7 @@ export const ColorWheelPanel: React.FC<ColorWheelPanelProps> = ({ effects, onBat
           g={effects.liftG}
           b={effects.liftB}
           onChange={handleLiftChange}
+          onCommit={onCommit}
           size={90}
         />
         <ColorWheel
@@ -67,6 +69,7 @@ export const ColorWheelPanel: React.FC<ColorWheelPanelProps> = ({ effects, onBat
           g={effects.gammaG}
           b={effects.gammaB}
           onChange={handleGammaChange}
+          onCommit={onCommit}
           size={90}
         />
         <ColorWheel
@@ -75,6 +78,7 @@ export const ColorWheelPanel: React.FC<ColorWheelPanelProps> = ({ effects, onBat
           g={effects.gainG}
           b={effects.gainB}
           onChange={handleGainChange}
+          onCommit={onCommit}
           size={90}
         />
       </div>

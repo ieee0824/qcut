@@ -7,6 +7,7 @@ interface ColorWheelProps {
   g: number;
   b: number;
   onChange: (r: number, g: number, b: number) => void;
+  onCommit?: () => void;
   size?: number;
 }
 
@@ -77,6 +78,7 @@ export const ColorWheel: React.FC<ColorWheelProps> = ({
   g,
   b,
   onChange,
+  onCommit,
   size = 100,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -172,12 +174,16 @@ export const ColorWheel: React.FC<ColorWheelProps> = ({
   );
 
   const handlePointerUp = useCallback(() => {
-    isDraggingRef.current = false;
-  }, []);
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      onCommit?.();
+    }
+  }, [onCommit]);
 
   const handleDoubleClick = useCallback(() => {
     onChange(0, 0, 0);
-  }, [onChange]);
+    onCommit?.();
+  }, [onChange, onCommit]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
