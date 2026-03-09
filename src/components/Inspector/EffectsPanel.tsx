@@ -4,6 +4,8 @@ import { useTimelineStore, DEFAULT_EFFECTS, DEFAULT_TIMECODE_OVERLAY } from '../
 import type { ClipEffects, TimecodeOverlay } from '../../store/timelineStore';
 import { ColorWheelPanel } from './ColorWheelPanel';
 import { ColorPresetPanel } from './ColorPresetPanel';
+import { PropertySlider } from './PropertySlider';
+import type { SliderDefinition } from './PropertySlider';
 import { TimecodePanel } from './TimecodePanel';
 import { ScopesPanel } from '../Scopes/ScopesPanel';
 
@@ -99,36 +101,59 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ id, title, defa
   );
 };
 
-interface EffectSliderProps {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  onCommit?: () => void;
-  min?: number;
-  max?: number;
-  step?: number;
-}
+const BASIC_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
+  { key: 'brightness', label: 'effects.brightness' },
+  { key: 'contrast', label: 'effects.contrast' },
+  { key: 'saturation', label: 'effects.saturation' },
+  { key: 'colorTemperature', label: 'effects.colorTemperature', min: -1, max: 1, step: 0.01 },
+  { key: 'hue', label: 'effects.hue', min: -180, max: 180, step: 1 },
+];
 
-const EffectSlider: React.FC<EffectSliderProps> = ({ label, value, onChange, onCommit, min = 0, max = 2, step = 0.01 }) => {
-  return (
-    <div style={{ marginBottom: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-        <span style={{ fontSize: '12px', color: '#ccc' }}>{label}</span>
-        <span style={{ fontSize: '12px', color: '#999' }}>{value.toFixed(2)}</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        onPointerUp={() => onCommit?.()}
-        style={{ width: '100%', cursor: 'pointer' }}
-      />
-    </div>
-  );
-};
+const HSL_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
+  { key: 'hslRedSat', label: 'effects.hslRedSat', min: -1, max: 1, step: 0.01 },
+  { key: 'hslYellowSat', label: 'effects.hslYellowSat', min: -1, max: 1, step: 0.01 },
+  { key: 'hslGreenSat', label: 'effects.hslGreenSat', min: -1, max: 1, step: 0.01 },
+  { key: 'hslCyanSat', label: 'effects.hslCyanSat', min: -1, max: 1, step: 0.01 },
+  { key: 'hslBlueSat', label: 'effects.hslBlueSat', min: -1, max: 1, step: 0.01 },
+  { key: 'hslMagentaSat', label: 'effects.hslMagentaSat', min: -1, max: 1, step: 0.01 },
+];
+
+const TRANSFORM_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
+  { key: 'rotation', label: 'transform.rotation', min: -180, max: 180, step: 1 },
+  { key: 'scaleX', label: 'transform.scaleX', min: 0.1, max: 3, step: 0.01 },
+  { key: 'scaleY', label: 'transform.scaleY', min: 0.1, max: 3, step: 0.01 },
+  { key: 'positionX', label: 'transform.positionX', min: -500, max: 500, step: 1 },
+  { key: 'positionY', label: 'transform.positionY', min: -500, max: 500, step: 1 },
+];
+
+const VOLUME_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
+  { key: 'volume', label: 'effects.volume', min: 0, max: 2, step: 0.01 },
+];
+
+const EQ_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
+  { key: 'eqLow', label: 'effects.eqLow', min: -12, max: 12, step: 0.5 },
+  { key: 'eqMid', label: 'effects.eqMid', min: -12, max: 12, step: 0.5 },
+  { key: 'eqHigh', label: 'effects.eqHigh', min: -12, max: 12, step: 0.5 },
+];
+
+const NOISE_REDUCTION_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
+  { key: 'denoiseAmount', label: 'effects.denoiseAmount', min: 0, max: 1, step: 0.01 },
+  { key: 'highpassFreq', label: 'effects.highpassFreq', min: 0, max: 500, step: 10 },
+];
+
+const ECHO_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
+  { key: 'echoDelay', label: 'effects.echoDelay', min: 0, max: 1000, step: 10 },
+  { key: 'echoDecay', label: 'effects.echoDecay', min: 0, max: 0.9, step: 0.01 },
+];
+
+const REVERB_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
+  { key: 'reverbAmount', label: 'effects.reverbAmount', min: 0, max: 1, step: 0.01 },
+];
+
+const FADE_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
+  { key: 'fadeIn', label: 'effects.fadeIn', min: 0, max: 3, step: 0.1 },
+  { key: 'fadeOut', label: 'effects.fadeOut', min: 0, max: 3, step: 0.1 },
+];
 
 export const EffectsPanel: React.FC = () => {
   const { t } = useTranslation();
@@ -244,99 +269,33 @@ export const EffectsPanel: React.FC = () => {
           </CollapsibleSection>
 
           <CollapsibleSection id="basic" title={t('effects.title')} sections={sections} onToggle={handleToggleSection}>
-            <EffectSlider
-              label={t('effects.brightness')}
-              value={effects.brightness}
-              onChange={(v) => handleChange('brightness', v)}
-              onCommit={handleSliderCommit}
-            />
-            <EffectSlider
-              label={t('effects.contrast')}
-              value={effects.contrast}
-              onChange={(v) => handleChange('contrast', v)}
-              onCommit={handleSliderCommit}
-            />
-            <EffectSlider
-              label={t('effects.saturation')}
-              value={effects.saturation}
-              onChange={(v) => handleChange('saturation', v)}
-              onCommit={handleSliderCommit}
-            />
-            <EffectSlider
-              label={t('effects.colorTemperature')}
-              value={effects.colorTemperature}
-              onChange={(v) => handleChange('colorTemperature', v)}
-              onCommit={handleSliderCommit}
-              min={-1}
-              max={1}
-              step={0.01}
-            />
-            <EffectSlider
-              label={t('effects.hue')}
-              value={effects.hue}
-              onChange={(v) => handleChange('hue', v)}
-              onCommit={handleSliderCommit}
-              min={-180}
-              max={180}
-              step={1}
-            />
+            {BASIC_SLIDERS.map((s) => (
+              <PropertySlider
+                key={s.key}
+                label={t(s.label)}
+                value={effects[s.key] as number}
+                onChange={(v) => handleChange(s.key, v)}
+                onCommit={handleSliderCommit}
+                min={s.min}
+                max={s.max}
+                step={s.step}
+              />
+            ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="hsl" title={t('effects.hsl')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
-            <EffectSlider
-              label={t('effects.hslRedSat')}
-              value={effects.hslRedSat}
-              onChange={(v) => handleChange('hslRedSat', v)}
-              onCommit={handleSliderCommit}
-              min={-1}
-              max={1}
-              step={0.01}
-            />
-            <EffectSlider
-              label={t('effects.hslYellowSat')}
-              value={effects.hslYellowSat}
-              onChange={(v) => handleChange('hslYellowSat', v)}
-              onCommit={handleSliderCommit}
-              min={-1}
-              max={1}
-              step={0.01}
-            />
-            <EffectSlider
-              label={t('effects.hslGreenSat')}
-              value={effects.hslGreenSat}
-              onChange={(v) => handleChange('hslGreenSat', v)}
-              onCommit={handleSliderCommit}
-              min={-1}
-              max={1}
-              step={0.01}
-            />
-            <EffectSlider
-              label={t('effects.hslCyanSat')}
-              value={effects.hslCyanSat}
-              onChange={(v) => handleChange('hslCyanSat', v)}
-              onCommit={handleSliderCommit}
-              min={-1}
-              max={1}
-              step={0.01}
-            />
-            <EffectSlider
-              label={t('effects.hslBlueSat')}
-              value={effects.hslBlueSat}
-              onChange={(v) => handleChange('hslBlueSat', v)}
-              onCommit={handleSliderCommit}
-              min={-1}
-              max={1}
-              step={0.01}
-            />
-            <EffectSlider
-              label={t('effects.hslMagentaSat')}
-              value={effects.hslMagentaSat}
-              onChange={(v) => handleChange('hslMagentaSat', v)}
-              onCommit={handleSliderCommit}
-              min={-1}
-              max={1}
-              step={0.01}
-            />
+            {HSL_SLIDERS.map((s) => (
+              <PropertySlider
+                key={s.key}
+                label={t(s.label)}
+                value={effects[s.key] as number}
+                onChange={(v) => handleChange(s.key, v)}
+                onCommit={handleSliderCommit}
+                min={s.min}
+                max={s.max}
+                step={s.step}
+              />
+            ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="colorWheel" title={t('effects.colorWheel')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
@@ -352,63 +311,33 @@ export const EffectsPanel: React.FC = () => {
           </CollapsibleSection>
 
           <CollapsibleSection id="transform" title={t('transform.title')} sections={sections} onToggle={handleToggleSection}>
-            <EffectSlider
-              label={t('transform.rotation')}
-              value={effects.rotation}
-              onChange={(v) => handleChange('rotation', v)}
-              onCommit={handleSliderCommit}
-              min={-180}
-              max={180}
-              step={1}
-            />
-            <EffectSlider
-              label={t('transform.scaleX')}
-              value={effects.scaleX}
-              onChange={(v) => handleChange('scaleX', v)}
-              onCommit={handleSliderCommit}
-              min={0.1}
-              max={3}
-              step={0.01}
-            />
-            <EffectSlider
-              label={t('transform.scaleY')}
-              value={effects.scaleY}
-              onChange={(v) => handleChange('scaleY', v)}
-              onCommit={handleSliderCommit}
-              min={0.1}
-              max={3}
-              step={0.01}
-            />
-            <EffectSlider
-              label={t('transform.positionX')}
-              value={effects.positionX}
-              onChange={(v) => handleChange('positionX', v)}
-              onCommit={handleSliderCommit}
-              min={-500}
-              max={500}
-              step={1}
-            />
-            <EffectSlider
-              label={t('transform.positionY')}
-              value={effects.positionY}
-              onChange={(v) => handleChange('positionY', v)}
-              onCommit={handleSliderCommit}
-              min={-500}
-              max={500}
-              step={1}
-            />
+            {TRANSFORM_SLIDERS.map((s) => (
+              <PropertySlider
+                key={s.key}
+                label={t(s.label)}
+                value={effects[s.key] as number}
+                onChange={(v) => handleChange(s.key, v)}
+                onCommit={handleSliderCommit}
+                min={s.min}
+                max={s.max}
+                step={s.step}
+              />
+            ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="audio" title={t('effects.audio')} sections={sections} onToggle={handleToggleSection}>
-            <EffectSlider
-              label={t('effects.volume')}
-              value={effects.volume}
-              onChange={(v) => handleChange('volume', v)}
-              onCommit={handleSliderCommit}
-              min={0}
-              max={2}
-              step={0.01}
-            />
+            {VOLUME_SLIDERS.map((s) => (
+              <PropertySlider
+                key={s.key}
+                label={t(s.label)}
+                value={effects[s.key] as number}
+                onChange={(v) => handleChange(s.key, v)}
+                onCommit={handleSliderCommit}
+                min={s.min}
+                max={s.max}
+                step={s.step}
+              />
+            ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="equalizer" title={t('effects.equalizer')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
@@ -445,75 +374,48 @@ export const EffectsPanel: React.FC = () => {
                 ))}
               </select>
             </div>
-            <EffectSlider
-              label={t('effects.eqLow')}
-              value={effects.eqLow}
-              onChange={(v) => handleChange('eqLow', v)}
-              onCommit={handleSliderCommit}
-              min={-12}
-              max={12}
-              step={0.5}
-            />
-            <EffectSlider
-              label={t('effects.eqMid')}
-              value={effects.eqMid}
-              onChange={(v) => handleChange('eqMid', v)}
-              onCommit={handleSliderCommit}
-              min={-12}
-              max={12}
-              step={0.5}
-            />
-            <EffectSlider
-              label={t('effects.eqHigh')}
-              value={effects.eqHigh}
-              onChange={(v) => handleChange('eqHigh', v)}
-              onCommit={handleSliderCommit}
-              min={-12}
-              max={12}
-              step={0.5}
-            />
+            {EQ_SLIDERS.map((s) => (
+              <PropertySlider
+                key={s.key}
+                label={t(s.label)}
+                value={effects[s.key] as number}
+                onChange={(v) => handleChange(s.key, v)}
+                onCommit={handleSliderCommit}
+                min={s.min}
+                max={s.max}
+                step={s.step}
+              />
+            ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="noiseReduction" title={t('effects.noiseReduction')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
-            <EffectSlider
-              label={t('effects.denoiseAmount')}
-              value={effects.denoiseAmount}
-              onChange={(v) => handleChange('denoiseAmount', v)}
-              onCommit={handleSliderCommit}
-              min={0}
-              max={1}
-              step={0.01}
-            />
-            <EffectSlider
-              label={t('effects.highpassFreq')}
-              value={effects.highpassFreq}
-              onChange={(v) => handleChange('highpassFreq', v)}
-              onCommit={handleSliderCommit}
-              min={0}
-              max={500}
-              step={10}
-            />
+            {NOISE_REDUCTION_SLIDERS.map((s) => (
+              <PropertySlider
+                key={s.key}
+                label={t(s.label)}
+                value={effects[s.key] as number}
+                onChange={(v) => handleChange(s.key, v)}
+                onCommit={handleSliderCommit}
+                min={s.min}
+                max={s.max}
+                step={s.step}
+              />
+            ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="echoReverb" title={t('effects.echoReverb')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
-            <EffectSlider
-              label={t('effects.echoDelay')}
-              value={effects.echoDelay}
-              onChange={(v) => handleChange('echoDelay', v)}
-              onCommit={handleSliderCommit}
-              min={0}
-              max={1000}
-              step={10}
-            />
-            <EffectSlider
-              label={t('effects.echoDecay')}
-              value={effects.echoDecay}
-              onChange={(v) => handleChange('echoDecay', v)}
-              onCommit={handleSliderCommit}
-              min={0}
-              max={0.9}
-              step={0.01}
-            />
+            {ECHO_SLIDERS.map((s) => (
+              <PropertySlider
+                key={s.key}
+                label={t(s.label)}
+                value={effects[s.key] as number}
+                onChange={(v) => handleChange(s.key, v)}
+                onCommit={handleSliderCommit}
+                min={s.min}
+                max={s.max}
+                step={s.step}
+              />
+            ))}
             <div style={{ marginBottom: '8px' }}>
               <select
                 onChange={(e) => {
@@ -543,36 +445,33 @@ export const EffectsPanel: React.FC = () => {
                 ))}
               </select>
             </div>
-            <EffectSlider
-              label={t('effects.reverbAmount')}
-              value={effects.reverbAmount}
-              onChange={(v) => handleChange('reverbAmount', v)}
-              onCommit={handleSliderCommit}
-              min={0}
-              max={1}
-              step={0.01}
-            />
+            {REVERB_SLIDERS.map((s) => (
+              <PropertySlider
+                key={s.key}
+                label={t(s.label)}
+                value={effects[s.key] as number}
+                onChange={(v) => handleChange(s.key, v)}
+                onCommit={handleSliderCommit}
+                min={s.min}
+                max={s.max}
+                step={s.step}
+              />
+            ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="fade" title={t('effects.fade')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
-            <EffectSlider
-              label={t('effects.fadeIn')}
-              value={effects.fadeIn}
-              onChange={(v) => handleChange('fadeIn', v)}
-              onCommit={handleSliderCommit}
-              min={0}
-              max={3}
-              step={0.1}
-            />
-            <EffectSlider
-              label={t('effects.fadeOut')}
-              value={effects.fadeOut}
-              onChange={(v) => handleChange('fadeOut', v)}
-              onCommit={handleSliderCommit}
-              min={0}
-              max={3}
-              step={0.1}
-            />
+            {FADE_SLIDERS.map((s) => (
+              <PropertySlider
+                key={s.key}
+                label={t(s.label)}
+                value={effects[s.key] as number}
+                onChange={(v) => handleChange(s.key, v)}
+                onCommit={handleSliderCommit}
+                min={s.min}
+                max={s.max}
+                step={s.step}
+              />
+            ))}
           </CollapsibleSection>
 
           <button
