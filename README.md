@@ -4,6 +4,24 @@
 [![codecov](https://codecov.io/gh/ieee0824/qcut/graph/badge.svg)](https://codecov.io/gh/ieee0824/qcut)
 
 
+## インストール
+
+[GitHub Releases](https://github.com/ieee0824/qcut/releases) からお使いの OS に合ったファイルをダウンロードしてください。
+
+| OS | ファイル |
+|----|---------|
+| macOS (Apple Silicon) | `qcut-darwin-aarch64.dmg` |
+| Windows | `qcut-windows-x64.setup.exe` / `qcut-windows-x64.msi` |
+| Linux | `qcut-linux-amd64.deb` / `qcut-linux-amd64.AppImage` |
+
+### macOS での注意事項
+
+現在 qcut は Apple Developer ID による署名・公証を行っていないため、初回起動時に「"qcut"は壊れているため開けません」と表示されることがあります。以下のコマンドで解除できます。
+
+```bash
+xattr -cr /Applications/qcut.app
+```
+
 ## 技術スタック
 
 - **フロントエンド**: React 19 + TypeScript + Vite 7
