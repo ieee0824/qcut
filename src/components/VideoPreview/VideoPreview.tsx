@@ -256,7 +256,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       const isTrackMuted = videoTrack ? (videoTrack.mute || (hasSolo && !videoTrack.solo)) : false;
       const trackVol = videoTrack?.volume ?? 1.0;
       const combinedVolume = isTrackMuted ? 0 : Math.max(0, Math.min(1, (volume / 100) * trackVol * clipVolume));
-      const effects = clip?.effects ?? DEFAULT_EFFECTS;
+      const effects = { ...DEFAULT_EFFECTS, ...clip?.effects };
       audioEngine.updateEffects(VIDEO_AUDIO_ID, effects, combinedVolume);
     }
   }, [volume, findClipAtTime, currentTimeRef]);

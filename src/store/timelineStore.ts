@@ -7,6 +7,12 @@ export interface ClipEffects {
   saturation: number;  // 0〜2, default 1.0
   colorTemperature: number;  // -1〜1, default 0 (negative=cool, positive=warm)
   hue: number;               // -180〜180, default 0
+  hslRedSat: number;         // -1〜1, default 0 (色域別彩度: 赤)
+  hslYellowSat: number;      // -1〜1, default 0 (色域別彩度: 黄)
+  hslGreenSat: number;       // -1〜1, default 0 (色域別彩度: 緑)
+  hslCyanSat: number;        // -1〜1, default 0 (色域別彩度: シアン)
+  hslBlueSat: number;        // -1〜1, default 0 (色域別彩度: 青)
+  hslMagentaSat: number;     // -1〜1, default 0 (色域別彩度: マゼンタ)
   rotation: number;    // -180〜180, default 0
   scaleX: number;      // 0.1〜3, default 1.0
   scaleY: number;      // 0.1〜3, default 1.0
@@ -31,6 +37,12 @@ export const DEFAULT_EFFECTS: ClipEffects = {
   saturation: 1.0,
   colorTemperature: 0,
   hue: 0,
+  hslRedSat: 0,
+  hslYellowSat: 0,
+  hslGreenSat: 0,
+  hslCyanSat: 0,
+  hslBlueSat: 0,
+  hslMagentaSat: 0,
   rotation: 0,
   scaleX: 1.0,
   scaleY: 1.0,

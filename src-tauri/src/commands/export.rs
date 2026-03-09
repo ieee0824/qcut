@@ -21,6 +21,18 @@ pub struct ClipEffects {
     pub color_temperature: f64,
     #[serde(default)]
     pub hue: f64,
+    #[serde(default)]
+    pub hsl_red_sat: f64,
+    #[serde(default)]
+    pub hsl_yellow_sat: f64,
+    #[serde(default)]
+    pub hsl_green_sat: f64,
+    #[serde(default)]
+    pub hsl_cyan_sat: f64,
+    #[serde(default)]
+    pub hsl_blue_sat: f64,
+    #[serde(default)]
+    pub hsl_magenta_sat: f64,
     pub rotation: f64,
     pub scale_x: f64,
     pub scale_y: f64,
