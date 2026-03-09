@@ -27,6 +27,7 @@ interface UsePlaybackLoopParams {
     type: TransitionType,
   ) => { outgoing: React.CSSProperties; incoming: React.CSSProperties };
   renderCanvasFrame?: () => void;
+  captureFrame?: () => void;
 }
 
 interface UsePlaybackLoopReturn {
@@ -54,6 +55,7 @@ export const usePlaybackLoop = ({
   findTransitionAtTime,
   getTransitionStyles,
   renderCanvasFrame,
+  captureFrame,
 }: UsePlaybackLoopParams): UsePlaybackLoopReturn => {
   const playbackRafRef = useRef<number | null>(null);
   const lastTimestampRef = useRef(0);
@@ -63,6 +65,8 @@ export const usePlaybackLoop = ({
   const { setIsPlaying } = useVideoPreviewStore();
   const renderCanvasFrameRef = useRef(renderCanvasFrame);
   renderCanvasFrameRef.current = renderCanvasFrame;
+  const captureFrameRef = useRef(captureFrame);
+  captureFrameRef.current = captureFrame;
 
   // 時間表示のフォーマット
   const formatTime = useCallback((seconds: number): string => {
@@ -318,6 +322,8 @@ export const usePlaybackLoop = ({
 
         // WebGL Canvas レンダリング（HSL色域別調整等）
         if (renderCanvasFrameRef.current) renderCanvasFrameRef.current();
+        // スコープ解析用フレームキャプチャ
+        if (captureFrameRef.current) captureFrameRef.current();
       } else {
         // --- ギャップ区間 ---
         const newTime = currentTimeRef.current + delta;

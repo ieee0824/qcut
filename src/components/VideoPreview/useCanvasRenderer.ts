@@ -1,6 +1,7 @@
 import { useRef, useCallback, useEffect, useMemo } from 'react';
 import type { ClipEffects } from '../../store/timelineStore';
 import { DEFAULT_EFFECTS } from '../../store/timelineStore';
+import type { WebGLPipeline } from './canvasEffects';
 import { needsCanvasPipeline, initWebGLPipeline, renderFrame, destroyPipeline } from './canvasEffects';
 import type { Clip as ClipType } from '../../store/timelineStore';
 
@@ -13,6 +14,7 @@ interface UseCanvasRendererParams {
 interface UseCanvasRendererReturn {
   needsCanvas: boolean;
   renderCanvasFrame: () => void;
+  pipelineRef: React.RefObject<WebGLPipeline | null>;
 }
 
 export const useCanvasRenderer = ({
@@ -66,5 +68,5 @@ export const useCanvasRenderer = ({
     }
   }, [needsCanvas]);
 
-  return { needsCanvas, renderCanvasFrame };
+  return { needsCanvas, renderCanvasFrame, pipelineRef };
 };

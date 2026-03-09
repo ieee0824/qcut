@@ -171,7 +171,7 @@ void main() {
 
 // --- WebGL Pipeline Types ---
 
-interface WebGLPipeline {
+export interface WebGLPipeline {
   gl: WebGLRenderingContext;
   program: WebGLProgram;
   texture: WebGLTexture;
@@ -298,6 +298,21 @@ export function renderFrame(
 
   // Draw
   gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+/**
+ * WebGLパイプラインからレンダリング済みフレームのピクセルデータを読み出す。
+ * renderFrame() の直後に呼ぶこと。
+ */
+export function readPixels(pipeline: WebGLPipeline): Uint8Array | null {
+  const { gl } = pipeline;
+  const canvas = gl.canvas as HTMLCanvasElement;
+  const w = canvas.width;
+  const h = canvas.height;
+  if (w === 0 || h === 0) return null;
+  const buf = new Uint8Array(w * h * 4);
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+  return buf;
 }
 
 export function destroyPipeline(pipeline: WebGLPipeline): void {
