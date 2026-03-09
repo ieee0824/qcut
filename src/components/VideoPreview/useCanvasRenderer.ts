@@ -57,6 +57,7 @@ export const useCanvasRenderer = ({
     const video = videoRef.current;
     if (!video || !needsCanvas) return;
 
+    const SEEK_SETTLE_DELAY_MS = 150;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     // 既に ready なら即描画
@@ -66,8 +67,14 @@ export const useCanvasRenderer = ({
 
     const onReady = () => {
       renderCanvasFrame();
-      // loadeddata 後に seek が完了するまでの遅延再描画
-      timer = setTimeout(() => renderCanvasFrame(), 150);
+      // seek 未完了の場合のみ遅延再描画をスケジュール
+      if (video.seeking) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          renderCanvasFrame();
+          timer = null;
+        }, SEEK_SETTLE_DELAY_MS);
+      }
     };
     const onSeeked = () => {
       if (video.readyState >= 2) {
