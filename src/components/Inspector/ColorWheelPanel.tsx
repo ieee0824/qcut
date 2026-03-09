@@ -5,37 +5,31 @@ import type { ClipEffects } from '../../store/timelineStore';
 
 interface ColorWheelPanelProps {
   effects: ClipEffects;
-  onChange: (key: keyof ClipEffects, value: number) => void;
+  onBatchChange: (updates: Partial<ClipEffects>) => void;
 }
 
-export const ColorWheelPanel: React.FC<ColorWheelPanelProps> = ({ effects, onChange }) => {
+export const ColorWheelPanel: React.FC<ColorWheelPanelProps> = ({ effects, onBatchChange }) => {
   const { t } = useTranslation();
 
   const handleLiftChange = useCallback(
     (r: number, g: number, b: number) => {
-      onChange('liftR', r);
-      onChange('liftG', g);
-      onChange('liftB', b);
+      onBatchChange({ liftR: r, liftG: g, liftB: b });
     },
-    [onChange],
+    [onBatchChange],
   );
 
   const handleGammaChange = useCallback(
     (r: number, g: number, b: number) => {
-      onChange('gammaR', r);
-      onChange('gammaG', g);
-      onChange('gammaB', b);
+      onBatchChange({ gammaR: r, gammaG: g, gammaB: b });
     },
-    [onChange],
+    [onBatchChange],
   );
 
   const handleGainChange = useCallback(
     (r: number, g: number, b: number) => {
-      onChange('gainR', r);
-      onChange('gainG', g);
-      onChange('gainB', b);
+      onBatchChange({ gainR: r, gainG: g, gainB: b });
     },
-    [onChange],
+    [onBatchChange],
   );
 
   return (

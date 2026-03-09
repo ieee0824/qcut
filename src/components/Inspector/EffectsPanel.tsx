@@ -84,6 +84,16 @@ export const EffectsPanel: React.FC = () => {
     [selectedTrackId, selectedClipId, effects, updateClip],
   );
 
+  const handleBatchChange = useCallback(
+    (updates: Partial<ClipEffects>) => {
+      if (!selectedTrackId || !selectedClipId) return;
+      updateClip(selectedTrackId, selectedClipId, {
+        effects: { ...effects, ...updates },
+      });
+    },
+    [selectedTrackId, selectedClipId, effects, updateClip],
+  );
+
   const handleReset = useCallback(() => {
     if (!selectedTrackId || !selectedClipId) return;
     updateClip(selectedTrackId, selectedClipId, {
@@ -199,7 +209,7 @@ export const EffectsPanel: React.FC = () => {
             step={0.01}
           />
 
-          <ColorWheelPanel effects={effects} onChange={handleChange} />
+          <ColorWheelPanel effects={effects} onBatchChange={handleBatchChange} />
 
           <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
             {t('transform.title')}
