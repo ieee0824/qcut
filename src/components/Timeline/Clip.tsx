@@ -46,9 +46,15 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
   const hasTransition = !!clip.transition;
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
     if (e.button === 0) {
+      // 削除ボタンはドラッグ対象外
+      if (target.classList.contains('clip-delete')) {
+        setSelectedClip(trackId, clip.id);
+        return;
+      }
       // 左クリックのみドラッグ/リサイズを開始
-      if ((e.target as HTMLElement).classList.contains('clip-resize-handle')) {
+      if (target.classList.contains('clip-resize-handle')) {
         setIsResizing(true);
       } else {
         setIsDragging(true);
