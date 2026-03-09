@@ -2,6 +2,12 @@ import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, DEFAULT_TEXT_PROPERTIES } from '../../store/timelineStore';
 import type { TextProperties, TextAnimation } from '../../store/timelineStore';
+import { PropertySlider } from './PropertySlider';
+import {
+  FONT_SIZE_SLIDER,
+  POSITION_SLIDERS,
+  ANIMATION_DURATION_SLIDER,
+} from './textSliderDefinitions';
 
 export const TextPanel: React.FC = () => {
   const { t } = useTranslation();
@@ -45,9 +51,7 @@ export const TextPanel: React.FC = () => {
 
   if (!isTextClip) return null;
 
-  const sliderStyle: React.CSSProperties = { width: '100%', cursor: 'pointer' };
   const labelStyle: React.CSSProperties = { fontSize: '12px', color: '#ccc' };
-  const valueStyle: React.CSSProperties = { fontSize: '12px', color: '#999' };
   const rowStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' };
   const sectionStyle: React.CSSProperties = { marginBottom: '12px' };
 
@@ -104,15 +108,16 @@ export const TextPanel: React.FC = () => {
           </div>
 
           {/* フォントサイズ */}
-          <div style={sectionStyle}>
-            <div style={rowStyle}>
-              <span style={labelStyle}>{t('text.fontSize')}</span>
-              <span style={valueStyle}>{tp.fontSize}px</span>
-            </div>
-            <input type="range" min={16} max={120} step={1} value={tp.fontSize}
-              onChange={(e) => handleChange('fontSize', parseInt(e.target.value))}
-              style={sliderStyle} />
-          </div>
+          <PropertySlider
+            label={t(FONT_SIZE_SLIDER.label)}
+            value={tp[FONT_SIZE_SLIDER.key] as number}
+            onChange={(v) => handleChange(FONT_SIZE_SLIDER.key, v)}
+            min={FONT_SIZE_SLIDER.min}
+            max={FONT_SIZE_SLIDER.max}
+            step={FONT_SIZE_SLIDER.step}
+            decimals={FONT_SIZE_SLIDER.decimals}
+            suffix={FONT_SIZE_SLIDER.suffix}
+          />
 
           {/* フォントカラー */}
           <div style={sectionStyle}>
@@ -206,38 +211,20 @@ export const TextPanel: React.FC = () => {
             ))}
           </div>
 
-          {/* 位置 X */}
-          <div style={sectionStyle}>
-            <div style={rowStyle}>
-              <span style={labelStyle}>{t('text.positionX')}</span>
-              <span style={valueStyle}>{tp.positionX}%</span>
-            </div>
-            <input type="range" min={0} max={100} step={1} value={tp.positionX}
-              onChange={(e) => handleChange('positionX', parseInt(e.target.value))}
-              style={sliderStyle} />
-          </div>
-
-          {/* 位置 Y */}
-          <div style={sectionStyle}>
-            <div style={rowStyle}>
-              <span style={labelStyle}>{t('text.positionY')}</span>
-              <span style={valueStyle}>{tp.positionY}%</span>
-            </div>
-            <input type="range" min={0} max={100} step={1} value={tp.positionY}
-              onChange={(e) => handleChange('positionY', parseInt(e.target.value))}
-              style={sliderStyle} />
-          </div>
-
-          {/* 透明度 */}
-          <div style={sectionStyle}>
-            <div style={rowStyle}>
-              <span style={labelStyle}>{t('text.opacity')}</span>
-              <span style={valueStyle}>{tp.opacity.toFixed(2)}</span>
-            </div>
-            <input type="range" min={0} max={1} step={0.01} value={tp.opacity}
-              onChange={(e) => handleChange('opacity', parseFloat(e.target.value))}
-              style={sliderStyle} />
-          </div>
+          {/* 位置・透明度 */}
+          {POSITION_SLIDERS.map((s) => (
+            <PropertySlider
+              key={s.key}
+              label={t(s.label)}
+              value={tp[s.key] as number}
+              onChange={(v) => handleChange(s.key, v)}
+              min={s.min}
+              max={s.max}
+              step={s.step}
+              decimals={s.decimals}
+              suffix={s.suffix}
+            />
+          ))}
 
           {/* 背景色 */}
           <div style={sectionStyle}>
@@ -290,15 +277,16 @@ export const TextPanel: React.FC = () => {
 
           {/* アニメーション時間 */}
           {tp.animation !== 'none' && (
-            <div style={sectionStyle}>
-              <div style={rowStyle}>
-                <span style={labelStyle}>{t('text.animationDuration')}</span>
-                <span style={valueStyle}>{tp.animationDuration.toFixed(1)}s</span>
-              </div>
-              <input type="range" min={0.1} max={2} step={0.1} value={tp.animationDuration}
-                onChange={(e) => handleChange('animationDuration', parseFloat(e.target.value))}
-                style={sliderStyle} />
-            </div>
+            <PropertySlider
+              label={t(ANIMATION_DURATION_SLIDER.label)}
+              value={tp[ANIMATION_DURATION_SLIDER.key] as number}
+              onChange={(v) => handleChange(ANIMATION_DURATION_SLIDER.key, v)}
+              min={ANIMATION_DURATION_SLIDER.min}
+              max={ANIMATION_DURATION_SLIDER.max}
+              step={ANIMATION_DURATION_SLIDER.step}
+              decimals={ANIMATION_DURATION_SLIDER.decimals}
+              suffix={ANIMATION_DURATION_SLIDER.suffix}
+            />
           )}
 
           {/* リセット */}
