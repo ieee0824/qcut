@@ -17,6 +17,10 @@ pub struct ClipEffects {
     pub brightness: f64,
     pub contrast: f64,
     pub saturation: f64,
+    #[serde(default)]
+    pub color_temperature: f64,
+    #[serde(default)]
+    pub hue: f64,
     pub rotation: f64,
     pub scale_x: f64,
     pub scale_y: f64,

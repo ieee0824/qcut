@@ -129,6 +129,22 @@ export const EffectsPanel: React.FC = () => {
             value={effects.saturation}
             onChange={(v) => handleChange('saturation', v)}
           />
+          <EffectSlider
+            label={t('effects.colorTemperature')}
+            value={effects.colorTemperature}
+            onChange={(v) => handleChange('colorTemperature', v)}
+            min={-1}
+            max={1}
+            step={0.01}
+          />
+          <EffectSlider
+            label={t('effects.hue')}
+            value={effects.hue}
+            onChange={(v) => handleChange('hue', v)}
+            min={-180}
+            max={180}
+            step={1}
+          />
 
           <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
             {t('transform.title')}

@@ -182,7 +182,25 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const cssFilter = useMemo(() => {
     if (!currentClip?.effects) return 'none';
     const e = currentClip.effects;
-    return `brightness(${e.brightness}) contrast(${e.contrast}) saturate(${e.saturation})`;
+    let filter = `brightness(${e.brightness}) contrast(${e.contrast}) saturate(${e.saturation})`;
+
+    const hue = e.hue ?? 0;
+    if (hue !== 0) {
+      filter += ` hue-rotate(${hue}deg)`;
+    }
+
+    const temp = e.colorTemperature ?? 0;
+    if (temp > 0.01) {
+      const sepiaAmount = temp * 0.3;
+      const hueShift = temp * -10;
+      filter += ` sepia(${sepiaAmount}) hue-rotate(${hueShift}deg)`;
+    } else if (temp < -0.01) {
+      const hueShift = temp * 30;
+      const satBoost = 1 + Math.abs(temp) * 0.2;
+      filter += ` hue-rotate(${hueShift}deg) saturate(${satBoost})`;
+    }
+
+    return filter;
   }, [currentClip?.effects]);
 
   const cssTransform = useMemo(() => {
