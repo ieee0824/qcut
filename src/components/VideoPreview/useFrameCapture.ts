@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import type { WebGLPipeline } from './canvasEffects';
 import { readPixels } from './canvasEffects';
-import { computeHistogram } from '../../utils/scopeAnalysis';
+import { computeHistogram, computeVectorscope, computeWaveform } from '../../utils/scopeAnalysis';
 import { useScopeStore } from '../../store/scopeStore';
 import type { ClipEffects } from '../../store/timelineStore';
 
@@ -62,8 +62,18 @@ export const useFrameCapture = ({
 
     if (!pixels) return;
 
-    const histogram = computeHistogram(pixels, 1);
-    useScopeStore.getState().setHistogramData(histogram);
+    const state = useScopeStore.getState();
+    const active = state.activeScopes;
+
+    if (active.has('histogram')) {
+      state.setHistogramData(computeHistogram(pixels, 1));
+    }
+    if (active.has('vectorscope')) {
+      state.setVectorscopeData(computeVectorscope(pixels, 1));
+    }
+    if (active.has('waveform')) {
+      state.setWaveformData(computeWaveform(pixels, SCOPE_WIDTH, 1));
+    }
   }, [videoRef, pipelineRef, needsCanvas]);
 
   // 再生ループ用（フレームスキップあり）
