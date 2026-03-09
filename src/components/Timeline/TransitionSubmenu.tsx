@@ -1,6 +1,6 @@
-import { useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTransitionPresetStore } from '../../store/transitionPresetStore';
+import { useTransitionPresetStore, BUILT_IN_PRESETS } from '../../store/transitionPresetStore';
 import type { TransitionType } from '../../store/timelineStore';
 
 interface TransitionSubmenuProps {
@@ -9,32 +9,37 @@ interface TransitionSubmenuProps {
 
 export function TransitionSubmenu({ onSelectTransition }: TransitionSubmenuProps) {
   const { t } = useTranslation();
-  const allPresets = useTransitionPresetStore((s) => s.getAllPresets)();
+  const customPresets = useTransitionPresetStore((s) => s.customPresets);
+  const allPresets = [...BUILT_IN_PRESETS, ...customPresets];
   const submenuRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
 
   // サブメニューが画面外にはみ出る場合、位置を自動補正
   useEffect(() => {
     if (!submenuRef.current) return;
-    const submenu = submenuRef.current;
-    const rect = submenu.getBoundingClientRect();
+    const rect = submenuRef.current.getBoundingClientRect();
+    const newStyle: React.CSSProperties = { visibility: 'visible' };
+
     if (rect.bottom > window.innerHeight) {
-      submenu.style.top = 'auto';
-      submenu.style.bottom = '0';
+      const overflow = rect.bottom - window.innerHeight;
+      newStyle.top = `${-overflow}px`;
     } else {
-      submenu.style.top = '0';
-      submenu.style.bottom = 'auto';
+      newStyle.top = '0';
     }
+
     if (rect.right > window.innerWidth) {
-      submenu.style.left = 'auto';
-      submenu.style.right = '100%';
+      newStyle.left = 'auto';
+      newStyle.right = '100%';
     } else {
-      submenu.style.left = '100%';
-      submenu.style.right = 'auto';
+      newStyle.left = '100%';
+      newStyle.right = 'auto';
     }
+
+    setStyle(newStyle);
   }, []);
 
   return (
-    <div ref={submenuRef} className="context-submenu">
+    <div ref={submenuRef} className="context-submenu" style={style}>
       {allPresets.map(preset => (
         <button
           key={preset.id}

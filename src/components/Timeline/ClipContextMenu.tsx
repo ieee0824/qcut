@@ -25,6 +25,7 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
   } = useTimelineStore();
 
   const [menuPos, setMenuPos] = useState(position);
+  const [visible, setVisible] = useState(false);
   const [showTransitionSubmenu, setShowTransitionSubmenu] = useState(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
@@ -85,16 +86,15 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
     const menu = contextMenuRef.current;
     const rect = menu.getBoundingClientRect();
     const clamped = clampMenuPosition(
-      menuPos,
+      position,
       rect.width,
       rect.height,
       window.innerWidth,
       window.innerHeight,
     );
-    if (clamped.x !== menuPos.x || clamped.y !== menuPos.y) {
-      setMenuPos(clamped);
-    }
-  }, [menuPos]);
+    setMenuPos(clamped);
+    setVisible(true);
+  }, [position]);
 
   return (
     <>
@@ -105,6 +105,7 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
         style={{
           left: `${menuPos.x}px`,
           top: `${menuPos.y}px`,
+          visibility: visible ? 'visible' : 'hidden',
         }}
       >
         <button className="context-menu-item" onClick={handleSplit}>
@@ -113,8 +114,26 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
         {!hasTransition && (
           <div
             className="context-menu-item context-menu-submenu-trigger"
+            role="menuitem"
+            aria-haspopup="menu"
+            aria-expanded={showTransitionSubmenu}
+            tabIndex={0}
             onMouseEnter={() => setShowTransitionSubmenu(true)}
             onMouseLeave={() => setShowTransitionSubmenu(false)}
+            onFocus={() => setShowTransitionSubmenu(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setShowTransitionSubmenu(false);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                setShowTransitionSubmenu(true);
+              } else if (e.key === 'Escape' || e.key === 'ArrowLeft') {
+                setShowTransitionSubmenu(false);
+              }
+            }}
           >
             🔄 {t('transition.add')} ▸
             {showTransitionSubmenu && (

@@ -13,6 +13,7 @@ export function useDragClip({ clipId, trackId, startTime, pixelsPerSecond }: Use
   const [isDragging, setIsDragging] = useState(false);
   const dragStartX = useRef(0);
   const dragStartTime = useRef(0);
+  const committedRef = useRef(false);
 
   const {
     updateClipSilent,
@@ -21,6 +22,7 @@ export function useDragClip({ clipId, trackId, startTime, pixelsPerSecond }: Use
   } = useTimelineStore();
 
   const startDrag = (clientX: number) => {
+    committedRef.current = false;
     setIsDragging(true);
     dragStartX.current = clientX;
     dragStartTime.current = startTime;
@@ -57,6 +59,7 @@ export function useDragClip({ clipId, trackId, startTime, pixelsPerSecond }: Use
 
     const handleMouseUp = () => {
       document.querySelectorAll('.timeline-track.drop-target').forEach(el => el.classList.remove('drop-target'));
+      committedRef.current = true;
       commitHistory();
       setIsDragging(false);
     };
@@ -67,6 +70,11 @@ export function useDragClip({ clipId, trackId, startTime, pixelsPerSecond }: Use
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      // アンマウント等でmouseupが発火しなかった場合のフォールバック
+      document.querySelectorAll('.timeline-track.drop-target').forEach(el => el.classList.remove('drop-target'));
+      if (!committedRef.current) {
+        commitHistory();
+      }
     };
   }, [isDragging, pixelsPerSecond, trackId, clipId, updateClipSilent, commitHistory, moveClipToTrack]);
 
