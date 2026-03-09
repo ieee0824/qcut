@@ -130,4 +130,23 @@ describe('computeHistogram', () => {
     expect(result.r[20]).toBe(0);
     expect(result.r[30]).toBe(1);
   });
+
+  it('should not read out of bounds when pixels.length is not a multiple of 4', () => {
+    // 5 bytes: 1 complete pixel + 1 incomplete byte
+    const pixels = new Uint8ClampedArray([10, 20, 30, 255, 99]);
+    const result = computeHistogram(pixels, 1);
+    expect(result.r[10]).toBe(1);
+    // incomplete pixel should be skipped
+    let total = 0;
+    for (let i = 0; i < 256; i++) total += result.r[i];
+    expect(total).toBe(1);
+  });
+
+  it('should handle pixel data shorter than 4 bytes without error', () => {
+    const pixels = new Uint8ClampedArray([10, 20]);
+    const result = computeHistogram(pixels, 1);
+    let total = 0;
+    for (let i = 0; i < 256; i++) total += result.r[i];
+    expect(total).toBe(0);
+  });
 });

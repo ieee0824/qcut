@@ -20,7 +20,8 @@ export function computeHistogram(
 
   const safeStep = Math.max(1, Math.round(step));
   const stride = safeStep * 4;
-  for (let i = 0; i < pixels.length; i += stride) {
+  const limit = pixels.length - 3;
+  for (let i = 0; i < limit; i += stride) {
     const rv = pixels[i];
     const gv = pixels[i + 1];
     const bv = pixels[i + 2];
