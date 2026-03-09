@@ -70,7 +70,7 @@ export const EffectsPanel: React.FC = () => {
   }, [selectedClipId, selectedTrackId, tracks]);
 
   const effects: ClipEffects = useMemo(() => {
-    return selectedClip?.effects ?? DEFAULT_EFFECTS;
+    return { ...DEFAULT_EFFECTS, ...selectedClip?.effects };
   }, [selectedClip?.effects]);
 
   const handleChange = useCallback(

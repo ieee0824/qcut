@@ -114,7 +114,7 @@ export const useAudioTrackPlayback = () => {
         }
 
         // AudioEngine でエフェクトとボリュームを更新
-        const effects = clip.effects ?? DEFAULT_EFFECTS;
+        const effects = { ...DEFAULT_EFFECTS, ...clip.effects };
         audioEngine.updateEffects(clip.id, effects, combinedVolume);
 
         if (isPlaying) {

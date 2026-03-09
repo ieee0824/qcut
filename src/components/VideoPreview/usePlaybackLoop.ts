@@ -308,7 +308,7 @@ export const usePlaybackLoop = ({
             combinedVolume = Math.max(0, Math.min(1, uiVolume * trackVol * clipVolume * audioFade));
           }
 
-          const effects = clip.effects ?? DEFAULT_EFFECTS;
+          const effects = { ...DEFAULT_EFFECTS, ...clip.effects };
           audioEngine.updateEffects(VIDEO_AUDIO_ID, effects, combinedVolume);
         }
       } else {
