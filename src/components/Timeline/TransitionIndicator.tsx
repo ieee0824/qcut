@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTimelineStore, type ClipTransition, type TransitionType } from '../../store/timelineStore';
+import { useTimelineStore, type ClipTransition } from '../../store/timelineStore';
 import { TransitionPopover } from './TransitionPopover';
 import { TransitionMenu } from './TransitionMenu';
 import { computeIndicatorLayout } from './transitionLayout';
+import { TRANSITION_I18N_KEYS } from './transitionConstants';
 
 interface TransitionIndicatorProps {
   transition: ClipTransition;
@@ -11,15 +12,6 @@ interface TransitionIndicatorProps {
   trackId: string;
   clipStartTime: number;
 }
-
-const TRANSITION_I18N_KEYS: Record<TransitionType, string> = {
-  'crossfade': 'transition.crossfade',
-  'dissolve': 'transition.dissolve',
-  'wipe-left': 'transition.wipeLeft',
-  'wipe-right': 'transition.wipeRight',
-  'wipe-up': 'transition.wipeUp',
-  'wipe-down': 'transition.wipeDown',
-};
 
 function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: TransitionIndicatorProps) {
   const { t } = useTranslation();

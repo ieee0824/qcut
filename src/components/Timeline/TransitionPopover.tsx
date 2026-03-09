@@ -1,25 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, type ClipTransition, type TransitionType } from '../../store/timelineStore';
-import { useTransitionPresetStore } from '../../store/transitionPresetStore';
-
-const TRANSITION_TYPES: TransitionType[] = [
-  'crossfade',
-  'dissolve',
-  'wipe-left',
-  'wipe-right',
-  'wipe-up',
-  'wipe-down',
-];
-
-const TRANSITION_I18N_KEYS: Record<TransitionType, string> = {
-  'crossfade': 'transition.crossfade',
-  'dissolve': 'transition.dissolve',
-  'wipe-left': 'transition.wipeLeft',
-  'wipe-right': 'transition.wipeRight',
-  'wipe-up': 'transition.wipeUp',
-  'wipe-down': 'transition.wipeDown',
-};
+import { useTransitionPresetStore, BUILT_IN_PRESETS } from '../../store/transitionPresetStore';
+import { TRANSITION_TYPES, TRANSITION_I18N_KEYS } from './transitionConstants';
 
 interface TransitionPopoverProps {
   transition: ClipTransition;
@@ -40,7 +23,8 @@ export function TransitionPopover({
 }: TransitionPopoverProps) {
   const { t } = useTranslation();
   const { setTransition } = useTimelineStore();
-  const allPresets = useTransitionPresetStore((s) => s.getAllPresets)();
+  const customPresets = useTransitionPresetStore((s) => s.customPresets);
+  const allPresets = [...BUILT_IN_PRESETS, ...customPresets];
   const addPreset = useTransitionPresetStore((s) => s.addPreset);
   const removePreset = useTransitionPresetStore((s) => s.removePreset);
   const [presetName, setPresetName] = useState('');
