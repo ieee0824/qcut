@@ -29,6 +29,13 @@ export const PropertySlider: React.FC<PropertySliderProps> = ({ label, value, on
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         onPointerUp={() => onCommit?.()}
+        onPointerCancel={() => onCommit?.()}
+        onKeyUp={(e) => {
+          if (['Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            onCommit?.();
+          }
+        }}
+        onBlur={() => onCommit?.()}
         style={{ width: '100%', cursor: 'pointer' }}
       />
     </div>

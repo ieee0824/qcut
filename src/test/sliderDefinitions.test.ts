@@ -54,7 +54,7 @@ function validateSlider<K extends string>(slider: SliderDefinition<K>) {
   expect(slider.key).toBeTruthy();
   expect(slider.label).toBeTruthy();
 
-  // min が指定されている場合、max も指定されていて min < max であること
+  // min と max が両方指定されている場合、min < max であること
   if (slider.min !== undefined && slider.max !== undefined) {
     expect(slider.min).toBeLessThan(slider.max);
   }

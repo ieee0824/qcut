@@ -2,9 +2,9 @@ import type { ClipEffects } from '../../store/timelineStore';
 import type { SliderDefinition } from './PropertySlider';
 
 export const BASIC_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
-  { key: 'brightness', label: 'effects.brightness' },
-  { key: 'contrast', label: 'effects.contrast' },
-  { key: 'saturation', label: 'effects.saturation' },
+  { key: 'brightness', label: 'effects.brightness', min: 0, max: 2, step: 0.01 },
+  { key: 'contrast', label: 'effects.contrast', min: 0, max: 2, step: 0.01 },
+  { key: 'saturation', label: 'effects.saturation', min: 0, max: 2, step: 0.01 },
   { key: 'colorTemperature', label: 'effects.colorTemperature', min: -1, max: 1, step: 0.01 },
   { key: 'hue', label: 'effects.hue', min: -180, max: 180, step: 1 },
 ];
