@@ -109,12 +109,15 @@ function drawVectorscope(
         if (px >= size || py >= size) continue;
 
         const oi = (py * size + px) * 4;
-        // 緑のフォスファースタイル
+        // 緑のフォスファースタイル（同一ピクセルへの複数ヒットは最大値を保持）
+        const rVal = (intensity * 80) | 0;
         const g = (intensity * 255) | 0;
-        out[oi] = (intensity * 80) | 0;
+        const bVal = (intensity * 40) | 0;
+        const a = Math.min(255, (intensity * 400) | 0);
+        out[oi] = Math.max(out[oi], rVal);
         out[oi + 1] = Math.max(out[oi + 1], g);
-        out[oi + 2] = (intensity * 40) | 0;
-        out[oi + 3] = Math.max(out[oi + 3], Math.min(255, (intensity * 400) | 0));
+        out[oi + 2] = Math.max(out[oi + 2], bVal);
+        out[oi + 3] = Math.max(out[oi + 3], a);
       }
     }
 
