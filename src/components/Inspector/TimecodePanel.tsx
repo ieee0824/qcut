@@ -1,11 +1,13 @@
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { invoke } from '@tauri-apps/api/core';
 import type { TimecodeOverlay, TimecodeFormat } from '../../store/timelineStore';
 import { DEFAULT_TIMECODE_OVERLAY } from '../../store/timelineStore';
 import { formatTimecode } from '../../utils/timecode';
 
 interface TimecodePanelProps {
   timecodeOverlay: TimecodeOverlay;
+  filePath: string;
   onChange: (overlay: TimecodeOverlay) => void;
 }
 
@@ -34,13 +36,23 @@ const labelStyle: React.CSSProperties = {
   display: 'block',
 };
 
-export const TimecodePanel: React.FC<TimecodePanelProps> = ({ timecodeOverlay, onChange }) => {
+export const TimecodePanel: React.FC<TimecodePanelProps> = ({ timecodeOverlay, filePath, onChange }) => {
   const { t } = useTranslation();
   const overlay = timecodeOverlay;
 
-  const handleToggle = useCallback(() => {
+  const handleToggle = useCallback(async () => {
+    if (!overlay.enabled && filePath) {
+      // 有効化時にファイル作成日時を取得して開始日時のデフォルトにする
+      try {
+        const info = await invoke<{ created: number }>('get_file_info', { path: filePath });
+        onChange({ ...overlay, enabled: true, startDateTime: info.created });
+        return;
+      } catch {
+        // 取得失敗時は現在日時のまま
+      }
+    }
     onChange({ ...overlay, enabled: !overlay.enabled });
-  }, [overlay, onChange]);
+  }, [overlay, filePath, onChange]);
 
   const handleFormatChange = useCallback((format: TimecodeFormat) => {
     onChange({ ...overlay, format });

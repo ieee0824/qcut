@@ -15,6 +15,8 @@ pub struct FileInfo {
   pub size: u64,
   /// 最終更新時刻（ミリ秒）
   pub last_modified: u64,
+  /// 作成時刻（ミリ秒）、取得できない場合は last_modified と同値
+  pub created: u64,
 }
 
 /// ファイル情報を取得
@@ -38,11 +40,19 @@ pub fn get_file_info(path: String) -> Result<FileInfo, String> {
     .map_err(|e| format!("時刻計算エラー: {}", e))?
     .as_millis() as u64;
 
+  let created = metadata
+    .created()
+    .ok()
+    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+    .map(|d| d.as_millis() as u64)
+    .unwrap_or(last_modified);
+
   Ok(FileInfo {
     name,
     path,
     size: metadata.len(),
     last_modified,
+    created,
   })
 }
 

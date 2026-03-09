@@ -330,7 +330,7 @@ export const EffectsPanel: React.FC = () => {
           </CollapsibleSection>
 
           <CollapsibleSection id="timecode" title={t('timecode.title')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
-            <TimecodePanel timecodeOverlay={timecodeOverlay} onChange={handleTimecodeChange} />
+            <TimecodePanel timecodeOverlay={timecodeOverlay} filePath={selectedClip.filePath} onChange={handleTimecodeChange} />
           </CollapsibleSection>
 
           <CollapsibleSection id="transform" title={t('transform.title')} sections={sections} onToggle={handleToggleSection}>
