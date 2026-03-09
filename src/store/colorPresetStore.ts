@@ -24,8 +24,11 @@ async function invokeRead(): Promise<string> {
 async function invokeWrite(content: string): Promise<void> {
   try {
     await invoke('write_color_presets', { content });
-  } catch {
-    // Tauri 未起動時（テスト等）は無視
+  } catch (error) {
+    // Tauri 未起動時（テスト等）は無視、実行時エラーはログ出力
+    if (typeof window !== 'undefined' && (window as Record<string, unknown>).__TAURI__) {
+      console.error('Failed to write color presets', error);
+    }
   }
 }
 

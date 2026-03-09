@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useColorPresetStore } from '../../store/colorPresetStore';
 import { DEFAULT_EFFECTS } from '../../store/timelineStore';
 import type { ClipEffects } from '../../store/timelineStore';
+import { BUILT_IN_COLOR_PRESETS } from '../../data/colorPresets';
 import type { ColorPreset, ColorPresetCategory, ColorEffectFields } from '../../data/colorPresets';
 
 const CATEGORIES: { key: ColorPresetCategory | 'all'; label: string }[] = [
@@ -28,7 +29,7 @@ interface ColorPresetPanelProps {
 
 export const ColorPresetPanel: React.FC<ColorPresetPanelProps> = ({ effects, onApply }) => {
   const { t } = useTranslation();
-  const getAllPresets = useColorPresetStore((s) => s.getAllPresets);
+  const customPresets = useColorPresetStore((s) => s.customPresets);
   const loadPresets = useColorPresetStore((s) => s.loadPresets);
   const addPreset = useColorPresetStore((s) => s.addPreset);
   const removePreset = useColorPresetStore((s) => s.removePreset);
@@ -44,7 +45,7 @@ export const ColorPresetPanel: React.FC<ColorPresetPanelProps> = ({ effects, onA
     }
   }, [loaded, loadPresets]);
 
-  const allPresets = getAllPresets();
+  const allPresets = [...BUILT_IN_COLOR_PRESETS, ...customPresets];
   const filteredPresets = filter === 'all' ? allPresets : allPresets.filter(p => p.category === filter);
 
   const handleApply = useCallback((preset: ColorPreset) => {
