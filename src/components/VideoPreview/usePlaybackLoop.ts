@@ -1,9 +1,12 @@
 import type React from 'react';
 import { useCallback, useEffect, useRef } from 'react';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
-import { useTimelineStore } from '../../store/timelineStore';
+import { useTimelineStore, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import type { Clip as ClipType, TransitionType } from '../../store/timelineStore';
 import type { TransitionInfo } from './useTransitionEffect';
+import { audioEngine } from '../../audio/AudioEngine';
+
+const VIDEO_AUDIO_ID = '__video_main__';
 
 interface UsePlaybackLoopParams {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -268,7 +271,7 @@ export const usePlaybackLoop = ({
             videoRef.current.style.opacity = '1';
           }
 
-          // クリップの音量エフェクトを適用（トラック音量 + フェードイン/アウトも反映）
+          // Web Audio API 経由で音声エフェクトを適用
           const clipVolume = clip.effects?.volume ?? 1.0;
           const uiVolume = useVideoPreviewStore.getState().volume / 100;
 
@@ -279,8 +282,14 @@ export const usePlaybackLoop = ({
           const isTrackMuted = videoTrack ? (videoTrack.mute || (hasSolo && !videoTrack.solo)) : false;
           const trackVol = videoTrack?.volume ?? 1.0;
 
+          // AudioEngine に video 要素を接続（初回のみ）
+          if (!audioEngine.hasGraph(VIDEO_AUDIO_ID)) {
+            audioEngine.connect(VIDEO_AUDIO_ID, videoRef.current);
+          }
+
+          let combinedVolume: number;
           if (isTrackMuted) {
-            videoRef.current.volume = 0;
+            combinedVolume = 0;
           } else {
             const audioFadeIn = clip.effects?.fadeIn ?? 0;
             const audioFadeOut = clip.effects?.fadeOut ?? 0;
@@ -296,8 +305,11 @@ export const usePlaybackLoop = ({
               }
               audioFade = Math.max(0, Math.min(1, audioFade));
             }
-            videoRef.current.volume = Math.max(0, Math.min(1, uiVolume * trackVol * clipVolume * audioFade));
+            combinedVolume = Math.max(0, Math.min(1, uiVolume * trackVol * clipVolume * audioFade));
           }
+
+          const effects = clip.effects ?? DEFAULT_EFFECTS;
+          audioEngine.updateEffects(VIDEO_AUDIO_ID, effects, combinedVolume);
         }
       } else {
         // --- ギャップ区間 ---
