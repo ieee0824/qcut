@@ -6,12 +6,12 @@ import { createClipSlice } from './clipSlice';
 import { createHistorySlice } from './historySlice';
 import { createClipboardSlice } from './clipboardSlice';
 
-export const useTimelineStore = create<TimelineState>((...args) => ({
-  ...createPlaybackSlice(...args),
-  ...createTrackSlice(...args),
-  ...createClipSlice(...args),
-  ...createHistorySlice(...args),
-  ...createClipboardSlice(...args),
+export const useTimelineStore = create<TimelineState>((set, get) => ({
+  ...createPlaybackSlice(set),
+  ...createTrackSlice(set),
+  ...createClipSlice(set),
+  ...createHistorySlice(set, get),
+  ...createClipboardSlice(set),
 }));
 
 // Re-export all types and constants
