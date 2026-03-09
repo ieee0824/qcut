@@ -201,6 +201,25 @@
     "positionY": "Position Y",
     "reset": "Reset"
   },
+  "colorPreset": {
+    "title": "Color Presets",
+    "all": "All",
+    "cinematic": "Cinematic",
+    "vintage": "Vintage",
+    "monochrome": "Monochrome",
+    "creative": "Creative",
+    "custom": "Custom",
+    "saveAsPreset": "Save as Preset",
+    "cinematicWarm": "Cinematic (Warm)",
+    "cinematicCool": "Cinematic (Cool)",
+    "tealOrange": "Teal & Orange",
+    "vintageFilm": "Vintage Film",
+    "fadedPastel": "Faded Pastel",
+    "sepia": "Sepia",
+    "highContrastBW": "High Contrast B&W",
+    "bleachBypass": "Bleach Bypass",
+    "vibrant": "Vibrant"
+  },
   "scope": {
     "title": "Scopes",
     "enable": "Enable scopes",

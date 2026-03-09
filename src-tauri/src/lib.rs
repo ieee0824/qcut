@@ -58,6 +58,8 @@ pub fn run() {
       commands::export::cancel_export,
       commands::presets::read_transition_presets,
       commands::presets::write_transition_presets,
+      commands::presets::read_color_presets,
+      commands::presets::write_color_presets,
       commands::waveform::get_waveform,
       commands::logging::log_action,
     ])

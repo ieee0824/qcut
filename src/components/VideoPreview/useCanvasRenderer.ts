@@ -60,13 +60,9 @@ export const useCanvasRenderer = ({
     };
   }, []);
 
-  // Destroy pipeline when no longer needed
-  useEffect(() => {
-    if (!needsCanvas && pipelineRef.current) {
-      destroyPipeline(pipelineRef.current);
-      pipelineRef.current = null;
-    }
-  }, [needsCanvas]);
+  // パイプラインは needsCanvas が false になっても破棄しない。
+  // loseContext() 後に同じ canvas で再初期化するとシェーダー作成に失敗するため、
+  // アンマウント時のみ破棄する。
 
   return { needsCanvas, renderCanvasFrame, pipelineRef };
 };

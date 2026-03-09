@@ -257,7 +257,9 @@ pub async fn export_video(
     }
 
     // FFmpegコマンドを構築
-    let args = build_ffmpeg_args(&settings, &video_clips, &text_clips, &audio_track_clips)?;
+    let build_result = build_ffmpeg_args(&settings, &video_clips, &text_clips, &audio_track_clips)?;
+    let args = build_result.args;
+    let temp_files = build_result.temp_files;
     log::info!("FFmpeg command: ffmpeg {}", args.join(" "));
 
     // FFmpegをサブプロセスとして起動
@@ -311,6 +313,11 @@ pub async fn export_video(
     let stderr_output = stderr_handle.join().unwrap_or_default();
     if !stderr_output.is_empty() {
         log::info!("FFmpeg stderr:\n{}", stderr_output);
+    }
+
+    // 一時ファイル（LUT等）のクリーンアップ
+    for path in &temp_files {
+        let _ = std::fs::remove_file(path);
     }
 
     // エンコード完了後のキャンセルフラグチェック:
