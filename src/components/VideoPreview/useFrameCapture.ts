@@ -28,6 +28,7 @@ export const useFrameCapture = ({
 }: UseFrameCaptureParams) => {
   const frameCountRef = useRef(0);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastCanvasSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
 
   const capture = useCallback(() => {
     if (!useScopeStore.getState().enabled) return;
@@ -46,8 +47,11 @@ export const useFrameCapture = ({
         offscreenCanvasRef.current = document.createElement('canvas');
       }
       const canvas = offscreenCanvasRef.current;
-      canvas.width = w;
-      canvas.height = h;
+      if (lastCanvasSizeRef.current.w !== w || lastCanvasSizeRef.current.h !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        lastCanvasSizeRef.current = { w, h };
+      }
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) return;
       ctx.drawImage(video, 0, 0, w, h);
