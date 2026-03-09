@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import type { ClipEffects } from '../../store/timelineStore';
@@ -27,6 +27,74 @@ const REVERB_PRESETS: ReverbPreset[] = [
   { label: 'effects.reverbHall', values: { reverbAmount: 0.6 } },
   { label: 'effects.reverbChurch', values: { reverbAmount: 0.9 } },
 ];
+
+const STORAGE_KEY = 'qcut-effects-sections';
+
+function loadSectionState(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveSectionState(state: Record<string, boolean>) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+interface CollapsibleSectionProps {
+  id: string;
+  title: string;
+  defaultOpen?: boolean;
+  sections: Record<string, boolean>;
+  onToggle: (id: string, defaultOpen: boolean) => void;
+  children: React.ReactNode;
+}
+
+const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ id, title, defaultOpen = true, sections, onToggle, children }) => {
+  const isOpen = sections[id] ?? defaultOpen;
+
+  return (
+    <div style={{ borderTop: '1px solid #3a3a3a', paddingTop: '4px', marginTop: '8px' }}>
+      <button
+        onClick={() => onToggle(id, defaultOpen ?? true)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          width: '100%',
+          padding: '4px 0',
+          margin: 0,
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          fontSize: '13px',
+          color: '#ddd',
+          fontWeight: 'bold',
+          textAlign: 'left',
+        }}
+      >
+        <span style={{
+          display: 'inline-block',
+          width: '12px',
+          fontSize: '10px',
+          color: '#999',
+          transition: 'transform 0.15s',
+          transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+        }}>
+          &#9654;
+        </span>
+        {title}
+      </button>
+      {isOpen && (
+        <div style={{ paddingTop: '8px' }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface EffectSliderProps {
   label: string;
@@ -65,6 +133,15 @@ export const EffectsPanel: React.FC = () => {
   const updateClip = useTimelineStore((s) => s.updateClip);
   const updateClipSilent = useTimelineStore((s) => s.updateClipSilent);
   const commitHistory = useTimelineStore((s) => s.commitHistory);
+  const [sections, setSections] = useState<Record<string, boolean>>(loadSectionState);
+
+  const handleToggleSection = useCallback((id: string, defaultOpen: boolean) => {
+    setSections((prev) => {
+      const next = { ...prev, [id]: !(prev[id] ?? defaultOpen) };
+      saveSectionState(next);
+      return next;
+    });
+  }, []);
 
   const selectedClip = useMemo(() => {
     if (!selectedClipId || !selectedTrackId) return null;
@@ -131,305 +208,302 @@ export const EffectsPanel: React.FC = () => {
         </p>
       ) : (
         <>
-          <EffectSlider
-            label={t('effects.brightness')}
-            value={effects.brightness}
-            onChange={(v) => handleChange('brightness', v)}
-          />
-          <EffectSlider
-            label={t('effects.contrast')}
-            value={effects.contrast}
-            onChange={(v) => handleChange('contrast', v)}
-          />
-          <EffectSlider
-            label={t('effects.saturation')}
-            value={effects.saturation}
-            onChange={(v) => handleChange('saturation', v)}
-          />
-          <EffectSlider
-            label={t('effects.colorTemperature')}
-            value={effects.colorTemperature}
-            onChange={(v) => handleChange('colorTemperature', v)}
-            min={-1}
-            max={1}
-            step={0.01}
-          />
-          <EffectSlider
-            label={t('effects.hue')}
-            value={effects.hue}
-            onChange={(v) => handleChange('hue', v)}
-            min={-180}
-            max={180}
-            step={1}
-          />
+          <CollapsibleSection id="basic" title={t('effects.title')} sections={sections} onToggle={handleToggleSection}>
+            <EffectSlider
+              label={t('effects.brightness')}
+              value={effects.brightness}
+              onChange={(v) => handleChange('brightness', v)}
+            />
+            <EffectSlider
+              label={t('effects.contrast')}
+              value={effects.contrast}
+              onChange={(v) => handleChange('contrast', v)}
+            />
+            <EffectSlider
+              label={t('effects.saturation')}
+              value={effects.saturation}
+              onChange={(v) => handleChange('saturation', v)}
+            />
+            <EffectSlider
+              label={t('effects.colorTemperature')}
+              value={effects.colorTemperature}
+              onChange={(v) => handleChange('colorTemperature', v)}
+              min={-1}
+              max={1}
+              step={0.01}
+            />
+            <EffectSlider
+              label={t('effects.hue')}
+              value={effects.hue}
+              onChange={(v) => handleChange('hue', v)}
+              min={-180}
+              max={180}
+              step={1}
+            />
+          </CollapsibleSection>
 
-          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
-            {t('effects.hsl')}
-          </h4>
-          <EffectSlider
-            label={t('effects.hslRedSat')}
-            value={effects.hslRedSat}
-            onChange={(v) => handleChange('hslRedSat', v)}
-            min={-1}
-            max={1}
-            step={0.01}
-          />
-          <EffectSlider
-            label={t('effects.hslYellowSat')}
-            value={effects.hslYellowSat}
-            onChange={(v) => handleChange('hslYellowSat', v)}
-            min={-1}
-            max={1}
-            step={0.01}
-          />
-          <EffectSlider
-            label={t('effects.hslGreenSat')}
-            value={effects.hslGreenSat}
-            onChange={(v) => handleChange('hslGreenSat', v)}
-            min={-1}
-            max={1}
-            step={0.01}
-          />
-          <EffectSlider
-            label={t('effects.hslCyanSat')}
-            value={effects.hslCyanSat}
-            onChange={(v) => handleChange('hslCyanSat', v)}
-            min={-1}
-            max={1}
-            step={0.01}
-          />
-          <EffectSlider
-            label={t('effects.hslBlueSat')}
-            value={effects.hslBlueSat}
-            onChange={(v) => handleChange('hslBlueSat', v)}
-            min={-1}
-            max={1}
-            step={0.01}
-          />
-          <EffectSlider
-            label={t('effects.hslMagentaSat')}
-            value={effects.hslMagentaSat}
-            onChange={(v) => handleChange('hslMagentaSat', v)}
-            min={-1}
-            max={1}
-            step={0.01}
-          />
+          <CollapsibleSection id="hsl" title={t('effects.hsl')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <EffectSlider
+              label={t('effects.hslRedSat')}
+              value={effects.hslRedSat}
+              onChange={(v) => handleChange('hslRedSat', v)}
+              min={-1}
+              max={1}
+              step={0.01}
+            />
+            <EffectSlider
+              label={t('effects.hslYellowSat')}
+              value={effects.hslYellowSat}
+              onChange={(v) => handleChange('hslYellowSat', v)}
+              min={-1}
+              max={1}
+              step={0.01}
+            />
+            <EffectSlider
+              label={t('effects.hslGreenSat')}
+              value={effects.hslGreenSat}
+              onChange={(v) => handleChange('hslGreenSat', v)}
+              min={-1}
+              max={1}
+              step={0.01}
+            />
+            <EffectSlider
+              label={t('effects.hslCyanSat')}
+              value={effects.hslCyanSat}
+              onChange={(v) => handleChange('hslCyanSat', v)}
+              min={-1}
+              max={1}
+              step={0.01}
+            />
+            <EffectSlider
+              label={t('effects.hslBlueSat')}
+              value={effects.hslBlueSat}
+              onChange={(v) => handleChange('hslBlueSat', v)}
+              min={-1}
+              max={1}
+              step={0.01}
+            />
+            <EffectSlider
+              label={t('effects.hslMagentaSat')}
+              value={effects.hslMagentaSat}
+              onChange={(v) => handleChange('hslMagentaSat', v)}
+              min={-1}
+              max={1}
+              step={0.01}
+            />
+          </CollapsibleSection>
 
-          <ColorWheelPanel effects={effects} onBatchChange={handleBatchChange} onCommit={handleBatchCommit} />
+          <CollapsibleSection id="colorWheel" title={t('effects.colorWheel')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <ColorWheelPanel effects={effects} onBatchChange={handleBatchChange} onCommit={handleBatchCommit} />
+          </CollapsibleSection>
 
-          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
-            {t('transform.title')}
-          </h4>
-          <EffectSlider
-            label={t('transform.rotation')}
-            value={effects.rotation}
-            onChange={(v) => handleChange('rotation', v)}
-            min={-180}
-            max={180}
-            step={1}
-          />
-          <EffectSlider
-            label={t('transform.scaleX')}
-            value={effects.scaleX}
-            onChange={(v) => handleChange('scaleX', v)}
-            min={0.1}
-            max={3}
-            step={0.01}
-          />
-          <EffectSlider
-            label={t('transform.scaleY')}
-            value={effects.scaleY}
-            onChange={(v) => handleChange('scaleY', v)}
-            min={0.1}
-            max={3}
-            step={0.01}
-          />
-          <EffectSlider
-            label={t('transform.positionX')}
-            value={effects.positionX}
-            onChange={(v) => handleChange('positionX', v)}
-            min={-500}
-            max={500}
-            step={1}
-          />
-          <EffectSlider
-            label={t('transform.positionY')}
-            value={effects.positionY}
-            onChange={(v) => handleChange('positionY', v)}
-            min={-500}
-            max={500}
-            step={1}
-          />
+          <CollapsibleSection id="transform" title={t('transform.title')} sections={sections} onToggle={handleToggleSection}>
+            <EffectSlider
+              label={t('transform.rotation')}
+              value={effects.rotation}
+              onChange={(v) => handleChange('rotation', v)}
+              min={-180}
+              max={180}
+              step={1}
+            />
+            <EffectSlider
+              label={t('transform.scaleX')}
+              value={effects.scaleX}
+              onChange={(v) => handleChange('scaleX', v)}
+              min={0.1}
+              max={3}
+              step={0.01}
+            />
+            <EffectSlider
+              label={t('transform.scaleY')}
+              value={effects.scaleY}
+              onChange={(v) => handleChange('scaleY', v)}
+              min={0.1}
+              max={3}
+              step={0.01}
+            />
+            <EffectSlider
+              label={t('transform.positionX')}
+              value={effects.positionX}
+              onChange={(v) => handleChange('positionX', v)}
+              min={-500}
+              max={500}
+              step={1}
+            />
+            <EffectSlider
+              label={t('transform.positionY')}
+              value={effects.positionY}
+              onChange={(v) => handleChange('positionY', v)}
+              min={-500}
+              max={500}
+              step={1}
+            />
+          </CollapsibleSection>
 
-          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
-            {t('effects.audio')}
-          </h4>
-          <EffectSlider
-            label={t('effects.volume')}
-            value={effects.volume}
-            onChange={(v) => handleChange('volume', v)}
-            min={0}
-            max={2}
-            step={0.01}
-          />
+          <CollapsibleSection id="audio" title={t('effects.audio')} sections={sections} onToggle={handleToggleSection}>
+            <EffectSlider
+              label={t('effects.volume')}
+              value={effects.volume}
+              onChange={(v) => handleChange('volume', v)}
+              min={0}
+              max={2}
+              step={0.01}
+            />
+          </CollapsibleSection>
 
-          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
-            {t('effects.equalizer')}
-          </h4>
-          <div style={{ marginBottom: '8px' }}>
-            <select
-              onChange={(e) => {
-                const preset = EQ_PRESETS[parseInt(e.target.value)];
-                if (!preset || !selectedTrackId || !selectedClipId) return;
-                updateClip(selectedTrackId, selectedClipId, {
-                  effects: { ...effects, ...preset.values },
-                });
-              }}
-              style={{
-                width: '100%',
-                padding: '4px',
-                fontSize: '12px',
-                backgroundColor: '#3a3a3a',
-                color: '#ccc',
-                border: '1px solid #555',
-                borderRadius: '4px',
-              }}
-              value={(() => {
-                const idx = EQ_PRESETS.findIndex(p =>
-                  p.values.eqLow === effects.eqLow &&
-                  p.values.eqMid === effects.eqMid &&
-                  p.values.eqHigh === effects.eqHigh
-                );
-                return idx >= 0 ? String(idx) : '';
-              })()}
-            >
-              <option value="" disabled>{t('effects.eqSelectPreset')}</option>
-              {EQ_PRESETS.map((p, i) => (
-                <option key={i} value={i}>{t(p.label)}</option>
-              ))}
-            </select>
-          </div>
-          <EffectSlider
-            label={t('effects.eqLow')}
-            value={effects.eqLow}
-            onChange={(v) => handleChange('eqLow', v)}
-            min={-12}
-            max={12}
-            step={0.5}
-          />
-          <EffectSlider
-            label={t('effects.eqMid')}
-            value={effects.eqMid}
-            onChange={(v) => handleChange('eqMid', v)}
-            min={-12}
-            max={12}
-            step={0.5}
-          />
-          <EffectSlider
-            label={t('effects.eqHigh')}
-            value={effects.eqHigh}
-            onChange={(v) => handleChange('eqHigh', v)}
-            min={-12}
-            max={12}
-            step={0.5}
-          />
+          <CollapsibleSection id="equalizer" title={t('effects.equalizer')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <div style={{ marginBottom: '8px' }}>
+              <select
+                onChange={(e) => {
+                  const preset = EQ_PRESETS[parseInt(e.target.value)];
+                  if (!preset || !selectedTrackId || !selectedClipId) return;
+                  updateClip(selectedTrackId, selectedClipId, {
+                    effects: { ...effects, ...preset.values },
+                  });
+                }}
+                style={{
+                  width: '100%',
+                  padding: '4px',
+                  fontSize: '12px',
+                  backgroundColor: '#3a3a3a',
+                  color: '#ccc',
+                  border: '1px solid #555',
+                  borderRadius: '4px',
+                }}
+                value={(() => {
+                  const idx = EQ_PRESETS.findIndex(p =>
+                    p.values.eqLow === effects.eqLow &&
+                    p.values.eqMid === effects.eqMid &&
+                    p.values.eqHigh === effects.eqHigh
+                  );
+                  return idx >= 0 ? String(idx) : '';
+                })()}
+              >
+                <option value="" disabled>{t('effects.eqSelectPreset')}</option>
+                {EQ_PRESETS.map((p, i) => (
+                  <option key={i} value={i}>{t(p.label)}</option>
+                ))}
+              </select>
+            </div>
+            <EffectSlider
+              label={t('effects.eqLow')}
+              value={effects.eqLow}
+              onChange={(v) => handleChange('eqLow', v)}
+              min={-12}
+              max={12}
+              step={0.5}
+            />
+            <EffectSlider
+              label={t('effects.eqMid')}
+              value={effects.eqMid}
+              onChange={(v) => handleChange('eqMid', v)}
+              min={-12}
+              max={12}
+              step={0.5}
+            />
+            <EffectSlider
+              label={t('effects.eqHigh')}
+              value={effects.eqHigh}
+              onChange={(v) => handleChange('eqHigh', v)}
+              min={-12}
+              max={12}
+              step={0.5}
+            />
+          </CollapsibleSection>
 
-          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
-            {t('effects.noiseReduction')}
-          </h4>
-          <EffectSlider
-            label={t('effects.denoiseAmount')}
-            value={effects.denoiseAmount}
-            onChange={(v) => handleChange('denoiseAmount', v)}
-            min={0}
-            max={1}
-            step={0.01}
-          />
-          <EffectSlider
-            label={t('effects.highpassFreq')}
-            value={effects.highpassFreq}
-            onChange={(v) => handleChange('highpassFreq', v)}
-            min={0}
-            max={500}
-            step={10}
-          />
+          <CollapsibleSection id="noiseReduction" title={t('effects.noiseReduction')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <EffectSlider
+              label={t('effects.denoiseAmount')}
+              value={effects.denoiseAmount}
+              onChange={(v) => handleChange('denoiseAmount', v)}
+              min={0}
+              max={1}
+              step={0.01}
+            />
+            <EffectSlider
+              label={t('effects.highpassFreq')}
+              value={effects.highpassFreq}
+              onChange={(v) => handleChange('highpassFreq', v)}
+              min={0}
+              max={500}
+              step={10}
+            />
+          </CollapsibleSection>
 
-          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
-            {t('effects.echoReverb')}
-          </h4>
-          <EffectSlider
-            label={t('effects.echoDelay')}
-            value={effects.echoDelay}
-            onChange={(v) => handleChange('echoDelay', v)}
-            min={0}
-            max={1000}
-            step={10}
-          />
-          <EffectSlider
-            label={t('effects.echoDecay')}
-            value={effects.echoDecay}
-            onChange={(v) => handleChange('echoDecay', v)}
-            min={0}
-            max={0.9}
-            step={0.01}
-          />
-          <div style={{ marginBottom: '8px' }}>
-            <select
-              onChange={(e) => {
-                const preset = REVERB_PRESETS[parseInt(e.target.value)];
-                if (!preset || !selectedTrackId || !selectedClipId) return;
-                updateClip(selectedTrackId, selectedClipId, {
-                  effects: { ...effects, ...preset.values },
-                });
-              }}
-              style={{
-                width: '100%',
-                padding: '4px',
-                fontSize: '12px',
-                backgroundColor: '#3a3a3a',
-                color: '#ccc',
-                border: '1px solid #555',
-                borderRadius: '4px',
-              }}
-              value={(() => {
-                const idx = REVERB_PRESETS.findIndex(p => p.values.reverbAmount === effects.reverbAmount);
-                return idx >= 0 ? String(idx) : '';
-              })()}
-            >
-              <option value="" disabled>{t('effects.reverbSelectPreset')}</option>
-              {REVERB_PRESETS.map((p, i) => (
-                <option key={i} value={i}>{t(p.label)}</option>
-              ))}
-            </select>
-          </div>
-          <EffectSlider
-            label={t('effects.reverbAmount')}
-            value={effects.reverbAmount}
-            onChange={(v) => handleChange('reverbAmount', v)}
-            min={0}
-            max={1}
-            step={0.01}
-          />
+          <CollapsibleSection id="echoReverb" title={t('effects.echoReverb')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <EffectSlider
+              label={t('effects.echoDelay')}
+              value={effects.echoDelay}
+              onChange={(v) => handleChange('echoDelay', v)}
+              min={0}
+              max={1000}
+              step={10}
+            />
+            <EffectSlider
+              label={t('effects.echoDecay')}
+              value={effects.echoDecay}
+              onChange={(v) => handleChange('echoDecay', v)}
+              min={0}
+              max={0.9}
+              step={0.01}
+            />
+            <div style={{ marginBottom: '8px' }}>
+              <select
+                onChange={(e) => {
+                  const preset = REVERB_PRESETS[parseInt(e.target.value)];
+                  if (!preset || !selectedTrackId || !selectedClipId) return;
+                  updateClip(selectedTrackId, selectedClipId, {
+                    effects: { ...effects, ...preset.values },
+                  });
+                }}
+                style={{
+                  width: '100%',
+                  padding: '4px',
+                  fontSize: '12px',
+                  backgroundColor: '#3a3a3a',
+                  color: '#ccc',
+                  border: '1px solid #555',
+                  borderRadius: '4px',
+                }}
+                value={(() => {
+                  const idx = REVERB_PRESETS.findIndex(p => p.values.reverbAmount === effects.reverbAmount);
+                  return idx >= 0 ? String(idx) : '';
+                })()}
+              >
+                <option value="" disabled>{t('effects.reverbSelectPreset')}</option>
+                {REVERB_PRESETS.map((p, i) => (
+                  <option key={i} value={i}>{t(p.label)}</option>
+                ))}
+              </select>
+            </div>
+            <EffectSlider
+              label={t('effects.reverbAmount')}
+              value={effects.reverbAmount}
+              onChange={(v) => handleChange('reverbAmount', v)}
+              min={0}
+              max={1}
+              step={0.01}
+            />
+          </CollapsibleSection>
 
-          <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
-            {t('effects.fade')}
-          </h4>
-          <EffectSlider
-            label={t('effects.fadeIn')}
-            value={effects.fadeIn}
-            onChange={(v) => handleChange('fadeIn', v)}
-            min={0}
-            max={3}
-            step={0.1}
-          />
-          <EffectSlider
-            label={t('effects.fadeOut')}
-            value={effects.fadeOut}
-            onChange={(v) => handleChange('fadeOut', v)}
-            min={0}
-            max={3}
-            step={0.1}
-          />
+          <CollapsibleSection id="fade" title={t('effects.fade')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <EffectSlider
+              label={t('effects.fadeIn')}
+              value={effects.fadeIn}
+              onChange={(v) => handleChange('fadeIn', v)}
+              min={0}
+              max={3}
+              step={0.1}
+            />
+            <EffectSlider
+              label={t('effects.fadeOut')}
+              value={effects.fadeOut}
+              onChange={(v) => handleChange('fadeOut', v)}
+              min={0}
+              max={3}
+              step={0.1}
+            />
+          </CollapsibleSection>
 
           <button
             onClick={handleReset}
@@ -442,7 +516,7 @@ export const EffectsPanel: React.FC = () => {
               border: '1px solid #555',
               borderRadius: '4px',
               cursor: 'pointer',
-              marginTop: '8px',
+              marginTop: '12px',
             }}
           >
             {t('effects.reset')}
