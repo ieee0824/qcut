@@ -36,6 +36,35 @@ const FORMAT_OPTIONS: { label: string; value: ExportFormat; ext: string; filterN
   { label: 'WebM (VP9)', value: 'webm', ext: 'webm', filterName: 'WebM' },
 ];
 
+/**
+ * 残り時間をフォーマットして返す純粋関数。
+ * @param elapsed 経過時間（秒）
+ * @param progress 進捗率（0〜1）
+ * @param labels ラベル文字列 { remaining, seconds, minutes, hours }
+ * @returns フォーマットされた残り時間文字列、または null
+ */
+export function formatEstimatedRemaining(
+  elapsed: number,
+  progress: number,
+  labels: { remaining: string; seconds: string; minutes: string; hours: string },
+): string | null {
+  if (progress <= 0) return null;
+  if (elapsed < 2) return null;
+  const remaining = elapsed * (1 - progress) / progress;
+  if (remaining < 60) return `${labels.remaining}: ${Math.round(remaining)}${labels.seconds}`;
+  if (remaining < 3600) return `${labels.remaining}: ${Math.round(remaining / 60)}${labels.minutes}`;
+  const h = Math.floor(remaining / 3600);
+  const m = Math.round((remaining % 3600) / 60);
+  return `${labels.remaining}: ${h}${labels.hours}${m}${labels.minutes}`;
+}
+
+/**
+ * RESOLUTION_OPTIONS から一致するインデックスを返す。
+ */
+export function findResolutionIndex(width: number, height: number): number {
+  return RESOLUTION_OPTIONS.findIndex((o) => o.width === width && o.height === height);
+}
+
 export { RESOLUTION_OPTIONS, FPS_OPTIONS, BITRATE_OPTIONS, FORMAT_OPTIONS };
 
 export function useExportDialog() {
@@ -144,18 +173,15 @@ export function useExportDialog() {
   const estimatedRemaining = useMemo(() => {
     if (!exportStartedAt || progress <= 0) return null;
     const elapsed = (Date.now() - exportStartedAt) / 1000;
-    if (elapsed < 2) return null; // 最初の2秒はデータ不足
-    const remaining = elapsed * (1 - progress) / progress;
-    if (remaining < 60) return `${t('export.remaining')}: ${Math.round(remaining)}${t('export.seconds')}`;
-    if (remaining < 3600) return `${t('export.remaining')}: ${Math.round(remaining / 60)}${t('export.minutes')}`;
-    const h = Math.floor(remaining / 3600);
-    const m = Math.round((remaining % 3600) / 60);
-    return `${t('export.remaining')}: ${h}${t('export.hours')}${m}${t('export.minutes')}`;
+    return formatEstimatedRemaining(elapsed, progress, {
+      remaining: t('export.remaining'),
+      seconds: t('export.seconds'),
+      minutes: t('export.minutes'),
+      hours: t('export.hours'),
+    });
   }, [exportStartedAt, progress, t]);
 
-  const resolutionIndex = RESOLUTION_OPTIONS.findIndex(
-    (o) => o.width === settings.width && o.height === settings.height,
-  );
+  const resolutionIndex = findResolutionIndex(settings.width, settings.height);
 
   return {
     t,

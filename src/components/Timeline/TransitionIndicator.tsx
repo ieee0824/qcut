@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useTimelineStore, type ClipTransition, type TransitionType } from '../../store/timelineStore';
 import { TransitionPopover } from './TransitionPopover';
 import { TransitionMenu } from './TransitionMenu';
+import { computeIndicatorLayout } from './transitionLayout';
 
 interface TransitionIndicatorProps {
   transition: ClipTransition;
@@ -29,8 +30,7 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
   const indicatorRef = useRef<HTMLDivElement>(null);
   const [popoverPos, setPopoverPos] = useState({ x: 0, y: 0 });
 
-  const width = transition.duration * pixelsPerSecond;
-  const left = clipStartTime * pixelsPerSecond - width / 2;
+  const { width, left } = computeIndicatorLayout(transition.duration, pixelsPerSecond, clipStartTime);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
