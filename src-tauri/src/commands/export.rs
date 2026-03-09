@@ -33,6 +33,24 @@ pub struct ClipEffects {
     pub hsl_blue_sat: f64,
     #[serde(default)]
     pub hsl_magenta_sat: f64,
+    #[serde(default)]
+    pub lift_r: f64,
+    #[serde(default)]
+    pub lift_g: f64,
+    #[serde(default)]
+    pub lift_b: f64,
+    #[serde(default)]
+    pub gamma_r: f64,
+    #[serde(default)]
+    pub gamma_g: f64,
+    #[serde(default)]
+    pub gamma_b: f64,
+    #[serde(default)]
+    pub gain_r: f64,
+    #[serde(default)]
+    pub gain_g: f64,
+    #[serde(default)]
+    pub gain_b: f64,
     pub rotation: f64,
     pub scale_x: f64,
     pub scale_y: f64,

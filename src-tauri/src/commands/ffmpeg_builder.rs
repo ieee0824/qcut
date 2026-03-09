@@ -274,6 +274,39 @@ pub(crate) fn build_ffmpeg_args(
                 }
             }
 
+            // リフト/ガンマ/ゲイン（colorbalance フィルタでシャドウ/ミッドトーン/ハイライト）
+            {
+                let has_lift = effects.lift_r.abs() > 0.01
+                    || effects.lift_g.abs() > 0.01
+                    || effects.lift_b.abs() > 0.01;
+                let has_gamma = effects.gamma_r.abs() > 0.01
+                    || effects.gamma_g.abs() > 0.01
+                    || effects.gamma_b.abs() > 0.01;
+                let has_gain = effects.gain_r.abs() > 0.01
+                    || effects.gain_g.abs() > 0.01
+                    || effects.gain_b.abs() > 0.01;
+
+                if has_lift || has_gamma || has_gain {
+                    let mut parts: Vec<String> = Vec::new();
+                    if has_lift {
+                        parts.push(format!("rs={:.2}", effects.lift_r));
+                        parts.push(format!("gs={:.2}", effects.lift_g));
+                        parts.push(format!("bs={:.2}", effects.lift_b));
+                    }
+                    if has_gamma {
+                        parts.push(format!("rm={:.2}", effects.gamma_r));
+                        parts.push(format!("gm={:.2}", effects.gamma_g));
+                        parts.push(format!("bm={:.2}", effects.gamma_b));
+                    }
+                    if has_gain {
+                        parts.push(format!("rh={:.2}", effects.gain_r));
+                        parts.push(format!("gh={:.2}", effects.gain_g));
+                        parts.push(format!("bh={:.2}", effects.gain_b));
+                    }
+                    vfilter.push_str(&format!(",colorbalance={}", parts.join(":")));
+                }
+            }
+
             // HSL 色域別彩度調整（huesaturation フィルタ）
             let hsl_colors: &[(&str, f64)] = &[
                 ("r", effects.hsl_red_sat),

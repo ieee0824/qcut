@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import type { ClipEffects } from '../../store/timelineStore';
+import { ColorWheelPanel } from './ColorWheelPanel';
 
 interface EqPreset {
   label: string;
@@ -197,6 +198,8 @@ export const EffectsPanel: React.FC = () => {
             max={1}
             step={0.01}
           />
+
+          <ColorWheelPanel effects={effects} onChange={handleChange} />
 
           <h4 style={{ margin: '16px 0 8px 0', fontSize: '13px', color: '#ddd', borderTop: '1px solid #3a3a3a', paddingTop: '12px' }}>
             {t('transform.title')}
