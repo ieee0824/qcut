@@ -201,6 +201,11 @@
     "positionY": "Position Y",
     "reset": "Reset"
   },
+  "scope": {
+    "title": "Scopes",
+    "enable": "Enable scopes",
+    "histogram": "Histogram"
+  },
   "export": {
     "title": "Export Video",
     "button": "Export",

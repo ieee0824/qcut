@@ -4,6 +4,7 @@ import { useTimelineStore, DEFAULT_EFFECTS, DEFAULT_TIMECODE_OVERLAY } from '../
 import type { ClipEffects, TimecodeOverlay } from '../../store/timelineStore';
 import { ColorWheelPanel } from './ColorWheelPanel';
 import { TimecodePanel } from './TimecodePanel';
+import { ScopesPanel } from '../Scopes/ScopesPanel';
 
 interface EqPreset {
   label: string;
@@ -327,6 +328,10 @@ export const EffectsPanel: React.FC = () => {
 
           <CollapsibleSection id="colorWheel" title={t('effects.colorWheel')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
             <ColorWheelPanel effects={effects} onBatchChange={handleBatchChange} onCommit={handleBatchCommit} />
+          </CollapsibleSection>
+
+          <CollapsibleSection id="scope" title={t('scope.title')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <ScopesPanel />
           </CollapsibleSection>
 
           <CollapsibleSection id="timecode" title={t('timecode.title')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>

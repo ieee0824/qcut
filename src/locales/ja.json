@@ -201,6 +201,11 @@
     "positionY": "位置Y",
     "reset": "リセット"
   },
+  "scope": {
+    "title": "スコープ",
+    "enable": "スコープを有効にする",
+    "histogram": "ヒストグラム"
+  },
   "export": {
     "title": "動画エクスポート",
     "button": "エクスポート",

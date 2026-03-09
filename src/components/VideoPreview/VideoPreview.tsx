@@ -9,6 +9,7 @@ import { useVideoSwitching } from './useVideoSwitching';
 import { usePlaybackLoop } from './usePlaybackLoop';
 import { useAudioTrackPlayback } from './useAudioTrackPlayback';
 import { useCanvasRenderer } from './useCanvasRenderer';
+import { useFrameCapture } from './useFrameCapture';
 import { audioEngine } from '../../audio/AudioEngine';
 
 const VIDEO_AUDIO_ID = '__video_main__';
@@ -132,10 +133,17 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const hasCurrentClip = currentClip !== null && currentVideoUrl !== null;
 
   // --- カスタムフック ---
-  const { needsCanvas, renderCanvasFrame } = useCanvasRenderer({
+  const { needsCanvas, renderCanvasFrame, pipelineRef } = useCanvasRenderer({
     videoRef,
     canvasRef,
     currentClip,
+  });
+
+  const { captureFrame } = useFrameCapture({
+    videoRef,
+    pipelineRef,
+    needsCanvas,
+    effects: currentClip?.effects,
   });
 
   useAudioTrackPlayback();
@@ -187,6 +195,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       findTransitionAtTime,
       getTransitionStyles,
       renderCanvasFrame,
+      captureFrame,
     });
 
   // --- エフェクト CSS ---
