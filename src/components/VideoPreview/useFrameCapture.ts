@@ -13,6 +13,9 @@ interface UseFrameCaptureParams {
 }
 
 const FRAME_SKIP = 3;
+// スコープ解析用の縮小サイズ（転送ピクセル数を大幅に削減）
+const SCOPE_WIDTH = 160;
+const SCOPE_HEIGHT = 90;
 
 /**
  * 映像フレームからピクセルデータを取得し、スコープ解析を行うフック。
@@ -28,7 +31,7 @@ export const useFrameCapture = ({
 }: UseFrameCaptureParams) => {
   const frameCountRef = useRef(0);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const lastCanvasSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+  const offscreenInitRef = useRef(false);
 
   const capture = useCallback(() => {
     if (!useScopeStore.getState().enabled) return;
@@ -39,28 +42,27 @@ export const useFrameCapture = ({
       pixels = readPixels(pipelineRef.current);
     } else if (videoRef.current && videoRef.current.readyState >= 2) {
       const video = videoRef.current;
-      const w = video.videoWidth;
-      const h = video.videoHeight;
-      if (w === 0 || h === 0) return;
+      if (video.videoWidth === 0 || video.videoHeight === 0) return;
 
       if (!offscreenCanvasRef.current) {
         offscreenCanvasRef.current = document.createElement('canvas');
       }
       const canvas = offscreenCanvasRef.current;
-      if (lastCanvasSizeRef.current.w !== w || lastCanvasSizeRef.current.h !== h) {
-        canvas.width = w;
-        canvas.height = h;
-        lastCanvasSizeRef.current = { w, h };
+      // 固定小サイズに縮小描画して転送ピクセル数を削減
+      if (!offscreenInitRef.current) {
+        canvas.width = SCOPE_WIDTH;
+        canvas.height = SCOPE_HEIGHT;
+        offscreenInitRef.current = true;
       }
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) return;
-      ctx.drawImage(video, 0, 0, w, h);
-      pixels = ctx.getImageData(0, 0, w, h).data;
+      ctx.drawImage(video, 0, 0, SCOPE_WIDTH, SCOPE_HEIGHT);
+      pixels = ctx.getImageData(0, 0, SCOPE_WIDTH, SCOPE_HEIGHT).data;
     }
 
     if (!pixels) return;
 
-    const histogram = computeHistogram(pixels, 4);
+    const histogram = computeHistogram(pixels, 1);
     useScopeStore.getState().setHistogramData(histogram);
   }, [videoRef, pipelineRef, needsCanvas]);
 

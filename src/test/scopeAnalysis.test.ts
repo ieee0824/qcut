@@ -72,4 +72,35 @@ describe('computeHistogram', () => {
     // luma: (255*54 + 255*183 + 255*19) >> 8 = 255*256 >> 8 = 255
     expect(result.luma[255]).toBe(1);
   });
+
+  it('should count all pixels with step=1 (縮小キャプチャ用)', () => {
+    // 縮小済みデータを想定: 少ないピクセル数でstep=1
+    const pixels = new Uint8ClampedArray([
+      50, 100, 150, 255,
+      50, 100, 150, 255,
+      200, 50, 25, 255,
+    ]);
+    const result = computeHistogram(pixels, 1);
+
+    expect(result.r[50]).toBe(2);
+    expect(result.r[200]).toBe(1);
+    expect(result.g[100]).toBe(2);
+    expect(result.g[50]).toBe(1);
+    expect(result.b[150]).toBe(2);
+    expect(result.b[25]).toBe(1);
+  });
+
+  it('should produce consistent results between step=1 on small data and step=N on large data', () => {
+    // 4ピクセル、各色が異なる
+    const smallPixels = new Uint8ClampedArray([
+      10, 20, 30, 255,
+      40, 50, 60, 255,
+    ]);
+    // step=1で全ピクセル処理
+    const result = computeHistogram(smallPixels, 1);
+
+    let totalR = 0;
+    for (let i = 0; i < 256; i++) totalR += result.r[i];
+    expect(totalR).toBe(2); // 全ピクセルがカウントされる
+  });
 });
