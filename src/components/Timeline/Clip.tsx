@@ -1,9 +1,10 @@
-import { useTimelineStore, Clip as ClipType, DEFAULT_EFFECTS } from '../../store/timelineStore';
+import { useTimelineStore, Clip as ClipType } from '../../store/timelineStore';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
-import { useTransitionPresetStore } from '../../store/transitionPresetStore';
-import { useState, useRef, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 import { WaveformCanvas } from './WaveformCanvas';
+import { useDragClip } from './useDragClip';
+import { ClipContextMenu } from './ClipContextMenu';
+import { calculateClipPosition, calculateContextMenuTime } from './clipUtils';
 
 interface ClipProps {
   clip: ClipType;
@@ -12,38 +13,26 @@ interface ClipProps {
 }
 
 function Clip({ clip, trackId, trackType }: ClipProps) {
-  const { t } = useTranslation();
   const {
     pixelsPerSecond,
     removeClip,
     setSelectedClip,
     selectedClipId,
-    splitClipAtTime,
-    updateClipSilent,
-    commitHistory,
-    setTransition,
-    removeTransition,
-    moveClipToTrack,
-    addTrack,
-    addClip,
-    updateClip,
   } = useTimelineStore();
-  const allPresets = useTransitionPresetStore((s) => s.getAllPresets)();
-  const [isDragging, setIsDragging] = useState(false);
+
   const [isResizing, setIsResizing] = useState(false);
   const [showContextMenu, setShowContextMenu] = useState(false);
-  const [showTransitionSubmenu, setShowTransitionSubmenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
-  const contextMenuRef = useRef<HTMLDivElement>(null);
-  const submenuRef = useRef<HTMLDivElement>(null);
-  const dragStartX = useRef(0);
-  const dragStartTime = useRef(0);
 
-  const left = clip.startTime * pixelsPerSecond;
-  const width = clip.duration * pixelsPerSecond;
+  const { isDragging, startDrag } = useDragClip({
+    clipId: clip.id,
+    trackId,
+    startTime: clip.startTime,
+    pixelsPerSecond,
+  });
+
+  const { left, width } = calculateClipPosition(clip.startTime, clip.duration, pixelsPerSecond);
   const isSelected = selectedClipId === clip.id;
-
-  const hasTransition = !!clip.transition;
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -57,62 +46,13 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
       if (target.classList.contains('clip-resize-handle')) {
         setIsResizing(true);
       } else {
-        setIsDragging(true);
-        dragStartX.current = e.clientX;
-        dragStartTime.current = clip.startTime;
+        startDrag(e.clientX);
       }
     }
     // クリップを選択
     setSelectedClip(trackId, clip.id);
     e.stopPropagation();
   };
-
-  // ドラッグ処理
-  useEffect(() => {
-    if (!isDragging) return;
-
-    // ドラッグ中のトラックハイライト用: 現在のtrackIdを追跡
-    let currentTrackId = trackId;
-
-    const handleMouseMove = (e: globalThis.MouseEvent) => {
-      // 水平方向の移動
-      const deltaX = e.clientX - dragStartX.current;
-      const deltaTime = deltaX / pixelsPerSecond;
-      let newStartTime = dragStartTime.current + deltaTime;
-      newStartTime = Math.max(0, newStartTime);
-      updateClipSilent(currentTrackId, clip.id, { startTime: newStartTime });
-
-      // 垂直方向: ドロップ先トラックの判定
-      const trackEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('.timeline-track') as HTMLElement | null;
-      const targetTrackId = trackEl?.dataset.trackId;
-
-      // ハイライト更新
-      document.querySelectorAll('.timeline-track.drop-target').forEach(el => el.classList.remove('drop-target'));
-      if (targetTrackId && targetTrackId !== currentTrackId) {
-        trackEl?.classList.add('drop-target');
-      }
-
-      // トラック移動
-      if (targetTrackId && targetTrackId !== currentTrackId) {
-        moveClipToTrack(currentTrackId, clip.id, targetTrackId);
-        currentTrackId = targetTrackId;
-      }
-    };
-
-    const handleMouseUp = () => {
-      document.querySelectorAll('.timeline-track.drop-target').forEach(el => el.classList.remove('drop-target'));
-      commitHistory();
-      setIsDragging(false);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, pixelsPerSecond, trackId, clip.id, updateClipSilent, commitHistory, moveClipToTrack]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -123,8 +63,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     if (clipEl) {
       const rect = clipEl.getBoundingClientRect();
       const relX = e.clientX - rect.left;
-      const relTime = relX / pixelsPerSecond;
-      const time = clip.startTime + Math.max(0, Math.min(relTime, clip.duration));
+      const time = calculateContextMenuTime(clip.startTime, clip.duration, relX, pixelsPerSecond);
       useTimelineStore.getState().setCurrentTime(time);
       useVideoPreviewStore.getState().setCurrentTime(time);
     }
@@ -137,88 +76,6 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     removeClip(trackId, clip.id);
-    setShowContextMenu(false);
-  };
-
-  const handleSplit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    splitClipAtTime(trackId, clip.id, useTimelineStore.getState().currentTime);
-    setShowContextMenu(false);
-  };
-
-  const handleRemoveTransition = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    removeTransition(trackId, clip.id);
-    setShowContextMenu(false);
-  };
-
-  // コンテキストメニューが画面外にはみ出る場合、位置を自動補正
-  useEffect(() => {
-    if (!showContextMenu || !contextMenuRef.current) return;
-    const menu = contextMenuRef.current;
-    const rect = menu.getBoundingClientRect();
-    let { x, y } = contextMenuPos;
-    if (rect.right > window.innerWidth) {
-      x = window.innerWidth - rect.width;
-    }
-    if (rect.bottom > window.innerHeight) {
-      y = window.innerHeight - rect.height;
-    }
-    if (x < 0) x = 0;
-    if (y < 0) y = 0;
-    if (x !== contextMenuPos.x || y !== contextMenuPos.y) {
-      setContextMenuPos({ x, y });
-    }
-  }, [showContextMenu, contextMenuPos]);
-
-  // サブメニューが画面外にはみ出る場合、位置を自動補正
-  useEffect(() => {
-    if (!showTransitionSubmenu || !submenuRef.current) return;
-    const submenu = submenuRef.current;
-    const rect = submenu.getBoundingClientRect();
-    if (rect.bottom > window.innerHeight) {
-      submenu.style.top = 'auto';
-      submenu.style.bottom = '0';
-    } else {
-      submenu.style.top = '0';
-      submenu.style.bottom = 'auto';
-    }
-    if (rect.right > window.innerWidth) {
-      submenu.style.left = 'auto';
-      submenu.style.right = '100%';
-    } else {
-      submenu.style.left = '100%';
-      submenu.style.right = 'auto';
-    }
-  }, [showTransitionSubmenu]);
-
-  const handleExtractAudio = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowContextMenu(false);
-    if (!clip.filePath) return;
-
-    // 音声トラックを作成し、同じ動画ファイルを参照する音声クリップを配置
-    const audioTrackId = `track-audio-${Date.now()}`;
-    addTrack({ id: audioTrackId, type: 'audio', name: `${clip.name} (音声)`, clips: [] });
-
-    addClip(audioTrackId, {
-      id: `clip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      name: `${clip.name} (音声)`,
-      startTime: clip.startTime,
-      duration: clip.duration,
-      filePath: clip.filePath,
-      sourceStartTime: clip.sourceStartTime,
-      sourceEndTime: clip.sourceEndTime,
-      color: '#6ecf6e',
-    });
-
-    // 元のビデオクリップをミュート
-    updateClip(trackId, clip.id, {
-      effects: { ...DEFAULT_EFFECTS, ...clip.effects, volume: 0 },
-    });
-  };
-
-  const handleCloseContextMenu = () => {
     setShowContextMenu(false);
   };
 
@@ -253,65 +110,15 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
         <div className="clip-resize-handle clip-resize-left"></div>
         <div className="clip-resize-handle clip-resize-right"></div>
       </div>
-      
+
       {showContextMenu && (
-        <>
-          <div className="context-menu-overlay" onClick={handleCloseContextMenu} />
-          <div
-            ref={contextMenuRef}
-            className="context-menu"
-            style={{
-              left: `${contextMenuPos.x}px`,
-              top: `${contextMenuPos.y}px`,
-            }}
-          >
-            <button className="context-menu-item" onClick={handleSplit}>
-              ✂️ 分割
-            </button>
-            {!hasTransition && (
-              <div
-                className="context-menu-item context-menu-submenu-trigger"
-                onMouseEnter={() => setShowTransitionSubmenu(true)}
-                onMouseLeave={() => setShowTransitionSubmenu(false)}
-              >
-                🔄 {t('transition.add')} ▸
-                {showTransitionSubmenu && (
-                  <div ref={submenuRef} className="context-submenu">
-                    {allPresets.map(preset => (
-                      <button
-                        key={preset.id}
-                        className="context-menu-item"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setTransition(trackId, clip.id, { type: preset.type, duration: preset.duration });
-                          setShowContextMenu(false);
-                        }}
-                      >
-                        {preset.isBuiltIn ? t(preset.name) : preset.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            {hasTransition && (
-              <button className="context-menu-item" onClick={handleRemoveTransition}>
-                🔄 {t('transition.remove')}
-              </button>
-            )}
-            {trackType === 'video' && clip.filePath && (
-              <button
-                className="context-menu-item"
-                onClick={handleExtractAudio}
-              >
-                🔊 音声を分離
-              </button>
-            )}
-            <button className="context-menu-item" onClick={handleDelete}>
-              🗑️ 削除
-            </button>
-          </div>
-        </>
+        <ClipContextMenu
+          clip={clip}
+          trackId={trackId}
+          trackType={trackType}
+          position={contextMenuPos}
+          onClose={() => setShowContextMenu(false)}
+        />
       )}
     </>
   );
