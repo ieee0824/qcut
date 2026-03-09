@@ -1,4 +1,5 @@
 use super::export::{ExportClip, ExportSettings, ExportTrack};
+use super::hsl_lut::{HslParams, generate_hsl_lut};
 
 // --- フォーマット定義テーブル ---
 
@@ -149,17 +150,25 @@ fn transition_to_xfade(t: &str) -> &str {
 
 // --- FFmpegコマンド構築 ---
 
+/// FFmpegコマンド構築の戻り値
+pub(crate) struct FfmpegBuildResult {
+    pub args: Vec<String>,
+    /// エクスポート完了後に削除すべき一時ファイル（LUT等）
+    pub temp_files: Vec<std::path::PathBuf>,
+}
+
 pub(crate) fn build_ffmpeg_args(
     settings: &ExportSettings,
     video_clips: &[VideoTrackClip],
     text_clips: &[&ExportClip],
     audio_track_clips: &[AudioTrackClip],
-) -> Result<Vec<String>, String> {
+) -> Result<FfmpegBuildResult, String> {
     let mut args: Vec<String> = vec!["-y".into(), "-progress".into(), "pipe:1".into()];
     let mut filter_parts: Vec<String> = Vec::new();
     let mut input_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     let mut input_args: Vec<String> = Vec::new();
     let mut input_index: usize = 0;
+    let mut temp_files: Vec<std::path::PathBuf> = Vec::new();
 
     // 入力ファイルの重複排除とインデックスマッピング
     for vtc in video_clips {
@@ -307,22 +316,22 @@ pub(crate) fn build_ffmpeg_args(
                 }
             }
 
-            // HSL 色域別彩度調整（huesaturation フィルタ）
-            let hsl_colors: &[(&str, f64)] = &[
-                ("r", effects.hsl_red_sat),
-                ("y", effects.hsl_yellow_sat),
-                ("g", effects.hsl_green_sat),
-                ("c", effects.hsl_cyan_sat),
-                ("b", effects.hsl_blue_sat),
-                ("m", effects.hsl_magenta_sat),
-            ];
-            for (color_key, sat_val) in hsl_colors {
-                if sat_val.abs() > 0.01 {
-                    vfilter.push_str(&format!(
-                        ",huesaturation=saturation={:.2}:colors={}",
-                        sat_val, color_key
-                    ));
-                }
+            // HSL 色域別彩度調整（LUT3Dで WebGL シェーダーと同じロジックを再現）
+            let hsl_params = HslParams {
+                red_sat: effects.hsl_red_sat,
+                yellow_sat: effects.hsl_yellow_sat,
+                green_sat: effects.hsl_green_sat,
+                cyan_sat: effects.hsl_cyan_sat,
+                blue_sat: effects.hsl_blue_sat,
+                magenta_sat: effects.hsl_magenta_sat,
+            };
+            if hsl_params.is_active() {
+                let lut_path = std::env::temp_dir().join(format!("qcut_hsl_lut_{}.cube", i));
+                generate_hsl_lut(&hsl_params, &lut_path)?;
+                // .cube パスのシングルクォートをエスケープ
+                let lut_path_str = lut_path.to_string_lossy().replace('\'', "'\\''");
+                vfilter.push_str(&format!(",lut3d='{}'", lut_path_str));
+                temp_files.push(lut_path);
             }
 
             // スケール
@@ -763,5 +772,5 @@ pub(crate) fn build_ffmpeg_args(
     }
     args.push(settings.output_path.clone());
 
-    Ok(args)
+    Ok(FfmpegBuildResult { args, temp_files })
 }
