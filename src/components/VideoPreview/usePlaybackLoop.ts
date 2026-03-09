@@ -26,6 +26,7 @@ interface UsePlaybackLoopParams {
     progress: number,
     type: TransitionType,
   ) => { outgoing: React.CSSProperties; incoming: React.CSSProperties };
+  renderCanvasFrame?: () => void;
 }
 
 interface UsePlaybackLoopReturn {
@@ -52,6 +53,7 @@ export const usePlaybackLoop = ({
   findNextClipAfter,
   findTransitionAtTime,
   getTransitionStyles,
+  renderCanvasFrame,
 }: UsePlaybackLoopParams): UsePlaybackLoopReturn => {
   const playbackRafRef = useRef<number | null>(null);
   const lastTimestampRef = useRef(0);
@@ -59,6 +61,8 @@ export const usePlaybackLoop = ({
   const seekBarRef = useRef<HTMLInputElement>(null);
 
   const { setIsPlaying } = useVideoPreviewStore();
+  const renderCanvasFrameRef = useRef(renderCanvasFrame);
+  renderCanvasFrameRef.current = renderCanvasFrame;
 
   // 時間表示のフォーマット
   const formatTime = useCallback((seconds: number): string => {
@@ -311,6 +315,9 @@ export const usePlaybackLoop = ({
           const effects = { ...DEFAULT_EFFECTS, ...clip.effects };
           audioEngine.updateEffects(VIDEO_AUDIO_ID, effects, combinedVolume);
         }
+
+        // WebGL Canvas レンダリング（HSL色域別調整等）
+        if (renderCanvasFrameRef.current) renderCanvasFrameRef.current();
       } else {
         // --- ギャップ区間 ---
         const newTime = currentTimeRef.current + delta;

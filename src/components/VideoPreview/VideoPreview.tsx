@@ -7,6 +7,7 @@ import { useTransitionEffect } from './useTransitionEffect';
 import { useVideoSwitching } from './useVideoSwitching';
 import { usePlaybackLoop } from './usePlaybackLoop';
 import { useAudioTrackPlayback } from './useAudioTrackPlayback';
+import { useCanvasRenderer } from './useCanvasRenderer';
 import { audioEngine } from '../../audio/AudioEngine';
 
 const VIDEO_AUDIO_ID = '__video_main__';
@@ -51,6 +52,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   // 共有 ref（複数フックで使用するため親で作成）
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentTimeRef = useRef(0);
 
   // --- クリップ検索（複数フックの共通依存） ---
@@ -129,6 +131,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const hasCurrentClip = currentClip !== null && currentVideoUrl !== null;
 
   // --- カスタムフック ---
+  const { needsCanvas, renderCanvasFrame } = useCanvasRenderer({
+    videoRef,
+    canvasRef,
+    currentClip,
+  });
+
   useAudioTrackPlayback();
 
   // video 要素の AudioEngine 接続をクリーンアップ
@@ -176,6 +184,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       findNextClipAfter,
       findTransitionAtTime,
       getTransitionStyles,
+      renderCanvasFrame,
     });
 
   // --- エフェクト CSS ---
@@ -332,10 +341,26 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             height: '100%',
             backgroundColor: '#000',
             borderRadius: '4px',
-            visibility: hasCurrentClip ? 'visible' : 'hidden',
-            filter: cssFilter,
+            visibility: hasCurrentClip && !needsCanvas ? 'visible' : 'hidden',
+            filter: needsCanvas ? 'none' : cssFilter,
             transform: cssTransform,
             transformOrigin: 'center center',
+          }}
+        />
+        {/* WebGL Canvas（HSL色域別調整等の高度なエフェクト用） */}
+        <canvas
+          ref={canvasRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            borderRadius: '4px',
+            visibility: hasCurrentClip && needsCanvas ? 'visible' : 'hidden',
+            transform: cssTransform,
+            transformOrigin: 'center center',
+            pointerEvents: 'none',
           }}
         />
         {/* トランジション用ビデオ（incoming clip） */}
