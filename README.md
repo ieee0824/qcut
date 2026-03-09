@@ -6,6 +6,15 @@
 
 ## インストール
 
+### macOS (Homebrew)
+
+```bash
+brew tap ieee0824/tap
+brew install --cask qcut-beta
+```
+
+### 手動インストール
+
 [GitHub Releases](https://github.com/ieee0824/qcut/releases) からお使いの OS に合ったファイルをダウンロードしてください。
 
 | OS | ファイル |
@@ -14,13 +23,13 @@
 | Windows | `qcut-windows-x64.setup.exe` / `qcut-windows-x64.msi` |
 | Linux | `qcut-linux-amd64.deb` / `qcut-linux-amd64.AppImage` |
 
-### macOS での注意事項
-
-現在 qcut は Apple Developer ID による署名・公証を行っていないため、初回起動時に「"qcut"は壊れているため開けません」と表示されることがあります。以下のコマンドで解除できます。
-
-```bash
-xattr -cr /Applications/qcut.app
-```
+> **macOS での注意事項:** 手動インストールの場合、署名・公証が行われていないため「"qcut"は壊れているため開けません」と表示されることがあります。以下のコマンドで解除できます。
+>
+> ```bash
+> xattr -cr /Applications/qcut.app
+> ```
+>
+> Homebrew 経由のインストールではこの問題は発生しません。
 
 ## 技術スタック
 
