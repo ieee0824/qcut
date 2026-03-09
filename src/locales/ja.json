@@ -204,7 +204,9 @@
   "scope": {
     "title": "スコープ",
     "enable": "スコープを有効にする",
-    "histogram": "ヒストグラム"
+    "histogram": "ヒストグラム",
+    "vectorscope": "ベクトルスコープ",
+    "waveform": "波形モニター"
   },
   "export": {
     "title": "動画エクスポート",

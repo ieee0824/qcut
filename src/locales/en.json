@@ -204,7 +204,9 @@
   "scope": {
     "title": "Scopes",
     "enable": "Enable scopes",
-    "histogram": "Histogram"
+    "histogram": "Histogram",
+    "vectorscope": "Vectorscope",
+    "waveform": "Waveform"
   },
   "export": {
     "title": "Export Video",

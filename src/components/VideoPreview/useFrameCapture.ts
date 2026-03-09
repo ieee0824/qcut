@@ -1,7 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react';
 import type { WebGLPipeline } from './canvasEffects';
-import { readPixels } from './canvasEffects';
-import { computeHistogram } from '../../utils/scopeAnalysis';
+import { computeHistogram, computeVectorscope, computeWaveform } from '../../utils/scopeAnalysis';
 import { useScopeStore } from '../../store/scopeStore';
 import type { ClipEffects } from '../../store/timelineStore';
 
@@ -36,34 +35,44 @@ export const useFrameCapture = ({
   const capture = useCallback(() => {
     if (!useScopeStore.getState().enabled) return;
 
-    let pixels: Uint8ClampedArray | Uint8Array | null = null;
+    if (!offscreenCanvasRef.current) {
+      offscreenCanvasRef.current = document.createElement('canvas');
+    }
+    const canvas = offscreenCanvasRef.current;
+    if (!offscreenInitRef.current) {
+      canvas.width = SCOPE_WIDTH;
+      canvas.height = SCOPE_HEIGHT;
+      offscreenInitRef.current = true;
+    }
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
 
     if (needsCanvas && pipelineRef.current) {
-      pixels = readPixels(pipelineRef.current);
+      // WebGLキャンバスを縮小描画してからピクセルを取得
+      const glCanvas = pipelineRef.current.gl.canvas as HTMLCanvasElement;
+      ctx.drawImage(glCanvas, 0, 0, SCOPE_WIDTH, SCOPE_HEIGHT);
     } else if (videoRef.current && videoRef.current.readyState >= 2) {
       const video = videoRef.current;
       if (video.videoWidth === 0 || video.videoHeight === 0) return;
-
-      if (!offscreenCanvasRef.current) {
-        offscreenCanvasRef.current = document.createElement('canvas');
-      }
-      const canvas = offscreenCanvasRef.current;
-      // 固定小サイズに縮小描画して転送ピクセル数を削減
-      if (!offscreenInitRef.current) {
-        canvas.width = SCOPE_WIDTH;
-        canvas.height = SCOPE_HEIGHT;
-        offscreenInitRef.current = true;
-      }
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return;
       ctx.drawImage(video, 0, 0, SCOPE_WIDTH, SCOPE_HEIGHT);
-      pixels = ctx.getImageData(0, 0, SCOPE_WIDTH, SCOPE_HEIGHT).data;
+    } else {
+      return;
     }
 
-    if (!pixels) return;
+    const pixels = ctx.getImageData(0, 0, SCOPE_WIDTH, SCOPE_HEIGHT).data;
 
-    const histogram = computeHistogram(pixels, 1);
-    useScopeStore.getState().setHistogramData(histogram);
+    const state = useScopeStore.getState();
+    const active = state.activeScopes;
+
+    if (active.has('histogram')) {
+      state.setHistogramData(computeHistogram(pixels, 1));
+    }
+    if (active.has('vectorscope')) {
+      state.setVectorscopeData(computeVectorscope(pixels, 1));
+    }
+    if (active.has('waveform')) {
+      state.setWaveformData(computeWaveform(pixels, SCOPE_WIDTH, 1));
+    }
   }, [videoRef, pipelineRef, needsCanvas]);
 
   // 再生ループ用（フレームスキップあり）
