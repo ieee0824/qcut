@@ -682,6 +682,51 @@ pub(crate) fn build_ffmpeg_args(
         }
     }
 
+    // タイムコードオーバーレイ（drawtext）
+    let mut timecode_idx = 0;
+    for vtc in video_clips {
+        if let Some(ref tc) = vtc.clip.timecode_overlay {
+            if !tc.enabled {
+                continue;
+            }
+            let prev_label = final_v_label.clone();
+            let new_label = format!("tc{}", timecode_idx);
+            timecode_idx += 1;
+
+            let fontcolor = format!("{}@0xff", tc.font_color.trim_start_matches('#'));
+            let x_expr = format!("(w*{:.2}/100-tw/2)", tc.position_x);
+            let y_expr = format!("(h*{:.2}/100-th/2)", tc.position_y);
+
+            let scaled_fontsize = if settings.preview_height > 0.0 {
+                ((tc.font_size as f64) * (h as f64) / settings.preview_height).round() as u32
+            } else {
+                tc.font_size
+            };
+
+            let clip_start = vtc.clip.start_time;
+            let clip_end = vtc.clip.start_time + vtc.clip.duration;
+
+            // basetime: epoch microseconds of start_date_time
+            let basetime = (tc.start_date_time * 1000.0) as i64; // ms → μs
+
+            // タイムコードフォーマット選択
+            let time_fmt = match tc.format.as_str() {
+                "ymd-hm" => "%Y年%m月%d日 %H\\:%M",
+                "md-hm" => "%m月%d日 %H\\:%M",
+                "hms" => "%H\\:%M\\:%S",
+                "hm" | _ => "%H\\:%M",
+            };
+
+            let drawtext = format!(
+                "[{}]drawtext=text='%{{pts\\:localtime\\:{}}}':basetime={}:fontsize={}:fontcolor={}:x={}:y={}:enable='between(t,{:.3},{:.3})':font=monospace:shadowx=1:shadowy=1:shadowcolor=black@0xcc[{}]",
+                prev_label, time_fmt, basetime, scaled_fontsize, fontcolor, x_expr, y_expr, clip_start, clip_end, new_label
+            );
+
+            filter_parts.push(drawtext);
+            final_v_label = new_label;
+        }
+    }
+
     // フィルターグラフを結合
     let filter_complex = filter_parts.join(";");
     args.push("-filter_complex".into());

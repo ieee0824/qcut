@@ -1,8 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTimelineStore, DEFAULT_EFFECTS } from '../../store/timelineStore';
-import type { ClipEffects } from '../../store/timelineStore';
+import { useTimelineStore, DEFAULT_EFFECTS, DEFAULT_TIMECODE_OVERLAY } from '../../store/timelineStore';
+import type { ClipEffects, TimecodeOverlay } from '../../store/timelineStore';
 import { ColorWheelPanel } from './ColorWheelPanel';
+import { TimecodePanel } from './TimecodePanel';
 
 interface EqPreset {
   label: string;
@@ -154,6 +155,20 @@ export const EffectsPanel: React.FC = () => {
   const effects: ClipEffects = useMemo(() => {
     return { ...DEFAULT_EFFECTS, ...selectedClip?.effects };
   }, [selectedClip?.effects]);
+
+  const timecodeOverlay: TimecodeOverlay = useMemo(() => {
+    return { ...DEFAULT_TIMECODE_OVERLAY, ...selectedClip?.timecodeOverlay };
+  }, [selectedClip?.timecodeOverlay]);
+
+  const handleTimecodeChange = useCallback(
+    (overlay: TimecodeOverlay) => {
+      if (!selectedTrackId || !selectedClipId) return;
+      updateClip(selectedTrackId, selectedClipId, {
+        timecodeOverlay: overlay,
+      });
+    },
+    [selectedTrackId, selectedClipId, updateClip],
+  );
 
   const handleChange = useCallback(
     (key: keyof ClipEffects, value: number) => {
@@ -312,6 +327,10 @@ export const EffectsPanel: React.FC = () => {
 
           <CollapsibleSection id="colorWheel" title={t('effects.colorWheel')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
             <ColorWheelPanel effects={effects} onBatchChange={handleBatchChange} onCommit={handleBatchCommit} />
+          </CollapsibleSection>
+
+          <CollapsibleSection id="timecode" title={t('timecode.title')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <TimecodePanel timecodeOverlay={timecodeOverlay} filePath={selectedClip.filePath} onChange={handleTimecodeChange} />
           </CollapsibleSection>
 
           <CollapsibleSection id="transform" title={t('transform.title')} sections={sections} onToggle={handleToggleSection}>
