@@ -201,6 +201,26 @@
     "positionY": "位置Y",
     "reset": "リセット"
   },
+  "colorPreset": {
+    "title": "カラープリセット",
+    "all": "すべて",
+    "cinematic": "シネマティック",
+    "vintage": "ビンテージ",
+    "monochrome": "モノクロ",
+    "creative": "クリエイティブ",
+    "custom": "カスタム",
+    "saveAsPreset": "プリセットとして保存",
+    "cinematicWarm": "シネマティック (暖色)",
+    "cinematicCool": "シネマティック (寒色)",
+    "tealOrange": "ティール&オレンジ",
+    "vintageFilm": "ビンテージフィルム",
+    "fadedPastel": "フェードパステル",
+    "sepia": "セピア",
+    "monochrome": "モノクロ",
+    "highContrastBW": "ハイコントラスト B&W",
+    "bleachBypass": "ブリーチバイパス",
+    "vibrant": "ビビッド"
+  },
   "scope": {
     "title": "スコープ",
     "enable": "スコープを有効にする",

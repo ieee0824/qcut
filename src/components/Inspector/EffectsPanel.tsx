@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useTimelineStore, DEFAULT_EFFECTS, DEFAULT_TIMECODE_OVERLAY } from '../../store/timelineStore';
 import type { ClipEffects, TimecodeOverlay } from '../../store/timelineStore';
 import { ColorWheelPanel } from './ColorWheelPanel';
+import { ColorPresetPanel } from './ColorPresetPanel';
 import { TimecodePanel } from './TimecodePanel';
 import { ScopesPanel } from '../Scopes/ScopesPanel';
 
@@ -230,6 +231,18 @@ export const EffectsPanel: React.FC = () => {
         </p>
       ) : (
         <>
+          <CollapsibleSection id="colorPreset" title={t('colorPreset.title')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <ColorPresetPanel
+              effects={effects}
+              onApply={(updates) => {
+                if (!selectedTrackId || !selectedClipId) return;
+                updateClip(selectedTrackId, selectedClipId, {
+                  effects: { ...effects, ...updates },
+                });
+              }}
+            />
+          </CollapsibleSection>
+
           <CollapsibleSection id="basic" title={t('effects.title')} sections={sections} onToggle={handleToggleSection}>
             <EffectSlider
               label={t('effects.brightness')}
