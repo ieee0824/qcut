@@ -157,15 +157,13 @@ void main() {
   }
 
   // 3-way color correction: Lift/Gamma/Gain
-  // Formula: output = gain * (lift * (1 - input) + input) ^ (1/gamma)
-  vec3 liftVal = u_lift + vec3(1.0);   // map -1..1 to 0..2
-  vec3 gainVal = u_gain + vec3(1.0);   // map -1..1 to 0..2
-  vec3 gammaVal = vec3(1.0) / max(u_gamma + vec3(1.0), vec3(0.01)); // invert for pow
-
-  result = gainVal * pow(
-    clamp(liftVal * (vec3(1.0) - result) + result, vec3(0.0), vec3(1.0)),
-    gammaVal
-  );
+  // Lift: shifts shadows (black point) — result + lift * (1 - result)
+  // Gain: scales highlights — result * (1 + gain)
+  // Gamma: midtone curve — pow(result, 1 / (1 + gamma))
+  result = result + u_lift * (vec3(1.0) - result);
+  result = result * (vec3(1.0) + u_gain);
+  vec3 gammaExp = vec3(1.0) / max(vec3(1.0) + u_gamma, vec3(0.01));
+  result = pow(clamp(result, vec3(0.0), vec3(1.0)), gammaExp);
 
   gl_FragColor = vec4(clamp(result, 0.0, 1.0), texColor.a);
 }
