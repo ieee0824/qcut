@@ -37,9 +37,12 @@ export const useFrameCapture = ({
     if (!useScopeStore.getState().enabled) return;
 
     let pixels: Uint8ClampedArray | Uint8Array | null = null;
+    let pixelWidth = SCOPE_WIDTH;
 
     if (needsCanvas && pipelineRef.current) {
       pixels = readPixels(pipelineRef.current);
+      const glCanvas = pipelineRef.current.gl.canvas as HTMLCanvasElement;
+      pixelWidth = glCanvas.width;
     } else if (videoRef.current && videoRef.current.readyState >= 2) {
       const video = videoRef.current;
       if (video.videoWidth === 0 || video.videoHeight === 0) return;
@@ -72,7 +75,7 @@ export const useFrameCapture = ({
       state.setVectorscopeData(computeVectorscope(pixels, 1));
     }
     if (active.has('waveform')) {
-      state.setWaveformData(computeWaveform(pixels, SCOPE_WIDTH, 1));
+      state.setWaveformData(computeWaveform(pixels, pixelWidth, 1));
     }
   }, [videoRef, pipelineRef, needsCanvas]);
 
