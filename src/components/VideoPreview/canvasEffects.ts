@@ -176,6 +176,9 @@ export interface WebGLPipeline {
   program: WebGLProgram;
   texture: WebGLTexture;
   uniforms: Record<string, WebGLUniformLocation>;
+  /** readPixels用の再利用バッファ（サイズ変更時のみ再確保） */
+  readBuf: Uint8Array | null;
+  readBufSize: number;
 }
 
 function compileShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader {
@@ -252,7 +255,7 @@ export function initWebGLPipeline(canvas: HTMLCanvasElement): WebGLPipeline | nu
     if (loc) uniforms[name] = loc;
   }
 
-  return { gl, program, texture, uniforms };
+  return { gl, program, texture, uniforms, readBuf: null, readBufSize: 0 };
 }
 
 export function renderFrame(
@@ -310,9 +313,13 @@ export function readPixels(pipeline: WebGLPipeline): Uint8Array | null {
   const w = canvas.width;
   const h = canvas.height;
   if (w === 0 || h === 0) return null;
-  const buf = new Uint8Array(w * h * 4);
-  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
-  return buf;
+  const needed = w * h * 4;
+  if (!pipeline.readBuf || pipeline.readBufSize !== needed) {
+    pipeline.readBuf = new Uint8Array(needed);
+    pipeline.readBufSize = needed;
+  }
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pipeline.readBuf);
+  return pipeline.readBuf;
 }
 
 export function destroyPipeline(pipeline: WebGLPipeline): void {
