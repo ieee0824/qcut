@@ -148,7 +148,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   }, []);
 
   const { textOverlays, textCurrentTime, calcTextOpacity, calcTextTranslateY } = useTextOverlays();
-  const { timecodeDisplay } = useTimecodeOverlay();
+  const { timecodeDisplay, isDragging, handlePointerDown, handlePointerMove, handlePointerUp } = useTimecodeOverlay(previewContainerRef);
 
   const {
     transitionVideoRef,
@@ -437,9 +437,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             </div>
           );
         })}
-        {/* タイムコードオーバーレイ */}
+        {/* タイムコードオーバーレイ（ドラッグ移動可能） */}
         {timecodeDisplay && (
           <div
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
             style={{
               position: 'absolute',
               left: `${timecodeDisplay.overlay.positionX}%`,
@@ -449,7 +452,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
               fontFamily: 'monospace',
               color: timecodeDisplay.overlay.fontColor,
               textShadow: '1px 1px 3px rgba(0,0,0,0.8), -1px -1px 3px rgba(0,0,0,0.8)',
-              pointerEvents: 'none',
+              cursor: isDragging ? 'grabbing' : 'grab',
+              userSelect: 'none',
               zIndex: 11,
               whiteSpace: 'nowrap',
             }}
