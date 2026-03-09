@@ -684,7 +684,7 @@ pub(crate) fn build_ffmpeg_args(
 
     // タイムコードオーバーレイ（drawtext）
     let mut timecode_idx = 0;
-    for vtc in &video_clips {
+    for vtc in video_clips {
         if let Some(ref tc) = vtc.clip.timecode_overlay {
             if !tc.enabled {
                 continue;
