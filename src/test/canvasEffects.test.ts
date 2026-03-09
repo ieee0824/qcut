@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { DEFAULT_EFFECTS } from '../store/timelineStore';
-import { needsCanvasPipeline } from '../components/VideoPreview/canvasEffects';
+import { needsCanvasPipeline, initWebGLPipeline } from '../components/VideoPreview/canvasEffects';
 
 describe('needsCanvasPipeline', () => {
   it('should return false for default effects', () => {
@@ -57,5 +57,27 @@ describe('needsCanvasPipeline', () => {
       hslGreenSat: -0.3,
       hslBlueSat: 0.8,
     })).toBe(true);
+  });
+});
+
+describe('initWebGLPipeline', () => {
+  it('should request preserveDrawingBuffer: true', () => {
+    const getContext = vi.fn().mockReturnValue(null);
+    const canvas = { getContext } as unknown as HTMLCanvasElement;
+
+    initWebGLPipeline(canvas);
+
+    expect(getContext).toHaveBeenCalledWith('webgl', {
+      premultipliedAlpha: false,
+      alpha: false,
+      preserveDrawingBuffer: true,
+    });
+  });
+
+  it('should return null when getContext returns null', () => {
+    const getContext = vi.fn().mockReturnValue(null);
+    const canvas = { getContext } as unknown as HTMLCanvasElement;
+
+    expect(initWebGLPipeline(canvas)).toBeNull();
   });
 });

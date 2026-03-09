@@ -50,6 +50,46 @@ export const useCanvasRenderer = ({
     }
   }, [needsCanvas, renderCanvasFrame]);
 
+  // Video ready / seek完了時に canvas を再描画
+  // WebKit では loadeddata 時点で useVideoSwitching の seek が未完了の場合があり、
+  // ct=0 の黒フレームを描画してしまう。seeked イベントと遅延再描画で対策する。
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !needsCanvas) return;
+
+    const SEEK_SETTLE_DELAY_MS = 150;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    // 既に ready なら即描画
+    if (video.readyState >= 2) {
+      renderCanvasFrame();
+    }
+
+    const onReady = () => {
+      renderCanvasFrame();
+      // seek 未完了の場合のみ遅延再描画をスケジュール
+      if (video.seeking) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          renderCanvasFrame();
+          timer = null;
+        }, SEEK_SETTLE_DELAY_MS);
+      }
+    };
+    const onSeeked = () => {
+      if (video.readyState >= 2) {
+        renderCanvasFrame();
+      }
+    };
+    video.addEventListener('loadeddata', onReady);
+    video.addEventListener('seeked', onSeeked);
+    return () => {
+      video.removeEventListener('loadeddata', onReady);
+      video.removeEventListener('seeked', onSeeked);
+      if (timer) clearTimeout(timer);
+    };
+  }, [videoRef, needsCanvas, renderCanvasFrame]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {

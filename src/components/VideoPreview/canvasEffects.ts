@@ -195,7 +195,7 @@ function compileShader(gl: WebGLRenderingContext, type: number, source: string):
 }
 
 export function initWebGLPipeline(canvas: HTMLCanvasElement): WebGLPipeline | null {
-  const gl = canvas.getContext('webgl', { premultipliedAlpha: false, alpha: false });
+  const gl = canvas.getContext('webgl', { premultipliedAlpha: false, alpha: false, preserveDrawingBuffer: true });
   if (!gl) return null;
 
   const vertShader = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SRC);
