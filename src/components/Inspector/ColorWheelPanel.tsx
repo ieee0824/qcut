@@ -35,17 +35,6 @@ export const ColorWheelPanel: React.FC<ColorWheelPanelProps> = ({ effects, onBat
 
   return (
     <div>
-      <h4
-        style={{
-          margin: '16px 0 8px 0',
-          fontSize: '13px',
-          color: '#ddd',
-          borderTop: '1px solid #3a3a3a',
-          paddingTop: '12px',
-        }}
-      >
-        {t('effects.colorWheel')}
-      </h4>
       <div
         style={{
           display: 'flex',
