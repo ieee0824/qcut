@@ -383,6 +383,27 @@ pub(crate) fn build_ffmpeg_args(
                 ));
             }
 
+            // ブラー
+            if effects.blur_amount > 0.1 {
+                let sigma = effects.blur_amount / 2.0;
+                vfilter.push_str(&format!(",gblur=sigma={:.2}", sigma));
+            }
+
+            // シャープ (unsharp mask: luma 5x5 kernel)
+            if effects.sharpen_amount > 0.01 {
+                vfilter.push_str(&format!(",unsharp=5:5:{:.2}:5:5:0.0", effects.sharpen_amount));
+            }
+
+            // モノクロ
+            if effects.monochrome > 0.01 {
+                if effects.monochrome >= 0.99 {
+                    vfilter.push_str(",hue=s=0");
+                } else {
+                    let sat = 1.0 - effects.monochrome;
+                    vfilter.push_str(&format!(",hue=s={:.2}", sat));
+                }
+            }
+
             // フェードイン/フェードアウト
             let seg_duration = clip.source_end_time - clip.source_start_time;
             if effects.fade_in > 0.01 {

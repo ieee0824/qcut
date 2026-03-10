@@ -82,7 +82,11 @@
     "reverbOff": "オフ",
     "reverbSmallRoom": "小部屋",
     "reverbHall": "ホール",
-    "reverbChurch": "教会"
+    "reverbChurch": "教会",
+    "filter": "フィルター",
+    "blurAmount": "ブラー",
+    "sharpenAmount": "シャープ",
+    "monochrome": "モノクロ"
   },
   "transform": {
     "title": "トランスフォーム",

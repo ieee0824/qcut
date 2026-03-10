@@ -18,6 +18,7 @@ import {
   ECHO_SLIDERS,
   REVERB_SLIDERS,
   FADE_SLIDERS,
+  FILTER_SLIDERS,
 } from './effectsSliderDefinitions';
 
 interface EqPreset {
@@ -235,6 +236,21 @@ export const EffectsPanel: React.FC = () => {
                 });
               }}
             />
+          </CollapsibleSection>
+
+          <CollapsibleSection id="filter" title={t('effects.filter')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            {FILTER_SLIDERS.map((s) => (
+              <PropertySlider
+                key={s.key}
+                label={t(s.label)}
+                value={effects[s.key] as number}
+                onChange={(v) => handleChange(s.key, v)}
+                onCommit={handleSliderCommit}
+                min={s.min}
+                max={s.max}
+                step={s.step}
+              />
+            ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="basic" title={t('effects.title')} sections={sections} onToggle={handleToggleSection}>

@@ -82,7 +82,11 @@
     "reverbOff": "Off",
     "reverbSmallRoom": "Small Room",
     "reverbHall": "Hall",
-    "reverbChurch": "Church"
+    "reverbChurch": "Church",
+    "filter": "Filter",
+    "blurAmount": "Blur",
+    "sharpenAmount": "Sharpen",
+    "monochrome": "Monochrome"
   },
   "transform": {
     "title": "Transform",

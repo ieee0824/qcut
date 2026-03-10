@@ -22,7 +22,10 @@ export function needsCanvasPipeline(effects: ClipEffects): boolean {
     Math.abs(effects.gammaB) > EPS ||
     Math.abs(effects.gainR) > EPS ||
     Math.abs(effects.gainG) > EPS ||
-    Math.abs(effects.gainB) > EPS
+    Math.abs(effects.gainB) > EPS ||
+    effects.blurAmount > EPS ||
+    effects.sharpenAmount > EPS ||
+    effects.monochrome > EPS
   );
 }
 
@@ -62,6 +65,12 @@ uniform float u_hslMagentaSat;
 uniform vec3 u_lift;   // shadow color shift
 uniform vec3 u_gamma;  // midtone color shift
 uniform vec3 u_gain;   // highlight color shift
+
+// Filters
+uniform vec2 u_texSize;        // texture size in pixels
+uniform float u_blurAmount;    // 0 = off, radius in pixels
+uniform float u_sharpenAmount; // 0 = off, strength
+uniform float u_monochrome;    // 0 = off, 1 = full monochrome
 
 vec3 rgb2hsl(vec3 c) {
   float maxC = max(c.r, max(c.g, c.b));
@@ -111,7 +120,35 @@ float colorWeight(float hue360, float center) {
 }
 
 void main() {
-  vec4 texColor = texture2D(u_texture, v_texCoord);
+  vec4 texColor;
+
+  // Blur (9-tap Gaussian approximation)
+  if (u_blurAmount > 0.01) {
+    vec2 step = u_blurAmount / u_texSize;
+    vec4 c00 = texture2D(u_texture, v_texCoord + vec2(-step.x, -step.y));
+    vec4 c01 = texture2D(u_texture, v_texCoord + vec2(    0.0, -step.y));
+    vec4 c02 = texture2D(u_texture, v_texCoord + vec2( step.x, -step.y));
+    vec4 c10 = texture2D(u_texture, v_texCoord + vec2(-step.x,     0.0));
+    vec4 c11 = texture2D(u_texture, v_texCoord);
+    vec4 c12 = texture2D(u_texture, v_texCoord + vec2( step.x,     0.0));
+    vec4 c20 = texture2D(u_texture, v_texCoord + vec2(-step.x,  step.y));
+    vec4 c21 = texture2D(u_texture, v_texCoord + vec2(    0.0,  step.y));
+    vec4 c22 = texture2D(u_texture, v_texCoord + vec2( step.x,  step.y));
+    texColor = (c00 + c02 + c20 + c22 + (c01 + c10 + c12 + c21) * 2.0 + c11 * 4.0) / 16.0;
+  // Sharpen (unsharp mask, 5-tap cross)
+  } else if (u_sharpenAmount > 0.01) {
+    vec2 step = 1.0 / u_texSize;
+    vec4 center = texture2D(u_texture, v_texCoord);
+    vec4 n = texture2D(u_texture, v_texCoord + vec2(     0.0, -step.y));
+    vec4 s = texture2D(u_texture, v_texCoord + vec2(     0.0,  step.y));
+    vec4 w = texture2D(u_texture, v_texCoord + vec2(-step.x,      0.0));
+    vec4 e = texture2D(u_texture, v_texCoord + vec2( step.x,      0.0));
+    vec4 blur = (n + s + w + e) / 4.0;
+    texColor = clamp(center + u_sharpenAmount * (center - blur), 0.0, 1.0);
+  } else {
+    texColor = texture2D(u_texture, v_texCoord);
+  }
+
   vec3 rgb = texColor.rgb;
 
   // Brightness
@@ -164,6 +201,12 @@ void main() {
   result = result * (vec3(1.0) + u_gain);
   vec3 gammaExp = vec3(1.0) / max(vec3(1.0) + u_gamma, vec3(0.01));
   result = pow(clamp(result, vec3(0.0), vec3(1.0)), gammaExp);
+
+  // Monochrome (lerp saturation toward luma)
+  if (u_monochrome > 0.01) {
+    float luma = dot(result, vec3(0.2126, 0.7152, 0.0722));
+    result = mix(result, vec3(luma), u_monochrome);
+  }
 
   gl_FragColor = vec4(clamp(result, 0.0, 1.0), texColor.a);
 }
@@ -248,6 +291,7 @@ export function initWebGLPipeline(canvas: HTMLCanvasElement): WebGLPipeline | nu
     'u_hslRedSat', 'u_hslYellowSat', 'u_hslGreenSat',
     'u_hslCyanSat', 'u_hslBlueSat', 'u_hslMagentaSat',
     'u_lift', 'u_gamma', 'u_gain',
+    'u_texSize', 'u_blurAmount', 'u_sharpenAmount', 'u_monochrome',
   ];
   const uniforms: Record<string, WebGLUniformLocation> = {};
   for (const name of uniformNames) {
@@ -298,6 +342,10 @@ export function renderFrame(
   gl.uniform3f(uniforms['u_lift'], effects.liftR, effects.liftG, effects.liftB);
   gl.uniform3f(uniforms['u_gamma'], effects.gammaR, effects.gammaG, effects.gammaB);
   gl.uniform3f(uniforms['u_gain'], effects.gainR, effects.gainG, effects.gainB);
+  gl.uniform2f(uniforms['u_texSize'], vw, vh);
+  gl.uniform1f(uniforms['u_blurAmount'], effects.blurAmount);
+  gl.uniform1f(uniforms['u_sharpenAmount'], effects.sharpenAmount);
+  gl.uniform1f(uniforms['u_monochrome'], effects.monochrome);
 
   // Draw
   gl.drawArrays(gl.TRIANGLES, 0, 6);
