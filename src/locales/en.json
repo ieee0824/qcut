@@ -268,5 +268,15 @@
     "seconds": "s remaining",
     "minutes": "min remaining",
     "hours": "h "
+  },
+  "keyframe": {
+    "addKeyframe": "Add Keyframe",
+    "linear": "Linear",
+    "easeIn": "Ease In",
+    "easeOut": "Ease Out",
+    "easeInOut": "Ease In/Out",
+    "editTime": "Edit time",
+    "editValue": "Edit value",
+    "removeKeyframe": "Remove keyframe"
   }
 }

@@ -268,5 +268,15 @@
     "seconds": "秒",
     "minutes": "分",
     "hours": "時間"
+  },
+  "keyframe": {
+    "addKeyframe": "キーフレームを追加",
+    "linear": "リニア",
+    "easeIn": "イーズイン",
+    "easeOut": "イーズアウト",
+    "easeInOut": "イーズインアウト",
+    "editTime": "時刻を編集",
+    "editValue": "値を編集",
+    "removeKeyframe": "キーフレームを削除"
   }
 }
