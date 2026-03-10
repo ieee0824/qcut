@@ -234,9 +234,21 @@ export const createClipSlice = (set: Set) => ({
               for (const key of Object.keys(newKeyframes) as Array<keyof ClipEffects>) {
                 const kfs = newKeyframes[key];
                 if (!kfs) continue;
-                newKeyframes[key] = kfs
-                  .map(kf => Math.abs(kf.time - fromTime) <= 0.001 ? { ...kf, time: toTime } : kf)
-                  .sort((a, b) => a.time - b.time);
+                const moved = kfs.map(kf =>
+                  Math.abs(kf.time - fromTime) <= 0.001 ? { ...kf, time: toTime } : kf
+                );
+                const sorted = moved.sort((a, b) => a.time - b.time);
+                // 同時刻のキーフレームを重複排除（後者を優先、addKeyframe の上書きと同じ挙動）
+                const deduped: typeof sorted = [];
+                for (const kf of sorted) {
+                  const last = deduped[deduped.length - 1];
+                  if (last && Math.abs(last.time - kf.time) <= 0.001) {
+                    deduped[deduped.length - 1] = kf;
+                  } else {
+                    deduped.push(kf);
+                  }
+                }
+                newKeyframes[key] = deduped;
               }
               return { ...clip, keyframes: newKeyframes };
             }),

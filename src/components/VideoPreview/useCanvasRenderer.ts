@@ -51,7 +51,6 @@ export const useCanvasRenderer = ({
 
   const renderCanvasFrame = useCallback(() => {
     if (!needsCanvasRef.current) {
-      logAction('renderCanvasFrame', 'SKIP: needsCanvas=false');
       return;
     }
     if (!videoRef.current || !canvasRef.current) return;
@@ -83,7 +82,6 @@ export const useCanvasRenderer = ({
     // キーフレームがアクティブな場合、canvas がビデオを隠しているため
     // WebGL 専用エフェクトがなくても必ず描画する（早期リターンしない）
     if (!needsCanvasPipeline(effects) && !activeKf) {
-      logAction('renderCanvasFrame', 'SKIP: needsCanvasPipeline=false AND no active keyframes');
       return;
     }
 

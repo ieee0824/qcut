@@ -47,7 +47,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     if (!clip.keyframes) return [];
     const times = new Set<number>();
     for (const kfs of Object.values(clip.keyframes)) {
-      if (kfs) kfs.forEach(kf => times.add(kf.time));
+      if (kfs && kfs.length >= 2) kfs.forEach(kf => times.add(kf.time));
     }
     return Array.from(times).sort((a, b) => a - b);
   }, [clip.keyframes]);
@@ -84,6 +84,12 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      // アンマウント時にドラッグ中ならプレビュー状態をクリア
+      if (kfDragRef.current) {
+        kfDragRef.current = null;
+        setKfDragPreview(null);
+        useVideoPreviewStore.getState().setKfDragPreviewTime(null);
+      }
     };
   }, [trackId, clip.id, clip.startTime]);
 
