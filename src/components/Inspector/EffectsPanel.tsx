@@ -221,6 +221,7 @@ export const EffectsPanel: React.FC = () => {
     if (!selectedTrackId || !selectedClipId) return;
     updateClip(selectedTrackId, selectedClipId, {
       effects: { ...DEFAULT_EFFECTS },
+      keyframes: undefined,
     });
   }, [selectedTrackId, selectedClipId, updateClip]);
 
