@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useEffectPresetStore } from '../store/effectPresetStore';
 import { BUILT_IN_EFFECT_PRESETS } from '../data/effectPresets';
 
@@ -36,11 +36,16 @@ describe('effectPresetStore', () => {
   });
 
   it('should generate unique id for custom preset', async () => {
+    const dateSpy = vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValueOnce(2000);
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValueOnce(0.1).mockReturnValueOnce(0.9);
     await useEffectPresetStore.getState().addPreset('A', {});
     await useEffectPresetStore.getState().addPreset('B', {});
+    dateSpy.mockRestore();
+    randomSpy.mockRestore();
     const customs = useEffectPresetStore.getState().customPresets;
+    expect(customs[0].id).toBe(`custom-1000-${(0.1).toString(36).slice(2, 8)}`);
+    expect(customs[1].id).toBe(`custom-2000-${(0.9).toString(36).slice(2, 8)}`);
     expect(customs[0].id).not.toBe(customs[1].id);
-    expect(customs[0].id.startsWith('custom-')).toBe(true);
   });
 
   it('should include custom presets in getAllPresets', async () => {

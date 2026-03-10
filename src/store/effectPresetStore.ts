@@ -1,8 +1,25 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
-import type { EffectPreset } from '../data/effectPresets';
+import type { EffectPreset, EffectPresetCategory } from '../data/effectPresets';
 import { BUILT_IN_EFFECT_PRESETS } from '../data/effectPresets';
 import type { ClipEffects } from './timelineStore';
+
+const VALID_CATEGORIES: EffectPresetCategory[] = ['voice', 'music', 'scene', 'custom'];
+
+function normalizePreset(p: unknown): EffectPreset | null {
+  if (!p || typeof p !== 'object') return null;
+  const obj = p as Record<string, unknown>;
+  const id = typeof obj.id === 'string' && obj.id ? obj.id : null;
+  const name = typeof obj.name === 'string' ? obj.name : '';
+  if (!id) return null;
+  const category: EffectPresetCategory = VALID_CATEGORIES.includes(obj.category as EffectPresetCategory)
+    ? (obj.category as EffectPresetCategory)
+    : 'custom';
+  const effects = obj.effects && typeof obj.effects === 'object' && !Array.isArray(obj.effects)
+    ? (obj.effects as Partial<ClipEffects>)
+    : {};
+  return { id, name, category, effects, isBuiltIn: false };
+}
 
 interface EffectPresetState {
   customPresets: EffectPreset[];
@@ -38,8 +55,11 @@ export const useEffectPresetStore = create<EffectPresetState>((set, get) => ({
   loadPresets: async () => {
     const json = await invokeRead();
     try {
-      const presets = JSON.parse(json) as EffectPreset[];
-      set({ customPresets: presets.map(p => ({ ...p, isBuiltIn: false, category: p.category || 'custom' })), loaded: true });
+      const parsed = JSON.parse(json);
+      const presets = Array.isArray(parsed)
+        ? parsed.map(normalizePreset).filter((p): p is EffectPreset => p !== null)
+        : [];
+      set({ customPresets: presets, loaded: true });
     } catch {
       set({ customPresets: [], loaded: true });
     }
