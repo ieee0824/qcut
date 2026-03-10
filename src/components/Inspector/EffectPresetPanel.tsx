@@ -4,6 +4,7 @@ import { useEffectPresetStore } from '../../store/effectPresetStore';
 import { BUILT_IN_EFFECT_PRESETS } from '../../data/effectPresets';
 import type { EffectPreset, EffectPresetCategory } from '../../data/effectPresets';
 import type { ClipEffects } from '../../store/timelineStore';
+import { logAction } from '../../store/actionLogger';
 
 const CATEGORIES: { key: EffectPresetCategory | 'all'; label: string }[] = [
   { key: 'all', label: 'effectPreset.all' },
@@ -29,6 +30,7 @@ export const EffectPresetPanel: React.FC<EffectPresetPanelProps> = ({ effects, o
   const [filter, setFilter] = useState<EffectPresetCategory | 'all'>('all');
   const [saveName, setSaveName] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loaded) {
@@ -40,7 +42,9 @@ export const EffectPresetPanel: React.FC<EffectPresetPanelProps> = ({ effects, o
   const filteredPresets = filter === 'all' ? allPresets : allPresets.filter(p => p.category === filter);
 
   const handleApply = useCallback((preset: EffectPreset) => {
+    logAction('effectPreset:apply', JSON.stringify({ id: preset.id, name: preset.name, effects: preset.effects }));
     onApply(preset.effects);
+    setSelectedPresetId(preset.id);
   }, [onApply]);
 
   const handleSave = useCallback(async () => {
@@ -81,12 +85,12 @@ export const EffectPresetPanel: React.FC<EffectPresetPanelProps> = ({ effects, o
             style={{
               position: 'relative',
               padding: '6px 4px',
-              backgroundColor: '#333',
+              backgroundColor: selectedPresetId === preset.id ? '#4a4a4a' : '#333',
               borderRadius: '4px',
               cursor: 'pointer',
-              border: '1px solid #444',
+              border: selectedPresetId === preset.id ? '1px solid #888' : '1px solid #444',
               fontSize: '10px',
-              color: '#ccc',
+              color: selectedPresetId === preset.id ? '#fff' : '#ccc',
               textAlign: 'center',
               lineHeight: '1.3',
             }}
