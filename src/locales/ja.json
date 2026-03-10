@@ -201,6 +201,21 @@
     "positionY": "位置Y",
     "reset": "リセット"
   },
+  "effectPreset": {
+    "title": "エフェクトプリセット",
+    "all": "すべて",
+    "voice": "ボイス",
+    "music": "ミュージック",
+    "scene": "シーン",
+    "custom": "カスタム",
+    "saveAsPreset": "プリセットとして保存",
+    "voiceDialog": "ダイアログ",
+    "voicePodcast": "ポッドキャスト",
+    "musicBGM": "BGM",
+    "musicLive": "ライブ",
+    "sceneCinema": "シネマ",
+    "sceneDocumentary": "ドキュメンタリー"
+  },
   "colorPreset": {
     "title": "カラープリセット",
     "all": "すべて",

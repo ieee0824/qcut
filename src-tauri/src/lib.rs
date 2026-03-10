@@ -72,6 +72,8 @@ pub fn run() {
       commands::presets::write_transition_presets,
       commands::presets::read_color_presets,
       commands::presets::write_color_presets,
+      commands::presets::read_effect_presets,
+      commands::presets::write_effect_presets,
       commands::waveform::get_waveform,
       commands::logging::log_action,
     ])

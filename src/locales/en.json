@@ -201,6 +201,21 @@
     "positionY": "Position Y",
     "reset": "Reset"
   },
+  "effectPreset": {
+    "title": "Effect Presets",
+    "all": "All",
+    "voice": "Voice",
+    "music": "Music",
+    "scene": "Scene",
+    "custom": "Custom",
+    "saveAsPreset": "Save as Preset",
+    "voiceDialog": "Dialog",
+    "voicePodcast": "Podcast",
+    "musicBGM": "BGM",
+    "musicLive": "Live",
+    "sceneCinema": "Cinema",
+    "sceneDocumentary": "Documentary"
+  },
   "colorPreset": {
     "title": "Color Presets",
     "all": "All",
