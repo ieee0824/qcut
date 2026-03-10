@@ -1,12 +1,13 @@
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::Read;
 use std::process::{Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use tokio::sync::Notify;
 
 pub struct WaveformCache {
     pub cache: Mutex<HashMap<String, Vec<[f32; 2]>>>,
-    pub in_progress: Mutex<HashSet<String>>,
+    pub in_progress: Mutex<HashMap<String, Arc<Notify>>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -38,22 +39,47 @@ pub async fn get_waveform(
         }
     }
 
-    // 同一ファイルの並行処理を防止
+    // 同一ファイルの並行処理を防止（生成中なら完了を待つ）
     {
-        let mut in_progress = cache.in_progress.lock().map_err(|e| e.to_string())?;
-        if in_progress.contains(&file_path) {
-            return Err("このファイルの波形データは現在生成中です".to_string());
+        let in_progress = cache.in_progress.lock().map_err(|e| e.to_string())?;
+        if let Some(notify) = in_progress.get(&file_path) {
+            let notify = Arc::clone(notify);
+            drop(in_progress);
+            notify.notified().await;
+            // 完了後はキャッシュに入っているはず
+            let c = cache.cache.lock().map_err(|e| e.to_string())?;
+            if let Some(peaks) = c.get(&file_path) {
+                let duration = peaks.len() as f64 / PEAKS_PER_SECOND as f64;
+                return Ok(WaveformData {
+                    peaks: peaks.clone(),
+                    sample_rate: PEAKS_PER_SECOND,
+                    source_duration: duration,
+                });
+            }
+            return Err("波形データの生成に失敗しました".to_string());
         }
-        in_progress.insert(file_path.clone());
     }
 
-    let result = generate_waveform(&file_path);
+    // 処理中フラグを設定
+    let notify = Arc::new(Notify::new());
+    {
+        let mut in_progress = cache.in_progress.lock().map_err(|e| e.to_string())?;
+        in_progress.insert(file_path.clone(), Arc::clone(&notify));
+    }
 
-    // 処理中フラグを解除
+    let file_path_clone = file_path.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        generate_waveform(&file_path_clone)
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking エラー: {}", e))?;
+
+    // 処理中フラグを解除し、待機中のリクエストに通知
     {
         let mut in_progress = cache.in_progress.lock().map_err(|e| e.to_string())?;
         in_progress.remove(&file_path);
     }
+    notify.notify_waiters();
 
     let peaks = result?;
 

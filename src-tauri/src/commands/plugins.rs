@@ -157,7 +157,15 @@ pub fn verify_plugin_integrity(app_handle: tauri::AppHandle, plugin_dir: String)
         return Err("プラグインディレクトリ外のファイルにはアクセスできません".to_string());
     }
 
-    let manifest_content = fs::read_to_string(&manifest_path)
+    // plugin.json 自体もシンボリックリンクを含めて検証する
+    let manifest_canonical = manifest_path
+        .canonicalize()
+        .map_err(|e| format!("plugin.json の正規化に失敗: {}", e))?;
+    if !manifest_canonical.starts_with(&canonical) || !manifest_canonical.starts_with(&plugins_canonical) {
+        return Err("プラグインディレクトリ外の plugin.json にはアクセスできません".to_string());
+    }
+
+    let manifest_content = fs::read_to_string(&manifest_canonical)
         .map_err(|e| format!("plugin.json の読み込みに失敗: {}", e))?;
     let manifest: serde_json::Value = serde_json::from_str(&manifest_content)
         .map_err(|e| format!("plugin.json のパースに失敗: {}", e))?;
@@ -193,7 +201,8 @@ pub fn verify_plugin_integrity(app_handle: tauri::AppHandle, plugin_dir: String)
         }
         let actual = format!("{:x}", hasher.finalize());
 
-        if actual != expected {
+        let expected_normalized = expected.trim().to_lowercase();
+        if actual != expected_normalized {
             return Err(format!(
                 "{} のチェックサムが不一致: expected={}, actual={}",
                 filename, expected, actual

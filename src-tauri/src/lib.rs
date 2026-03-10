@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tauri::Manager;
@@ -13,7 +13,7 @@ pub fn run() {
     })
     .manage(commands::waveform::WaveformCache {
       cache: std::sync::Mutex::new(HashMap::new()),
-      in_progress: std::sync::Mutex::new(HashSet::new()),
+      in_progress: std::sync::Mutex::new(HashMap::new()),
     })
     .plugin(tauri_plugin_dialog::init())
     .setup(|app| {
@@ -29,7 +29,9 @@ pub fn run() {
         .level(log_level);
 
       let app_data_dir = app.path().app_data_dir().expect("failed to get app_data_dir");
-      std::fs::create_dir_all(&app_data_dir).ok();
+      if let Err(e) = std::fs::create_dir_all(&app_data_dir) {
+        eprintln!("Failed to create app_data_dir {:?}: {}", app_data_dir, e);
+      }
       let db_path = app_data_dir.join("logs.db");
 
       if let Ok(sqlite_logger) = sqlite_logger::SqliteLogger::new(&db_path) {
