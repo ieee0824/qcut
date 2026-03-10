@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { PluginManifest } from '@/plugin-system/types/manifest';
 import type { QcutPlugin } from '@/plugin-system/types/plugin';
+import type { PanelConfig, ToolbarButtonConfig } from '@/plugin-system/types/api';
 
 export type PluginState =
   | 'installed'
@@ -18,18 +19,38 @@ export interface PluginEntry {
   instance?: QcutPlugin;
 }
 
+export interface PluginNotification {
+  id: string;
+  pluginId: string;
+  message: string;
+  type: 'info' | 'warning' | 'error';
+  timestamp: number;
+}
+
 interface PluginStoreState {
   plugins: Record<string, PluginEntry>;
+  panels: PanelConfig[];
+  toolbarButtons: ToolbarButtonConfig[];
+  notifications: PluginNotification[];
 
   registerPlugin: (manifest: PluginManifest, enabled?: boolean) => void;
   setPluginState: (id: string, state: PluginState, error?: string) => void;
   setPluginInstance: (id: string, instance: QcutPlugin) => void;
   togglePlugin: (id: string, enabled: boolean) => void;
   removePlugin: (id: string) => void;
+  addPanel: (config: PanelConfig) => void;
+  removePanel: (id: string) => void;
+  addToolbarButton: (config: ToolbarButtonConfig) => void;
+  removeToolbarButton: (id: string) => void;
+  addNotification: (notification: PluginNotification) => void;
+  removeNotification: (id: string) => void;
 }
 
 export const usePluginStore = create<PluginStoreState>((set) => ({
   plugins: {},
+  panels: [],
+  toolbarButtons: [],
+  notifications: [],
 
   registerPlugin: (manifest, enabled = true) =>
     set((state) => ({
@@ -89,4 +110,34 @@ export const usePluginStore = create<PluginStoreState>((set) => ({
       void _removed;
       return { plugins: rest };
     }),
+
+  addPanel: (config) =>
+    set((state) => ({
+      panels: [...state.panels, config],
+    })),
+
+  removePanel: (id) =>
+    set((state) => ({
+      panels: state.panels.filter((p) => p.id !== id),
+    })),
+
+  addToolbarButton: (config) =>
+    set((state) => ({
+      toolbarButtons: [...state.toolbarButtons, config],
+    })),
+
+  removeToolbarButton: (id) =>
+    set((state) => ({
+      toolbarButtons: state.toolbarButtons.filter((b) => b.id !== id),
+    })),
+
+  addNotification: (notification) =>
+    set((state) => ({
+      notifications: [...state.notifications, notification],
+    })),
+
+  removeNotification: (id) =>
+    set((state) => ({
+      notifications: state.notifications.filter((n) => n.id !== id),
+    })),
 }));
