@@ -54,7 +54,9 @@ export const useCanvasRenderer = ({
       effects = { ...DEFAULT_EFFECTS, ...clip.effects };
     }
 
-    if (!needsCanvasPipeline(effects)) return;
+    // キーフレームがアクティブな場合、canvas がビデオを隠しているため
+    // WebGL 専用エフェクトがなくても必ず描画する（早期リターンしない）
+    if (!needsCanvasPipeline(effects) && !hasActiveKeyframes(clip)) return;
 
     // Lazy init pipeline
     if (!pipelineRef.current) {
