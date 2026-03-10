@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { logAction } from '@/store/actionLogger';
 import type { PluginManifest, PluginPermission, PluginType, PluginCategory } from './types/manifest';
 import type { QcutPlugin } from './types/plugin';
 import { WasmPluginWrapper } from './wasm-wrapper';
@@ -30,11 +31,16 @@ export class PluginLoader {
           const integrity = await invoke<string>('verify_plugin_integrity', { pluginDir: dir });
           if (integrity === 'no_checksums') {
             console.warn(`[PluginLoader] ${manifest.id}: checksums が未定義のため整合性検証をスキップ`);
+            logAction('pluginLoader:integrity:skip', JSON.stringify({ pluginId: manifest.id, dir }));
+          } else {
+            logAction('pluginLoader:integrity:verified', JSON.stringify({ pluginId: manifest.id, dir }));
           }
           results.push({ manifest, dir });
         }
       } catch (e) {
+        const errorMsg = String(e);
         console.warn(`[PluginLoader] ${dir} のマニフェスト読み込みまたは整合性検証に失敗:`, e);
+        logAction('pluginLoader:integrity:rejected', JSON.stringify({ dir, error: errorMsg }));
       }
     }
 
