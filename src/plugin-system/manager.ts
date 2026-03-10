@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { usePluginStore } from '@/store/pluginStore';
+import { logAction } from '@/store/actionLogger';
 import { PluginLoader } from './loader';
 import { PluginContextImpl } from './context';
 import type { QcutPlugin } from './types/plugin';
@@ -21,6 +22,7 @@ export class PluginManager {
 
     const persisted = await this.loadPersistedSettings();
     const discovered = await this.loader.discoverPlugins();
+    logAction('pluginManager:init', `discovered ${discovered.length} plugin(s)`);
 
     const store = usePluginStore.getState();
 
@@ -28,6 +30,7 @@ export class PluginManager {
       const isEnabled = persisted[manifest.id]?.enabled ?? true;
       store.registerPlugin(manifest, isEnabled);
       this.pluginDirs.set(manifest.id, dir);
+      logAction('pluginManager:register', `${manifest.id} (enabled=${isEnabled})`);
 
       if (isEnabled) {
         await this.activatePlugin(manifest.id);
@@ -67,6 +70,7 @@ export class PluginManager {
       // Activate
       await instance.onActivate();
       store.setPluginState(id, 'active');
+      logAction('pluginManager:activate', id);
     });
   }
 
@@ -139,6 +143,7 @@ export class PluginManager {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[Plugin ${pluginId}] Error:`, message);
+      logAction(`pluginManager:error`, `${pluginId}: ${message}`);
 
       usePluginStore.getState().setPluginState(pluginId, 'error', message);
 

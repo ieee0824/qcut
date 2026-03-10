@@ -1,0 +1,18 @@
+{
+  "id": "com.qcut.test.counter",
+  "name": "Sample Counter",
+  "version": "1.0.0",
+  "description": "テスト用フレームカウンター＆タイムライン情報表示ツール",
+  "author": "qcut-dev",
+  "type": "typescript",
+  "entry": {
+    "js": "index.js"
+  },
+  "permissions": [
+    "timeline:read",
+    "ui:panel",
+    "ui:toolbar"
+  ],
+  "minAppVersion": "0.1.0",
+  "category": "tool"
+}

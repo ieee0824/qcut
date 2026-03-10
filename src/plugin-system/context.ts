@@ -1,5 +1,6 @@
 import { useTimelineStore } from '@/store/timelineStore';
 import type { Clip } from '@/store/timelineStore';
+import { logAction } from '@/store/actionLogger';
 import type { PluginManifest, PluginPermission } from './types/manifest';
 import type {
   PluginContext,
@@ -227,9 +228,18 @@ export class PluginContextImpl implements PluginContext {
   get log(): PluginLogApi {
     const prefix = `[Plugin:${this.pluginId}]`;
     return {
-      info: (message: string) => console.info(prefix, message),
-      warn: (message: string) => console.warn(prefix, message),
-      error: (message: string) => console.error(prefix, message),
+      info: (message: string) => {
+        console.info(prefix, message);
+        logAction(`plugin:${this.pluginId}:info`, message);
+      },
+      warn: (message: string) => {
+        console.warn(prefix, message);
+        logAction(`plugin:${this.pluginId}:warn`, message);
+      },
+      error: (message: string) => {
+        console.error(prefix, message);
+        logAction(`plugin:${this.pluginId}:error`, message);
+      },
     };
   }
 
