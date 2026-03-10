@@ -274,6 +274,8 @@
     "linear": "Linear",
     "easeIn": "Ease In",
     "easeOut": "Ease Out",
-    "easeInOut": "Ease In/Out"
+    "easeInOut": "Ease In/Out",
+    "editTime": "Edit time",
+    "editValue": "Edit value"
   }
 }

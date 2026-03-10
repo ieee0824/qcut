@@ -274,6 +274,8 @@
     "linear": "リニア",
     "easeIn": "イーズイン",
     "easeOut": "イーズアウト",
-    "easeInOut": "イーズインアウト"
+    "easeInOut": "イーズインアウト",
+    "editTime": "時刻を編集",
+    "editValue": "値を編集"
   }
 }
