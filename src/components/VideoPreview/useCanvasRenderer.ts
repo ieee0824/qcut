@@ -6,6 +6,7 @@ import { needsCanvasPipeline, initWebGLPipeline, renderFrame, destroyPipeline } 
 import type { Clip as ClipType } from '../../store/timelineStore';
 import { getEffectsAtTime, hasActiveKeyframes } from '../../utils/keyframes';
 import { logAction } from '../../store/actionLogger';
+import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 
 interface UseCanvasRendererParams {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -28,6 +29,11 @@ export const useCanvasRenderer = ({
 }: UseCanvasRendererParams): UseCanvasRendererReturn => {
   const pipelineRef = useRef<ReturnType<typeof initWebGLPipeline>>(null);
   const debugFrameCountRef = useRef(0);
+
+  // キーフレームマーカードラッグ中の一時的なプレビュー時刻
+  const kfDragPreviewTime = useVideoPreviewStore((s) => s.kfDragPreviewTime);
+  const kfDragPreviewTimeRef = useRef(kfDragPreviewTime);
+  kfDragPreviewTimeRef.current = kfDragPreviewTime;
 
   // ベースエフェクト（キーフレームなし時）で WebGL の必要性を判定
   const baseEffects: ClipEffects = useMemo(
@@ -60,7 +66,8 @@ export const useCanvasRenderer = ({
     let effects: ClipEffects;
     const activeKf = hasActiveKeyframes(clip);
     if (activeKf) {
-      const clipLocalTime = currentTimeRef.current - clip.startTime;
+      const timelineTime = kfDragPreviewTimeRef.current ?? currentTimeRef.current;
+      const clipLocalTime = timelineTime - clip.startTime;
       effects = getEffectsAtTime(clip, clipLocalTime);
 
       // 60フレームに1回ログ
@@ -94,6 +101,12 @@ export const useCanvasRenderer = ({
     if (!needsCanvas || !currentClip) return;
     renderCanvasFrame();
   }, [needsCanvas, renderCanvasFrame, currentClip]);
+
+  // キーフレームマーカードラッグ中のリアルタイムプレビュー
+  useEffect(() => {
+    if (kfDragPreviewTime === null || !needsCanvas) return;
+    renderCanvasFrame();
+  }, [kfDragPreviewTime, needsCanvas, renderCanvasFrame]);
 
   // Video ready / seek完了時に canvas を再描画
   // WebKit では loadeddata 時点で useVideoSwitching の seek が未完了の場合があり、

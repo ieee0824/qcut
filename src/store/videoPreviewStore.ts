@@ -15,10 +15,14 @@ export interface VideoPreviewState {
   videoUrl: string | null;
   videoUrls: Record<string, string>; // filePath → objectURL のマップ
 
+  // キーフレームマーカードラッグ中の一時的なプレビュー時刻（canvas エフェクト補間のみに使用）
+  kfDragPreviewTime: number | null;
+
   // 操作メソッド
   setIsPlaying: (playing: boolean) => void;
   setPreviewContainerHeight: (height: number) => void;
   setCurrentTime: (time: number) => void;
+  setKfDragPreviewTime: (time: number | null) => void;
   setDuration: (duration: number) => void;
   setVolume: (volume: number) => void;
   setVideoFile: (file: File, fullPath?: string) => void;
@@ -36,10 +40,12 @@ export const useVideoPreviewStore = create<VideoPreviewState>((set) => ({
   videoFile: null,
   videoUrl: null,
   videoUrls: {},
+  kfDragPreviewTime: null,
 
   setIsPlaying: (playing) => set({ isPlaying: playing }),
   setPreviewContainerHeight: (height) => set({ previewContainerHeight: height }),
   setCurrentTime: (time) => set({ currentTime: time }),
+  setKfDragPreviewTime: (time) => set({ kfDragPreviewTime: time }),
   setDuration: (duration) => set({ duration }),
   setVolume: (volume) => set({ volume: Math.max(0, Math.min(100, volume)) }),
   setVideoFile: (file, fullPath?: string) => {

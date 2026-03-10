@@ -62,8 +62,8 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
       const deltaTime = (e.clientX - startX) / pps;
       const newTime = Math.max(0, Math.min(clipDuration, originalTime + deltaTime));
       setKfDragPreview({ original: originalTime, current: newTime });
-      // プレビューをキーフレームの現在位置にリアルタイムシーク
-      useTimelineStore.getState().setCurrentTime(clip.startTime + newTime);
+      // 赤バーを動かさずにプレビューだけ更新
+      useVideoPreviewStore.getState().setKfDragPreviewTime(clip.startTime + newTime);
     };
 
     const onUp = (e: globalThis.MouseEvent) => {
@@ -76,6 +76,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
       }
       kfDragRef.current = null;
       setKfDragPreview(null);
+      useVideoPreviewStore.getState().setKfDragPreviewTime(null);
     };
 
     window.addEventListener('mousemove', onMove);
