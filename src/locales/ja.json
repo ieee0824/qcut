@@ -86,7 +86,10 @@
     "filter": "フィルター",
     "blurAmount": "ブラー",
     "sharpenAmount": "シャープ",
-    "monochrome": "モノクロ"
+    "monochrome": "モノクロ",
+    "toneCurve": "トーンカーブ",
+    "curveReset": "リセット",
+    "curveResetAll": "全チャンネルリセット"
   },
   "transform": {
     "title": "トランスフォーム",

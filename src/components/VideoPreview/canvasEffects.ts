@@ -1,11 +1,12 @@
 /* eslint-disable no-undef */
-import type { ClipEffects } from '../../store/timelineStore';
+import type { ClipEffects, ToneCurves } from '../../store/timelineStore';
+import { buildCurveLUT, isDefaultCurve } from '../../utils/curveSpline';
 
 /**
  * HSL色域別彩度や色温度など、CSS filterでは表現できないエフェクトが
  * 有効かどうかを判定する。trueの場合、WebGLパイプラインを使用する。
  */
-export function needsCanvasPipeline(effects: ClipEffects): boolean {
+export function needsCanvasPipeline(effects: ClipEffects, toneCurves?: ToneCurves): boolean {
   const EPS = 0.001;
   return (
     Math.abs(effects.hslRedSat) > EPS ||
@@ -25,7 +26,18 @@ export function needsCanvasPipeline(effects: ClipEffects): boolean {
     Math.abs(effects.gainB) > EPS ||
     effects.blurAmount > EPS ||
     effects.sharpenAmount > EPS ||
-    effects.monochrome > EPS
+    effects.monochrome > EPS ||
+    hasCurveActive(toneCurves)
+  );
+}
+
+function hasCurveActive(toneCurves?: ToneCurves): boolean {
+  if (!toneCurves) return false;
+  return (
+    !isDefaultCurve(toneCurves.rgb) ||
+    !isDefaultCurve(toneCurves.r) ||
+    !isDefaultCurve(toneCurves.g) ||
+    !isDefaultCurve(toneCurves.b)
   );
 }
 
@@ -71,6 +83,10 @@ uniform vec2 u_texSize;        // texture size in pixels
 uniform float u_blurAmount;    // 0 = off, radius in pixels
 uniform float u_sharpenAmount; // 0 = off, strength
 uniform float u_monochrome;    // 0 = off, 1 = full monochrome
+
+// Tone Curves LUT (256x1 RGBA: R=Rcurve, G=Gcurve, B=Bcurve, A=RGBcurve)
+uniform sampler2D u_curveLUT;
+uniform float u_curveEnabled;  // 0 = off, 1 = on
 
 vec3 rgb2hsl(vec3 c) {
   float maxC = max(c.r, max(c.g, c.b));
@@ -208,6 +224,19 @@ void main() {
     result = mix(result, vec3(luma), u_monochrome);
   }
 
+  // Tone Curves (applied last, after all color corrections)
+  if (u_curveEnabled > 0.5) {
+    result = clamp(result, 0.0, 1.0);
+    // Per-channel curves (R, G, B stored in R, G, B channels of LUT)
+    float lutR = texture2D(u_curveLUT, vec2(result.r, 0.5)).r;
+    float lutG = texture2D(u_curveLUT, vec2(result.g, 0.5)).g;
+    float lutB = texture2D(u_curveLUT, vec2(result.b, 0.5)).b;
+    // RGB master curve (stored in A channel of LUT)
+    result.r = texture2D(u_curveLUT, vec2(lutR, 0.5)).a;
+    result.g = texture2D(u_curveLUT, vec2(lutG, 0.5)).a;
+    result.b = texture2D(u_curveLUT, vec2(lutB, 0.5)).a;
+  }
+
   gl_FragColor = vec4(clamp(result, 0.0, 1.0), texColor.a);
 }
 `;
@@ -218,6 +247,7 @@ export interface WebGLPipeline {
   gl: WebGLRenderingContext;
   program: WebGLProgram;
   texture: WebGLTexture;
+  curveLUTTexture: WebGLTexture;
   uniforms: Record<string, WebGLUniformLocation>;
   /** readPixels用の再利用バッファ（サイズ変更時のみ再確保） */
   readBuf: Uint8Array | null;
@@ -285,6 +315,25 @@ export function initWebGLPipeline(canvas: HTMLCanvasElement): WebGLPipeline | nu
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
+  // Curve LUT texture (256x1 RGBA)
+  const curveLUTTexture = gl.createTexture()!;
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, curveLUTTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  // Init with identity (linear) LUT
+  const identityLUT = new Uint8Array(256 * 4);
+  for (let i = 0; i < 256; i++) {
+    identityLUT[i * 4 + 0] = i; // R
+    identityLUT[i * 4 + 1] = i; // G
+    identityLUT[i * 4 + 2] = i; // B
+    identityLUT[i * 4 + 3] = i; // A (RGB master)
+  }
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, identityLUT);
+  gl.activeTexture(gl.TEXTURE0);
+
   // Collect uniform locations
   const uniformNames = [
     'u_brightness', 'u_contrast', 'u_saturation', 'u_hue', 'u_colorTemp',
@@ -292,6 +341,7 @@ export function initWebGLPipeline(canvas: HTMLCanvasElement): WebGLPipeline | nu
     'u_hslCyanSat', 'u_hslBlueSat', 'u_hslMagentaSat',
     'u_lift', 'u_gamma', 'u_gain',
     'u_texSize', 'u_blurAmount', 'u_sharpenAmount', 'u_monochrome',
+    'u_curveLUT', 'u_curveEnabled',
   ];
   const uniforms: Record<string, WebGLUniformLocation> = {};
   for (const name of uniformNames) {
@@ -299,18 +349,22 @@ export function initWebGLPipeline(canvas: HTMLCanvasElement): WebGLPipeline | nu
     if (loc) uniforms[name] = loc;
   }
 
-  return { gl, program, texture, uniforms, readBuf: null, readBufSize: 0 };
+  // Set texture unit for curve LUT
+  gl.uniform1i(uniforms['u_curveLUT'], 1);
+
+  return { gl, program, texture, curveLUTTexture, uniforms, readBuf: null, readBufSize: 0 };
 }
 
 export function renderFrame(
   pipeline: WebGLPipeline,
   video: HTMLVideoElement,
   effects: ClipEffects,
+  toneCurves?: ToneCurves,
 ): void {
   // Skip if video is not ready (HAVE_CURRENT_DATA = 2)
   if (video.readyState < 2) return;
 
-  const { gl, texture, uniforms } = pipeline;
+  const { gl, texture, curveLUTTexture, uniforms } = pipeline;
 
   // Resize canvas to match video's intrinsic dimensions (aspect ratio preserved by CSS object-fit)
   const canvas = gl.canvas as HTMLCanvasElement;
@@ -324,8 +378,20 @@ export function renderFrame(
   }
 
   // Upload video frame as texture
+  gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+
+  // Upload curve LUT texture
+  const curveActive = hasCurveActive(toneCurves);
+  if (curveActive && toneCurves) {
+    const lutData = buildCurveLUTTexture(toneCurves);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, curveLUTTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutData);
+    gl.activeTexture(gl.TEXTURE0);
+  }
+  gl.uniform1f(uniforms['u_curveEnabled'], curveActive ? 1.0 : 0.0);
 
   // Set uniforms
   gl.uniform1f(uniforms['u_brightness'], effects.brightness);
@@ -352,6 +418,26 @@ export function renderFrame(
 }
 
 /**
+ * ToneCurves から 256x1 RGBA テクスチャデータを生成する。
+ * R=Rカーブ, G=Gカーブ, B=Bカーブ, A=RGBマスターカーブ
+ */
+function buildCurveLUTTexture(toneCurves: ToneCurves): Uint8Array {
+  const rLUT = buildCurveLUT(toneCurves.r, 256);
+  const gLUT = buildCurveLUT(toneCurves.g, 256);
+  const bLUT = buildCurveLUT(toneCurves.b, 256);
+  const rgbLUT = buildCurveLUT(toneCurves.rgb, 256);
+
+  const data = new Uint8Array(256 * 4);
+  for (let i = 0; i < 256; i++) {
+    data[i * 4 + 0] = Math.round(rLUT[i] * 255);
+    data[i * 4 + 1] = Math.round(gLUT[i] * 255);
+    data[i * 4 + 2] = Math.round(bLUT[i] * 255);
+    data[i * 4 + 3] = Math.round(rgbLUT[i] * 255);
+  }
+  return data;
+}
+
+/**
  * WebGLパイプラインからレンダリング済みフレームのピクセルデータを読み出す。
  * renderFrame() の直後に呼ぶこと。
  */
@@ -371,8 +457,9 @@ export function readPixels(pipeline: WebGLPipeline): Uint8Array | null {
 }
 
 export function destroyPipeline(pipeline: WebGLPipeline): void {
-  const { gl, program, texture } = pipeline;
+  const { gl, program, texture, curveLUTTexture } = pipeline;
   gl.deleteTexture(texture);
+  gl.deleteTexture(curveLUTTexture);
   gl.deleteProgram(program);
   const ext = gl.getExtension('WEBGL_lose_context');
   if (ext) ext.loseContext();

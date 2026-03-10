@@ -82,6 +82,33 @@ export const DEFAULT_EFFECTS: ClipEffects = {
   monochrome: 0,
 };
 
+// --- Tone Curve types ---
+
+export interface CurvePoint {
+  x: number;  // 0〜1 (入力値)
+  y: number;  // 0〜1 (出力値)
+}
+
+/** 各チャンネルのトーンカーブ制御点 */
+export interface ToneCurves {
+  rgb: CurvePoint[];   // RGB統合カーブ
+  r: CurvePoint[];     // Rチャンネル
+  g: CurvePoint[];     // Gチャンネル
+  b: CurvePoint[];     // Bチャンネル
+}
+
+export const DEFAULT_CURVE_POINTS: CurvePoint[] = [
+  { x: 0, y: 0 },
+  { x: 1, y: 1 },
+];
+
+export const DEFAULT_TONE_CURVES: ToneCurves = {
+  rgb: [...DEFAULT_CURVE_POINTS],
+  r: [...DEFAULT_CURVE_POINTS],
+  g: [...DEFAULT_CURVE_POINTS],
+  b: [...DEFAULT_CURVE_POINTS],
+};
+
 // --- Keyframe types ---
 
 export type EasingType = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
@@ -182,6 +209,9 @@ export interface Clip {
 
   // キーフレームアニメーション
   keyframes?: ClipKeyframes;
+
+  // トーンカーブ
+  toneCurves?: ToneCurves;
 
   // テキストオーバーレイ
   textProperties?: TextProperties;

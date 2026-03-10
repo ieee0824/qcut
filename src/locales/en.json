@@ -86,7 +86,10 @@
     "filter": "Filter",
     "blurAmount": "Blur",
     "sharpenAmount": "Sharpen",
-    "monochrome": "Monochrome"
+    "monochrome": "Monochrome",
+    "toneCurve": "Tone Curves",
+    "curveReset": "Reset",
+    "curveResetAll": "Reset All"
   },
   "transform": {
     "title": "Transform",

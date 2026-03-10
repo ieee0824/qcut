@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect, useMemo } from 'react';
 import type { ClipEffects } from '../../store/timelineStore';
-import { DEFAULT_EFFECTS } from '../../store/timelineStore';
+import { DEFAULT_EFFECTS, DEFAULT_TONE_CURVES } from '../../store/timelineStore';
 import type { WebGLPipeline } from './canvasEffects';
 import { needsCanvasPipeline, initWebGLPipeline, renderFrame, destroyPipeline } from './canvasEffects';
 import type { Clip as ClipType } from '../../store/timelineStore';
@@ -40,8 +40,12 @@ export const useCanvasRenderer = ({
     () => ({ ...DEFAULT_EFFECTS, ...currentClip?.effects }),
     [currentClip?.effects],
   );
+  const baseToneCurves = useMemo(
+    () => currentClip?.toneCurves ?? DEFAULT_TONE_CURVES,
+    [currentClip?.toneCurves],
+  );
   // キーフレームがある場合は常に canvas を使用（保守的）
-  const needsCanvas = needsCanvasPipeline(baseEffects) || (currentClip ? hasActiveKeyframes(currentClip) : false);
+  const needsCanvas = needsCanvasPipeline(baseEffects, baseToneCurves) || (currentClip ? hasActiveKeyframes(currentClip) : false);
 
   // renderCanvasFrame 内で最新の currentClip / needsCanvas を参照するための ref
   const currentClipRef = useRef(currentClip);
@@ -91,7 +95,8 @@ export const useCanvasRenderer = ({
     }
     if (!pipelineRef.current) return;
 
-    renderFrame(pipelineRef.current, videoRef.current, effects);
+    const tc = currentClipRef.current?.toneCurves ?? DEFAULT_TONE_CURVES;
+    renderFrame(pipelineRef.current, videoRef.current, effects, tc);
   }, [videoRef, canvasRef, currentTimeRef]);
 
   // Re-render when effects change while paused (clip の変更にも追従)

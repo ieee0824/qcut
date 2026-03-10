@@ -1,6 +1,7 @@
 import type {
   ClipEffects,
   ClipKeyframes,
+  ToneCurves,
   TextProperties,
   ClipTransition,
 } from '../store/timelineStore';
@@ -68,6 +69,7 @@ export interface ProjectClip {
 
   effects?: ClipEffects;
   keyframes?: ClipKeyframes;
+  toneCurves?: ToneCurves;
   textProperties?: TextProperties;
   transition?: ClipTransition;
 }
