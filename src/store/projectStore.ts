@@ -7,6 +7,7 @@ import { useTimelineStore } from './timelineStore';
 import { useExportStore } from './exportStore';
 import { useVideoPreviewStore } from './videoPreviewStore';
 import i18n from '../i18n';
+import { toRelativePath, resolveRelativePath, getDirectoryPath } from '../utils/pathUtils';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
@@ -115,6 +116,15 @@ function buildProjectFile(projectName: string): ProjectFile {
 
 async function writeProjectFile(path: string, projectName: string): Promise<void> {
   const projectFile = buildProjectFile(projectName);
+  // 保存先ディレクトリを基準に素材パスを相対パスに変換
+  const projectDir = getDirectoryPath(path);
+  for (const track of projectFile.timeline.tracks) {
+    for (const clip of track.clips) {
+      if (clip.filePath) {
+        clip.filePath = toRelativePath(clip.filePath, projectDir);
+      }
+    }
+  }
   const content = JSON.stringify(projectFile, null, 2);
   await invoke('save_project', { path, content });
 }
@@ -307,6 +317,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const content = await invoke<string>('read_project', { path });
       const parsed = JSON.parse(content);
       const project = validateProjectFile(parsed);
+
+      // 相対パスを絶対パスに解決（後方互換: 絶対パスはそのまま）
+      const projectDir = getDirectoryPath(path);
+      for (const track of project.timeline.tracks) {
+        for (const clip of track.clips) {
+          if (clip.filePath) {
+            clip.filePath = resolveRelativePath(clip.filePath, projectDir);
+          }
+        }
+      }
 
       const missing = await checkMissingFiles(project);
 

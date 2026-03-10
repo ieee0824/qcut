@@ -342,6 +342,111 @@ describe('projectStore', () => {
     expect(useTimelineStore.getState().tracks).toHaveLength(1);
   });
 
+  // --- 相対パス変換 ---
+
+  it('saveProject で filePath が相対パスに変換されて保存される', async () => {
+    useTimelineStore.setState({
+      tracks: [{
+        id: 'video-1',
+        type: 'video',
+        name: 'Video 1',
+        volume: 1.0,
+        mute: false,
+        solo: false,
+        clips: [{
+          id: 'clip-1',
+          name: 'sample.mp4',
+          startTime: 0,
+          duration: 10,
+          filePath: '/Users/test/projects/assets/sample.mp4',
+          sourceStartTime: 0,
+          sourceEndTime: 10,
+        }],
+      }],
+    });
+
+    vi.mocked(invoke).mockResolvedValue(undefined);
+    useProjectStore.setState({ projectFilePath: '/Users/test/projects/myproject.qcut' });
+
+    await useProjectStore.getState().saveProject();
+
+    const saveCall = vi.mocked(invoke).mock.calls.find((c) => c[0] === 'save_project');
+    const args = saveCall![1] as { content: string };
+    const parsed = JSON.parse(args.content);
+    expect(parsed.timeline.tracks[0].clips[0].filePath).toBe('assets/sample.mp4');
+  });
+
+  it('saveProject で親ディレクトリの素材は ../ 付きで保存される', async () => {
+    useTimelineStore.setState({
+      tracks: [{
+        id: 'video-1',
+        type: 'video',
+        name: 'Video 1',
+        volume: 1.0,
+        mute: false,
+        solo: false,
+        clips: [{
+          id: 'clip-1',
+          name: 'sample.mp4',
+          startTime: 0,
+          duration: 10,
+          filePath: '/Users/test/videos/sample.mp4',
+          sourceStartTime: 0,
+          sourceEndTime: 10,
+        }],
+      }],
+    });
+
+    vi.mocked(invoke).mockResolvedValue(undefined);
+    useProjectStore.setState({ projectFilePath: '/Users/test/projects/myproject.qcut' });
+
+    await useProjectStore.getState().saveProject();
+
+    const saveCall = vi.mocked(invoke).mock.calls.find((c) => c[0] === 'save_project');
+    const args = saveCall![1] as { content: string };
+    const parsed = JSON.parse(args.content);
+    expect(parsed.timeline.tracks[0].clips[0].filePath).toBe('../videos/sample.mp4');
+  });
+
+  it('loadProjectFromPath で相対パスが絶対パスに復元される', async () => {
+    const projectWithRelativePath: ProjectFile = {
+      ...validProjectJson,
+      timeline: {
+        tracks: [{
+          ...validProjectJson.timeline.tracks[0],
+          clips: [{
+            ...validProjectJson.timeline.tracks[0].clips[0],
+            filePath: 'assets/sample.mp4',
+          }],
+        }],
+      },
+    };
+
+    vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === 'read_project') return JSON.stringify(projectWithRelativePath);
+      if (cmd === 'get_file_info') return { name: 'sample.mp4', path: '/Users/test/projects/assets/sample.mp4', size: 1000, last_modified: 0 };
+      return undefined;
+    });
+
+    await useProjectStore.getState().loadProjectFromPath('/Users/test/projects/myproject.qcut');
+
+    const timeline = useTimelineStore.getState();
+    expect(timeline.tracks[0].clips[0].filePath).toBe('/Users/test/projects/assets/sample.mp4');
+  });
+
+  it('loadProjectFromPath で旧形式の絶対パスはそのまま維持される（後方互換性）', async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === 'read_project') return JSON.stringify(validProjectJson);
+      if (cmd === 'get_file_info') return { name: 'sample.mp4', path: '/videos/sample.mp4', size: 1000, last_modified: 0 };
+      return undefined;
+    });
+
+    await useProjectStore.getState().loadProjectFromPath('/tmp/test.qcut');
+
+    const timeline = useTimelineStore.getState();
+    expect(timeline.tracks[0].clips[0].filePath).toBe('/videos/sample.mp4');
+  });
+
   // --- autosave ---
 
   it('performAutosave は isDirty が false の場合何もしない', async () => {
