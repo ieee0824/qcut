@@ -14,5 +14,8 @@
     "ui:toolbar"
   ],
   "minAppVersion": "0.1.0",
-  "category": "tool"
+  "category": "tool",
+  "checksums": {
+    "index.js": "d0da974fbc3c3ef8db0b1f42619d928105d3d1d5deab87bb0f467f7b30a26a55"
+  }
 }
