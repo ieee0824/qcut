@@ -1,0 +1,29 @@
+{
+  "id": "com.qcut.test.invert",
+  "name": "Sample Invert",
+  "version": "1.0.0",
+  "description": "テスト用色反転フィルタープラグイン",
+  "author": "qcut-dev",
+  "type": "typescript",
+  "entry": {
+    "js": "index.js"
+  },
+  "permissions": [
+    "preview:read",
+    "frame:process",
+    "settings:read",
+    "settings:write",
+    "ui:panel"
+  ],
+  "minAppVersion": "0.1.0",
+  "category": "filter",
+  "settingsSchema": {
+    "intensity": {
+      "type": "number",
+      "default": 1.0,
+      "min": 0.0,
+      "max": 1.0,
+      "description": "反転の強度 (0.0〜1.0)"
+    }
+  }
+}

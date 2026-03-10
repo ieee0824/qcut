@@ -37,7 +37,7 @@ pub fn list_plugin_dirs(app_handle: tauri::AppHandle) -> Result<Vec<String>, Str
 
 /// プラグインディレクトリ内の plugin.json を読み込む
 #[tauri::command]
-pub fn read_plugin_manifest(plugin_dir: String) -> Result<String, String> {
+pub fn read_plugin_manifest(app_handle: tauri::AppHandle, plugin_dir: String) -> Result<String, String> {
     let manifest_path = Path::new(&plugin_dir).join("plugin.json");
 
     if !manifest_path.exists() {
@@ -47,13 +47,27 @@ pub fn read_plugin_manifest(plugin_dir: String) -> Result<String, String> {
         ));
     }
 
-    fs::read_to_string(&manifest_path)
+    // セキュリティ: プラグインディレクトリ外のアクセスを防止
+    let canonical = manifest_path
+        .canonicalize()
+        .map_err(|e| format!("パスの正規化に失敗: {}", e))?;
+    let app_data = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
+    let plugins_dir = app_data.join("plugins");
+    let plugins_canonical = plugins_dir.canonicalize().unwrap_or(plugins_dir);
+    if !canonical.starts_with(&plugins_canonical) {
+        return Err("プラグインディレクトリ外のファイルにはアクセスできません".to_string());
+    }
+
+    fs::read_to_string(&canonical)
         .map_err(|e| format!("plugin.json の読み込みに失敗: {}", e))
 }
 
 /// プラグインファイルをバイト列として読み込む（JS/WASM 等）
 #[tauri::command]
-pub fn read_plugin_file(file_path: String) -> Result<Vec<u8>, String> {
+pub fn read_plugin_file(app_handle: tauri::AppHandle, file_path: String) -> Result<Vec<u8>, String> {
     let path = Path::new(&file_path);
 
     if !path.exists() {
@@ -65,10 +79,16 @@ pub fn read_plugin_file(file_path: String) -> Result<Vec<u8>, String> {
         .canonicalize()
         .map_err(|e| format!("パスの正規化に失敗: {}", e))?;
 
-    if !canonical
-        .to_str()
-        .map_or(false, |s| s.contains("plugins"))
-    {
+    let app_data = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
+    let plugins_dir = app_data.join("plugins");
+    let plugins_canonical = plugins_dir
+        .canonicalize()
+        .unwrap_or(plugins_dir);
+
+    if !canonical.starts_with(&plugins_canonical) {
         return Err("プラグインディレクトリ外のファイルにはアクセスできません".to_string());
     }
 

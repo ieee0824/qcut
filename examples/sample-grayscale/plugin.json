@@ -1,0 +1,18 @@
+{
+  "id": "com.qcut.test.grayscale",
+  "name": "Sample Grayscale",
+  "version": "1.0.0",
+  "description": "テスト用グレースケール変換エフェクトプラグイン",
+  "author": "qcut-dev",
+  "type": "typescript",
+  "entry": {
+    "js": "index.js"
+  },
+  "permissions": [
+    "preview:read",
+    "frame:process",
+    "ui:panel"
+  ],
+  "minAppVersion": "0.1.0",
+  "category": "effect"
+}
