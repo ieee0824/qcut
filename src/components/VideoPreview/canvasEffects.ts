@@ -203,7 +203,7 @@ void main() {
   result = pow(clamp(result, vec3(0.0), vec3(1.0)), gammaExp);
 
   // Monochrome (lerp saturation toward luma)
-  if (u_monochrome > 0.01) {
+  if (u_monochrome >= 0.01) {
     float luma = dot(result, vec3(0.2126, 0.7152, 0.0722));
     result = mix(result, vec3(luma), u_monochrome);
   }

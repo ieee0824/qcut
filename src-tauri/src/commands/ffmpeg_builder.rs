@@ -390,7 +390,9 @@ pub(crate) fn build_ffmpeg_args(
             }
 
             // シャープ (unsharp mask: luma 5x5 kernel)
-            if effects.sharpen_amount > 0.01 {
+            // WebGL プレビューではブラーとシャープは排他的なので、
+            // ブラーが有効な場合は unsharp を適用しない
+            if effects.sharpen_amount > 0.01 && effects.blur_amount <= 0.1 {
                 vfilter.push_str(&format!(",unsharp=5:5:{:.2}:5:5:0.0", effects.sharpen_amount));
             }
 
