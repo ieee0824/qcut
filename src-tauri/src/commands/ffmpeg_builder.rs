@@ -1,5 +1,31 @@
 use super::export::{ExportClip, ExportSettings, ExportTrack};
 use super::hsl_lut::{HslParams, generate_hsl_lut};
+use regex::Regex;
+
+/// 16進カラー値をバリデーションする（6桁または8桁の16進数）
+fn validate_hex_color(color: &str) -> Result<String, String> {
+    let c = color.trim_start_matches('#');
+    let re = Regex::new(r"^[0-9a-fA-F]{6,8}$").unwrap();
+    if re.is_match(c) {
+        Ok(c.to_string())
+    } else {
+        Err(format!("不正なカラー値: {}", color))
+    }
+}
+
+/// エクスポート設定の数値パラメータをバリデーションする
+fn validate_export_settings(settings: &ExportSettings) -> Result<(), String> {
+    if settings.width < 32 || settings.width > 7680 {
+        return Err(format!("不正な幅: {} (32〜7680)", settings.width));
+    }
+    if settings.height < 32 || settings.height > 4320 {
+        return Err(format!("不正な高さ: {} (32〜4320)", settings.height));
+    }
+    if settings.fps < 1 || settings.fps > 120 {
+        return Err(format!("不正なFPS: {} (1〜120)", settings.fps));
+    }
+    Ok(())
+}
 
 // --- フォーマット定義テーブル ---
 
@@ -163,6 +189,9 @@ pub(crate) fn build_ffmpeg_args(
     text_clips: &[&ExportClip],
     audio_track_clips: &[AudioTrackClip],
 ) -> Result<FfmpegBuildResult, String> {
+    // セキュリティ: 数値パラメータのバリデーション
+    validate_export_settings(settings)?;
+
     let mut args: Vec<String> = vec!["-y".into(), "-progress".into(), "pipe:1".into()];
     let mut filter_parts: Vec<String> = Vec::new();
     let mut input_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
@@ -664,7 +693,8 @@ pub(crate) fn build_ffmpeg_args(
                 .replace(':', "\\:");
 
             let alpha = (tp.opacity * 255.0) as u8;
-            let fontcolor = format!("{}@0x{:02x}", tp.font_color.trim_start_matches('#'), alpha);
+            let validated_color = validate_hex_color(&tp.font_color)?;
+            let fontcolor = format!("{}@0x{:02x}", validated_color, alpha);
 
             let x_expr = format!("(w*{:.2}/100-tw/2)", tp.position_x);
             let y_expr = format!("(h*{:.2}/100-th/2)", tp.position_y);
@@ -689,7 +719,7 @@ pub(crate) fn build_ffmpeg_args(
             }
 
             if tp.background_color != "transparent" && !tp.background_color.is_empty() {
-                let bg = tp.background_color.trim_start_matches('#');
+                let bg = validate_hex_color(&tp.background_color)?;
                 drawtext.push_str(&format!(":box=1:boxcolor={}@0x80:boxborderw=5", bg));
             }
 
@@ -710,7 +740,8 @@ pub(crate) fn build_ffmpeg_args(
             let new_label = format!("tc{}", timecode_idx);
             timecode_idx += 1;
 
-            let fontcolor = format!("{}@0xff", tc.font_color.trim_start_matches('#'));
+            let tc_validated_color = validate_hex_color(&tc.font_color)?;
+            let fontcolor = format!("{}@0xff", tc_validated_color);
             let x_expr = format!("(w*{:.2}/100-tw/2)", tc.position_x);
             let y_expr = format!("(h*{:.2}/100-th/2)", tc.position_y);
 

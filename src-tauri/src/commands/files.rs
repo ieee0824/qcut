@@ -1,9 +1,35 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::Manager;
 use uuid::Uuid;
+
+/// パスを正規化し、シンボリックリンクを解決する。
+/// 存在しないファイルの場合は親ディレクトリを正規化してファイル名を結合する。
+fn resolve_path(path: &str) -> Result<PathBuf, String> {
+    let p = Path::new(path);
+    // ファイルが存在する場合はそのまま canonicalize
+    if p.exists() {
+        return p.canonicalize().map_err(|e| format!("パスの正規化に失敗: {}", e));
+    }
+    // 存在しない場合は親ディレクトリを正規化
+    let parent = p.parent().ok_or("無効なパスです")?;
+    let file_name = p.file_name().ok_or("ファイル名がありません")?;
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|e| format!("親ディレクトリの正規化に失敗: {}", e))?;
+    Ok(canonical_parent.join(file_name))
+}
+
+/// プロジェクトファイルのパスを検証する（.qcut 拡張子のみ許可）
+fn validate_project_path(path: &str) -> Result<PathBuf, String> {
+    let resolved = resolve_path(path)?;
+    match resolved.extension().and_then(|e| e.to_str()) {
+        Some("qcut") => Ok(resolved),
+        _ => Err("プロジェクトファイル (.qcut) のみ許可されています".to_string()),
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileInfo {
@@ -74,7 +100,10 @@ pub fn save_project(path: String, content: String) -> Result<(), String> {
       .map_err(|e| format!("ディレクトリの作成に失敗: {}", e))?;
   }
 
-  let mut file = fs::File::create(file_path)
+  // セキュリティ: プロジェクトファイル (.qcut) のみ保存を許可
+  let validated = validate_project_path(&path)?;
+
+  let mut file = fs::File::create(&validated)
     .map_err(|e| format!("ファイルの作成に失敗: {}", e))?;
 
   file.write_all(content.as_bytes())
@@ -86,7 +115,9 @@ pub fn save_project(path: String, content: String) -> Result<(), String> {
 /// プロジェクトファイルを読み込む
 #[tauri::command]
 pub fn read_project(path: String) -> Result<String, String> {
-  fs::read_to_string(&path)
+  // セキュリティ: プロジェクトファイル (.qcut) のみ読み込みを許可
+  let validated = validate_project_path(&path)?;
+  fs::read_to_string(&validated)
     .map_err(|e| format!("ファイルの読み込みに失敗: {}", e))
 }
 
@@ -132,9 +163,17 @@ pub fn get_autosave_path(app_handle: tauri::AppHandle) -> Result<String, String>
 /// 指定パスのファイルを削除する
 #[tauri::command]
 pub fn delete_file(path: String) -> Result<(), String> {
-  let file_path = Path::new(&path);
-  if file_path.exists() {
-    fs::remove_file(file_path)
+  // セキュリティ: パスを正規化してシンボリックリンク攻撃を防止
+  let resolved = resolve_path(&path)?;
+
+  // .qcut ファイルのみ削除を許可
+  match resolved.extension().and_then(|e| e.to_str()) {
+    Some("qcut") => {},
+    _ => return Err("削除できるのはプロジェクトファイル (.qcut) のみです".to_string()),
+  }
+
+  if resolved.exists() {
+    fs::remove_file(&resolved)
       .map_err(|e| format!("ファイルの削除に失敗: {}", e))?;
   }
   Ok(())

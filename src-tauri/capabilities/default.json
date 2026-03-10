@@ -20,7 +20,12 @@
     {
       "identifier": "fs:scope",
       "allow": [
-        { "path": "**" }
+        { "path": "$DOCUMENT/**" },
+        { "path": "$HOME/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$APP_DATA/**" },
+        { "path": "$APP_CONFIG/**" }
       ]
     }
   ]
