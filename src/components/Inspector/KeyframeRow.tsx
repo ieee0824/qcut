@@ -65,15 +65,15 @@ export const KeyframeRow: React.FC<KeyframeRowProps> = ({
           onClick={handleAddKeyframe}
           title={t('keyframe.addKeyframe')}
           style={{
-            marginTop: '2px',
             background: 'none',
             border: 'none',
             cursor: 'pointer',
             color: hasKf ? '#ffd700' : '#555',
-            fontSize: '11px',
-            padding: '2px 0',
+            fontSize: '12px',
+            padding: '4px 6px',
             lineHeight: 1,
             flexShrink: 0,
+            alignSelf: 'center',
           }}
         >
           ◆
