@@ -53,24 +53,23 @@ pub async fn get_waveform(
     }
 
     // 同一ファイルの並行処理を防止（生成中なら完了を待つ）
-    {
+    let waiting_notify: Option<Arc<Notify>> = {
         let in_progress = cache.lock_in_progress()?;
-        if let Some(notify) = in_progress.get(&file_path) {
-            let notify: Arc<Notify> = Arc::clone(notify);
-            drop(in_progress);
-            notify.notified().await;
-            // 完了後はキャッシュに入っているはず
-            let c = cache.lock_cache()?;
-            if let Some(peaks) = c.get(&file_path) {
-                let duration = peaks.len() as f64 / PEAKS_PER_SECOND as f64;
-                return Ok(WaveformData {
-                    peaks: peaks.clone(),
-                    sample_rate: PEAKS_PER_SECOND,
-                    source_duration: duration,
-                });
-            }
-            return Err("波形データの生成に失敗しました".to_string());
+        in_progress.get(&file_path).map(Arc::clone)
+    };
+    if let Some(notify) = waiting_notify {
+        notify.notified().await;
+        // 完了後はキャッシュに入っているはず
+        let c = cache.lock_cache()?;
+        if let Some(peaks) = c.get(&file_path) {
+            let duration = peaks.len() as f64 / PEAKS_PER_SECOND as f64;
+            return Ok(WaveformData {
+                peaks: peaks.clone(),
+                sample_rate: PEAKS_PER_SECOND,
+                source_duration: duration,
+            });
         }
+        return Err("波形データの生成に失敗しました".to_string());
     }
 
     // 処理中フラグを設定
