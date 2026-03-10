@@ -112,7 +112,7 @@ pub async fn get_waveform(
 fn generate_waveform(file_path: &str) -> Result<Vec<[f32; 2]>, String> {
     let decode_rate = PEAKS_PER_SECOND * SAMPLES_PER_PEAK;
 
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(super::ffmpeg_path::ffmpeg_path())
         .args([
             "-i",
             file_path,
