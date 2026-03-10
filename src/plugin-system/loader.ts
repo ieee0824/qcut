@@ -26,10 +26,15 @@ export class PluginLoader {
         const parsed: unknown = JSON.parse(raw);
         const manifest = this.validateManifest(parsed);
         if (manifest) {
+          // 整合性検証
+          const integrity = await invoke<string>('verify_plugin_integrity', { pluginDir: dir });
+          if (integrity === 'no_checksums') {
+            console.warn(`[PluginLoader] ${manifest.id}: checksums が未定義のため整合性検証をスキップ`);
+          }
           results.push({ manifest, dir });
         }
       } catch (e) {
-        console.warn(`[PluginLoader] ${dir} のマニフェスト読み込みに失敗:`, e);
+        console.warn(`[PluginLoader] ${dir} のマニフェスト読み込みまたは整合性検証に失敗:`, e);
       }
     }
 

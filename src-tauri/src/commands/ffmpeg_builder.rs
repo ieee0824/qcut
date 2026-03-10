@@ -355,13 +355,8 @@ pub(crate) fn build_ffmpeg_args(
                 magenta_sat: effects.hsl_magenta_sat,
             };
             if hsl_params.is_active() {
-                let timestamp = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_nanos();
-                let pid = std::process::id();
                 let lut_path = std::env::temp_dir()
-                    .join(format!("qcut_hsl_lut_{}_{}_{}.cube", pid, timestamp, i));
+                    .join(format!("qcut_hsl_lut_{}.cube", uuid::Uuid::new_v4()));
                 generate_hsl_lut(&hsl_params, &lut_path)?;
                 let lut_path_str = lut_path
                     .to_string_lossy()

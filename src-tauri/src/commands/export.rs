@@ -317,7 +317,9 @@ pub async fn export_video(
 
     // 一時ファイル（LUT等）のクリーンアップ
     for path in &temp_files {
-        let _ = std::fs::remove_file(path);
+        if let Err(e) = std::fs::remove_file(path) {
+            log::warn!("一時ファイルの削除に失敗: {:?} - {}", path, e);
+        }
     }
 
     // エンコード完了後のキャンセルフラグチェック:

@@ -1,11 +1,12 @@
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
 pub struct WaveformCache {
     pub cache: Mutex<HashMap<String, Vec<[f32; 2]>>>,
+    pub in_progress: Mutex<HashSet<String>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -37,12 +38,46 @@ pub async fn get_waveform(
         }
     }
 
+    // 同一ファイルの並行処理を防止
+    {
+        let mut in_progress = cache.in_progress.lock().map_err(|e| e.to_string())?;
+        if in_progress.contains(&file_path) {
+            return Err("このファイルの波形データは現在生成中です".to_string());
+        }
+        in_progress.insert(file_path.clone());
+    }
+
+    let result = generate_waveform(&file_path);
+
+    // 処理中フラグを解除
+    {
+        let mut in_progress = cache.in_progress.lock().map_err(|e| e.to_string())?;
+        in_progress.remove(&file_path);
+    }
+
+    let peaks = result?;
+
+    // キャッシュに保存
+    {
+        let mut c = cache.cache.lock().map_err(|e| e.to_string())?;
+        c.insert(file_path.clone(), peaks.clone());
+    }
+
+    let duration = peaks.len() as f64 / PEAKS_PER_SECOND as f64;
+    Ok(WaveformData {
+        peaks,
+        sample_rate: PEAKS_PER_SECOND,
+        source_duration: duration,
+    })
+}
+
+fn generate_waveform(file_path: &str) -> Result<Vec<[f32; 2]>, String> {
     let decode_rate = PEAKS_PER_SECOND * SAMPLES_PER_PEAK;
 
     let mut child = Command::new("ffmpeg")
         .args([
             "-i",
-            &file_path,
+            file_path,
             "-f",
             "f32le",
             "-ac",
@@ -103,16 +138,5 @@ pub async fn get_waveform(
 
     let _ = child.wait();
 
-    // キャッシュに保存
-    {
-        let mut c = cache.cache.lock().map_err(|e| e.to_string())?;
-        c.insert(file_path.clone(), peaks.clone());
-    }
-
-    let duration = peaks.len() as f64 / PEAKS_PER_SECOND as f64;
-    Ok(WaveformData {
-        peaks,
-        sample_rate: PEAKS_PER_SECOND,
-        source_duration: duration,
-    })
+    Ok(peaks)
 }
