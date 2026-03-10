@@ -85,6 +85,19 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Override productName for beta
+        if: contains(github.ref_name, '-beta')
+        shell: bash
+        run: |
+          # tauri.conf.json の productName を qcut-beta に変更
+          node -e "
+            const fs = require('fs');
+            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+            conf.productName = 'qcut-beta';
+            conf.app.windows[0].title = 'qcut-beta - Video Editor';
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+          "
+
       - name: Build Tauri app
         shell: bash
         run: npx tauri build ${{ matrix.tauri_args }}
