@@ -152,12 +152,12 @@ export class PluginContextImpl implements PluginContext {
       registerPanel: (config: PanelConfig): Disposable => {
         this.requirePermission('ui:panel');
         this.registeredPanels.push(config);
-        usePluginStore.getState().addPanel(config);
+        usePluginStore.getState().addPanel({ ...config, pluginId: this.pluginId });
         const disposable = {
           dispose: () => {
             const idx = this.registeredPanels.indexOf(config);
             if (idx >= 0) this.registeredPanels.splice(idx, 1);
-            usePluginStore.getState().removePanel(config.id);
+            usePluginStore.getState().removePanel(this.pluginId, config.id);
           },
         };
         this.disposables.push(disposable);
@@ -167,12 +167,12 @@ export class PluginContextImpl implements PluginContext {
       registerToolbarButton: (config: ToolbarButtonConfig): Disposable => {
         this.requirePermission('ui:toolbar');
         this.registeredToolbarButtons.push(config);
-        usePluginStore.getState().addToolbarButton(config);
+        usePluginStore.getState().addToolbarButton({ ...config, pluginId: this.pluginId });
         const disposable = {
           dispose: () => {
             const idx = this.registeredToolbarButtons.indexOf(config);
             if (idx >= 0) this.registeredToolbarButtons.splice(idx, 1);
-            usePluginStore.getState().removeToolbarButton(config.id);
+            usePluginStore.getState().removeToolbarButton(this.pluginId, config.id);
           },
         };
         this.disposables.push(disposable);
@@ -189,10 +189,17 @@ export class PluginContextImpl implements PluginContext {
           type,
           timestamp: Date.now(),
         });
-        // 5秒後に自動削除
-        setTimeout(() => {
+        // 5秒後に自動削除。プラグインのライフサイクルに紐づけるため Disposable として登録
+        const timeoutId = setTimeout(() => {
           usePluginStore.getState().removeNotification(id);
         }, 5000);
+        const disposable: Disposable = {
+          dispose: () => {
+            clearTimeout(timeoutId);
+            usePluginStore.getState().removeNotification(id);
+          },
+        };
+        this.disposables.push(disposable);
       },
     };
   }

@@ -3,6 +3,14 @@ import type { PluginManifest } from '@/plugin-system/types/manifest';
 import type { QcutPlugin } from '@/plugin-system/types/plugin';
 import type { PanelConfig, ToolbarButtonConfig } from '@/plugin-system/types/api';
 
+export interface StoredPanelConfig extends PanelConfig {
+  pluginId: string;
+}
+
+export interface StoredToolbarButtonConfig extends ToolbarButtonConfig {
+  pluginId: string;
+}
+
 export type PluginState =
   | 'installed'
   | 'loaded'
@@ -29,8 +37,8 @@ export interface PluginNotification {
 
 interface PluginStoreState {
   plugins: Record<string, PluginEntry>;
-  panels: PanelConfig[];
-  toolbarButtons: ToolbarButtonConfig[];
+  panels: StoredPanelConfig[];
+  toolbarButtons: StoredToolbarButtonConfig[];
   notifications: PluginNotification[];
 
   registerPlugin: (manifest: PluginManifest, enabled?: boolean) => void;
@@ -38,10 +46,10 @@ interface PluginStoreState {
   setPluginInstance: (id: string, instance: QcutPlugin) => void;
   togglePlugin: (id: string, enabled: boolean) => void;
   removePlugin: (id: string) => void;
-  addPanel: (config: PanelConfig) => void;
-  removePanel: (id: string) => void;
-  addToolbarButton: (config: ToolbarButtonConfig) => void;
-  removeToolbarButton: (id: string) => void;
+  addPanel: (config: StoredPanelConfig) => void;
+  removePanel: (pluginId: string, id: string) => void;
+  addToolbarButton: (config: StoredToolbarButtonConfig) => void;
+  removeToolbarButton: (pluginId: string, id: string) => void;
   addNotification: (notification: PluginNotification) => void;
   removeNotification: (id: string) => void;
 }
@@ -116,9 +124,9 @@ export const usePluginStore = create<PluginStoreState>((set) => ({
       panels: [...state.panels, config],
     })),
 
-  removePanel: (id) =>
+  removePanel: (pluginId, id) =>
     set((state) => ({
-      panels: state.panels.filter((p) => p.id !== id),
+      panels: state.panels.filter((p) => !(p.pluginId === pluginId && p.id === id)),
     })),
 
   addToolbarButton: (config) =>
@@ -126,9 +134,9 @@ export const usePluginStore = create<PluginStoreState>((set) => ({
       toolbarButtons: [...state.toolbarButtons, config],
     })),
 
-  removeToolbarButton: (id) =>
+  removeToolbarButton: (pluginId, id) =>
     set((state) => ({
-      toolbarButtons: state.toolbarButtons.filter((b) => b.id !== id),
+      toolbarButtons: state.toolbarButtons.filter((b) => !(b.pluginId === pluginId && b.id === id)),
     })),
 
   addNotification: (notification) =>

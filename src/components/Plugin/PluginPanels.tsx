@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { usePluginStore } from '@/store/pluginStore';
-import type { PanelConfig } from '@/plugin-system/types/api';
+import type { StoredPanelConfig } from '@/store/pluginStore';
 
 interface PluginPanelItemProps {
-  config: PanelConfig;
+  config: StoredPanelConfig;
 }
 
 const PluginPanelItem: React.FC<PluginPanelItemProps> = ({ config }) => {
@@ -62,7 +62,7 @@ export const PluginSidebarPanels: React.FC = () => {
       overflow: 'auto',
     }}>
       {sidebarPanels.map((panel) => (
-        <PluginPanelItem key={panel.id} config={panel} />
+        <PluginPanelItem key={`${panel.pluginId}:${panel.id}`} config={panel} />
       ))}
     </div>
   );

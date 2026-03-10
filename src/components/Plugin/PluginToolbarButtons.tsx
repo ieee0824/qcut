@@ -9,7 +9,7 @@ export const PluginToolbarButtons: React.FC = () => {
     <>
       {buttons.map((btn) => (
         <button
-          key={btn.id}
+          key={`${btn.pluginId}:${btn.id}`}
           onClick={btn.onClick}
           className="play-btn"
           title={btn.label}
