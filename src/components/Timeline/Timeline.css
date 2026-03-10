@@ -434,6 +434,31 @@
   background-color: #3a3a3a;
 }
 
+/* キーフレームマーカー */
+.clip-keyframe-marker {
+  position: absolute;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  background-color: #ffd700;
+  transform: translateX(-50%) rotate(45deg);
+  cursor: grab;
+  z-index: 3;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  pointer-events: all;
+}
+
+.clip-keyframe-marker:hover {
+  background-color: #fff;
+  border-color: #ffd700;
+}
+
+.clip-keyframe-marker.dragging {
+  cursor: grabbing;
+  background-color: #fff;
+  z-index: 10;
+}
+
 /* トランジションインジケーター */
 .transition-indicator {
   position: absolute;

@@ -133,6 +133,78 @@ describe('updateKeyframeEasing', () => {
   });
 });
 
+describe('moveKeyframes', () => {
+  beforeEach(resetStore);
+
+  it('should move keyframes at the given time across all effect keys', () => {
+    setupClip();
+    const { addKeyframe, moveKeyframes } = useTimelineStore.getState();
+    addKeyframe('v1', 'clip-1', 'brightness', { time: 1.0, value: 1.5, easing: 'linear' });
+    addKeyframe('v1', 'clip-1', 'contrast', { time: 1.0, value: 0.8, easing: 'linear' });
+    moveKeyframes('v1', 'clip-1', 1.0, 3.0);
+    const clip = getClip();
+    expect(clip?.keyframes?.brightness?.[0].time).toBe(3.0);
+    expect(clip?.keyframes?.contrast?.[0].time).toBe(3.0);
+  });
+
+  it('should re-sort keyframes after move', () => {
+    setupClip();
+    const { addKeyframe, moveKeyframes } = useTimelineStore.getState();
+    addKeyframe('v1', 'clip-1', 'brightness', { time: 1.0, value: 1.0, easing: 'linear' });
+    addKeyframe('v1', 'clip-1', 'brightness', { time: 3.0, value: 2.0, easing: 'linear' });
+    moveKeyframes('v1', 'clip-1', 3.0, 0.5);
+    const kfs = getClip()?.keyframes?.brightness ?? [];
+    expect(kfs[0].time).toBe(0.5);
+    expect(kfs[1].time).toBe(1.0);
+  });
+
+  it('should undo moveKeyframes', () => {
+    setupClip();
+    const { addKeyframe, moveKeyframes, undo } = useTimelineStore.getState();
+    addKeyframe('v1', 'clip-1', 'brightness', { time: 1.0, value: 1.5, easing: 'linear' });
+    moveKeyframes('v1', 'clip-1', 1.0, 3.0);
+    expect(getClip()?.keyframes?.brightness?.[0].time).toBe(3.0);
+    undo();
+    expect(getClip()?.keyframes?.brightness?.[0].time).toBe(1.0);
+  });
+});
+
+describe('deleteKeyframesAtTime', () => {
+  beforeEach(resetStore);
+
+  it('should delete keyframes across all effect keys at the given time', () => {
+    setupClip();
+    const { addKeyframe, deleteKeyframesAtTime } = useTimelineStore.getState();
+    addKeyframe('v1', 'clip-1', 'brightness', { time: 1.0, value: 1.5, easing: 'linear' });
+    addKeyframe('v1', 'clip-1', 'contrast', { time: 1.0, value: 0.8, easing: 'linear' });
+    deleteKeyframesAtTime('v1', 'clip-1', 1.0);
+    expect(getClip()?.keyframes).toBeUndefined();
+  });
+
+  it('should only delete keyframes at the specified time', () => {
+    setupClip();
+    const { addKeyframe, deleteKeyframesAtTime } = useTimelineStore.getState();
+    addKeyframe('v1', 'clip-1', 'brightness', { time: 1.0, value: 1.5, easing: 'linear' });
+    addKeyframe('v1', 'clip-1', 'brightness', { time: 2.0, value: 2.0, easing: 'linear' });
+    deleteKeyframesAtTime('v1', 'clip-1', 1.0);
+    const kfs = getClip()?.keyframes?.brightness ?? [];
+    expect(kfs).toHaveLength(1);
+    expect(kfs[0].time).toBe(2.0);
+  });
+
+  it('should undo deleteKeyframesAtTime', () => {
+    setupClip();
+    const { addKeyframe, deleteKeyframesAtTime, undo } = useTimelineStore.getState();
+    addKeyframe('v1', 'clip-1', 'brightness', { time: 1.0, value: 1.5, easing: 'linear' });
+    addKeyframe('v1', 'clip-1', 'contrast', { time: 1.0, value: 0.8, easing: 'linear' });
+    deleteKeyframesAtTime('v1', 'clip-1', 1.0);
+    expect(getClip()?.keyframes).toBeUndefined();
+    undo();
+    expect(getClip()?.keyframes?.brightness).toHaveLength(1);
+    expect(getClip()?.keyframes?.contrast).toHaveLength(1);
+  });
+});
+
 describe('keyframe undo/redo', () => {
   beforeEach(resetStore);
 

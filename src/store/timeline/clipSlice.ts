@@ -222,6 +222,58 @@ export const createClipSlice = (set: Set) => ({
     return withHistory(state, newTracks);
   }),
 
+  moveKeyframes: (trackId: string, clipId: string, fromTime: number, toTime: number) => set((state) => {
+    logAction('moveKeyframes', `track=${trackId} clip=${clipId} from=${fromTime.toFixed(2)} to=${toTime.toFixed(2)}`);
+    const newTracks = state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip => {
+              if (clip.id !== clipId || !clip.keyframes) return clip;
+              const newKeyframes = { ...clip.keyframes } as typeof clip.keyframes;
+              for (const key of Object.keys(newKeyframes) as Array<keyof ClipEffects>) {
+                const kfs = newKeyframes[key];
+                if (!kfs) continue;
+                newKeyframes[key] = kfs
+                  .map(kf => Math.abs(kf.time - fromTime) <= 0.001 ? { ...kf, time: toTime } : kf)
+                  .sort((a, b) => a.time - b.time);
+              }
+              return { ...clip, keyframes: newKeyframes };
+            }),
+          }
+        : track
+    );
+    return withHistory(state, newTracks);
+  }),
+
+  deleteKeyframesAtTime: (trackId: string, clipId: string, time: number) => set((state) => {
+    logAction('deleteKeyframesAtTime', `track=${trackId} clip=${clipId} time=${time.toFixed(2)}`);
+    const newTracks = state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip => {
+              if (clip.id !== clipId || !clip.keyframes) return clip;
+              const newKeyframes = { ...clip.keyframes } as typeof clip.keyframes;
+              for (const key of Object.keys(newKeyframes) as Array<keyof ClipEffects>) {
+                const kfs = newKeyframes[key];
+                if (!kfs) continue;
+                const updated = kfs.filter(kf => Math.abs(kf.time - time) > 0.001);
+                if (updated.length === 0) {
+                  delete newKeyframes[key];
+                } else {
+                  newKeyframes[key] = updated;
+                }
+              }
+              const hasKeys = Object.keys(newKeyframes).length > 0;
+              return { ...clip, keyframes: hasKeys ? newKeyframes : undefined };
+            }),
+          }
+        : track
+    );
+    return withHistory(state, newTracks);
+  }),
+
   moveClipToTrack: (fromTrackId: string, clipId: string, toTrackId: string) => set((state) => {
     if (fromTrackId === toTrackId) return state;
     logAction('moveClipToTrack', `clip=${clipId} from=${fromTrackId} to=${toTrackId}`);
