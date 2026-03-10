@@ -5,6 +5,8 @@ import type { WebGLPipeline } from './canvasEffects';
 import { needsCanvasPipeline, initWebGLPipeline, renderFrame, destroyPipeline } from './canvasEffects';
 import type { Clip as ClipType } from '../../store/timelineStore';
 import { getEffectsAtTime, hasActiveKeyframes } from '../../utils/keyframes';
+import { logAction } from '../../store/actionLogger';
+import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 
 interface UseCanvasRendererParams {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -26,6 +28,12 @@ export const useCanvasRenderer = ({
   currentTimeRef,
 }: UseCanvasRendererParams): UseCanvasRendererReturn => {
   const pipelineRef = useRef<ReturnType<typeof initWebGLPipeline>>(null);
+  const debugFrameCountRef = useRef(0);
+
+  // キーフレームマーカードラッグ中の一時的なプレビュー時刻
+  const kfDragPreviewTime = useVideoPreviewStore((s) => s.kfDragPreviewTime);
+  const kfDragPreviewTimeRef = useRef(kfDragPreviewTime);
+  kfDragPreviewTimeRef.current = kfDragPreviewTime;
 
   // ベースエフェクト（キーフレームなし時）で WebGL の必要性を判定
   const baseEffects: ClipEffects = useMemo(
@@ -42,24 +50,40 @@ export const useCanvasRenderer = ({
   needsCanvasRef.current = needsCanvas;
 
   const renderCanvasFrame = useCallback(() => {
-    if (!needsCanvasRef.current) return;
+    if (!needsCanvasRef.current) {
+      return;
+    }
     if (!videoRef.current || !canvasRef.current) return;
 
     const clip = currentClipRef.current;
-    if (!clip) return;
+    if (!clip) {
+      logAction('renderCanvasFrame', 'SKIP: clip=null');
+      return;
+    }
 
     // キーフレームがある場合は現在時刻で補間、なければベースエフェクトを使用
     let effects: ClipEffects;
-    if (hasActiveKeyframes(clip)) {
-      const clipLocalTime = currentTimeRef.current - clip.startTime;
+    const activeKf = hasActiveKeyframes(clip);
+    if (activeKf) {
+      const timelineTime = kfDragPreviewTimeRef.current ?? currentTimeRef.current;
+      const clipLocalTime = timelineTime - clip.startTime;
       effects = getEffectsAtTime(clip, clipLocalTime);
+
+      // 60フレームに1回ログ
+      debugFrameCountRef.current = (debugFrameCountRef.current + 1) % 60;
+      if (debugFrameCountRef.current === 0) {
+        const kfKeys = Object.keys(clip.keyframes ?? {}).join(',');
+        logAction('renderCanvasFrame', `t=${clipLocalTime.toFixed(2)} kfKeys=${kfKeys} brightness=${effects.brightness?.toFixed(3)} contrast=${effects.contrast?.toFixed(3)} needsCanvasPipeline=${needsCanvasPipeline(effects)}`);
+      }
     } else {
       effects = { ...DEFAULT_EFFECTS, ...clip.effects };
     }
 
     // キーフレームがアクティブな場合、canvas がビデオを隠しているため
     // WebGL 専用エフェクトがなくても必ず描画する（早期リターンしない）
-    if (!needsCanvasPipeline(effects) && !hasActiveKeyframes(clip)) return;
+    if (!needsCanvasPipeline(effects) && !activeKf) {
+      return;
+    }
 
     // Lazy init pipeline
     if (!pipelineRef.current) {
@@ -70,12 +94,17 @@ export const useCanvasRenderer = ({
     renderFrame(pipelineRef.current, videoRef.current, effects);
   }, [videoRef, canvasRef, currentTimeRef]);
 
-  // Re-render when effects change while paused
+  // Re-render when effects change while paused (clip の変更にも追従)
   useEffect(() => {
-    if (needsCanvas) {
-      renderCanvasFrame();
-    }
-  }, [needsCanvas, renderCanvasFrame]);
+    if (!needsCanvas || !currentClip) return;
+    renderCanvasFrame();
+  }, [needsCanvas, renderCanvasFrame, currentClip]);
+
+  // キーフレームマーカードラッグ中のリアルタイムプレビュー
+  useEffect(() => {
+    if (kfDragPreviewTime === null || !needsCanvas) return;
+    renderCanvasFrame();
+  }, [kfDragPreviewTime, needsCanvas, renderCanvasFrame]);
 
   // Video ready / seek完了時に canvas を再描画
   // WebKit では loadeddata 時点で useVideoSwitching の seek が未完了の場合があり、

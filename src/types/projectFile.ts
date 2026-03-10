@@ -1,5 +1,6 @@
 import type {
   ClipEffects,
+  ClipKeyframes,
   TextProperties,
   ClipTransition,
 } from '../store/timelineStore';
@@ -13,7 +14,7 @@ import type { ExportSettings } from '../store/exportStore';
  * - 破壊的変更（既存フィールドの型変更・削除）: メジャーバージョンを上げる (1 → 100)
  * - 読み込み時はマイグレーション関数で古いバージョンを最新に変換する
  */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 // --- プロジェクトファイルのルート ---
 
@@ -66,6 +67,7 @@ export interface ProjectClip {
   sourceEndTime: number;
 
   effects?: ClipEffects;
+  keyframes?: ClipKeyframes;
   textProperties?: TextProperties;
   transition?: ClipTransition;
 }

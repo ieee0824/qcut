@@ -94,7 +94,10 @@ function Timeline() {
 
     // クリップ以外の場所をクリックした場合は選択解除
     // mousedown で処理する（click だと isDragging の再レンダーで e.target がずれるため）
+    // ルーラー・プレイヘッド上のクリックは選択解除しない（シーク操作のため）
     if (!(e.target as HTMLElement).closest('.timeline-clip') &&
+        !(e.target as HTMLElement).closest('.timeline-ruler') &&
+        !(e.target as HTMLElement).closest('.timeline-playhead') &&
         (e.target === e.currentTarget || (e.target as HTMLElement).closest('.timeline-tracks'))) {
       setSelectedClip(null, null);
     }

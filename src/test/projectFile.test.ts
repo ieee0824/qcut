@@ -86,12 +86,12 @@ describe('ProjectFile schema', () => {
     },
   };
 
-  it('CURRENT_SCHEMA_VERSION が 1 である', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(1);
+  it('CURRENT_SCHEMA_VERSION が 2 である', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(2);
   });
 
   it('有効なプロジェクトファイルが型に適合する', () => {
-    expect(validProject.schemaVersion).toBe(1);
+    expect(validProject.schemaVersion).toBe(2);
     expect(validProject.appVersion).toBe('0.1.0');
     expect(validProject.metadata.name).toBe('テストプロジェクト');
     expect(validProject.timeline.tracks).toHaveLength(3);

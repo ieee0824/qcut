@@ -242,6 +242,8 @@ export interface ClipSlice {
   addKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, keyframe: Keyframe) => void;
   removeKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number) => void;
   updateKeyframeEasing: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number, easing: EasingType) => void;
+  moveKeyframes: (trackId: string, clipId: string, fromTime: number, toTime: number) => void;
+  deleteKeyframesAtTime: (trackId: string, clipId: string, time: number) => void;
 }
 
 export interface HistorySlice {

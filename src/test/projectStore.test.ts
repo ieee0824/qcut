@@ -86,7 +86,7 @@ describe('projectStore', () => {
     const call = vi.mocked(invoke).mock.calls[0];
     const args = call[1] as { content: string };
     const parsed = JSON.parse(args.content);
-    expect(parsed.schemaVersion).toBe(1);
+    expect(parsed.schemaVersion).toBe(2);
     expect(parsed.appVersion).toBe('0.1.0');
     expect(parsed.metadata.name).toBe('無題のプロジェクト');
     expect(parsed.timeline).toBeDefined();
@@ -166,7 +166,7 @@ describe('projectStore', () => {
   // --- loadProject ---
 
   const validProjectJson: ProjectFile = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     appVersion: '0.1.0',
     createdAt: '2026-03-08T12:00:00.000Z',
     updatedAt: '2026-03-08T12:00:00.000Z',
