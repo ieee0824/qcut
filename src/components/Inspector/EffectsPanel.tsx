@@ -4,6 +4,7 @@ import { useTimelineStore, DEFAULT_EFFECTS, DEFAULT_TIMECODE_OVERLAY } from '../
 import type { ClipEffects, TimecodeOverlay } from '../../store/timelineStore';
 import { ColorWheelPanel } from './ColorWheelPanel';
 import { ColorPresetPanel } from './ColorPresetPanel';
+import { EffectPresetPanel } from './EffectPresetPanel';
 import { PropertySlider } from './PropertySlider';
 import { TimecodePanel } from './TimecodePanel';
 import { ScopesPanel } from '../Scopes/ScopesPanel';
@@ -212,6 +213,18 @@ export const EffectsPanel: React.FC = () => {
         </p>
       ) : (
         <>
+          <CollapsibleSection id="effectPreset" title={t('effectPreset.title')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <EffectPresetPanel
+              effects={effects}
+              onApply={(updates) => {
+                if (!selectedTrackId || !selectedClipId) return;
+                updateClip(selectedTrackId, selectedClipId, {
+                  effects: { ...effects, ...updates },
+                });
+              }}
+            />
+          </CollapsibleSection>
+
           <CollapsibleSection id="colorPreset" title={t('colorPreset.title')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
             <ColorPresetPanel
               effects={effects}
