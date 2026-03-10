@@ -21,6 +21,10 @@ pub struct WaveformData {
 const PEAKS_PER_SECOND: u32 = 1000;
 const SAMPLES_PER_PEAK: u32 = 256;
 
+fn lock_mutex<T>(mutex: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>, String> {
+    mutex.lock().map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn get_waveform(
     file_path: String,
@@ -28,7 +32,7 @@ pub async fn get_waveform(
 ) -> Result<WaveformData, String> {
     // キャッシュ確認
     {
-        let c = cache.cache.lock().map_err(|e| e.to_string())?;
+        let c = lock_mutex(&cache.cache)?;
         if let Some(peaks) = c.get(&file_path) {
             let duration = peaks.len() as f64 / PEAKS_PER_SECOND as f64;
             return Ok(WaveformData {
@@ -41,13 +45,13 @@ pub async fn get_waveform(
 
     // 同一ファイルの並行処理を防止（生成中なら完了を待つ）
     {
-        let in_progress: std::sync::MutexGuard<'_, HashMap<String, Arc<Notify>>> = cache.in_progress.lock().map_err(|e| e.to_string())?;
+        let in_progress = lock_mutex(&cache.in_progress)?;
         if let Some(notify) = in_progress.get(&file_path) {
             let notify: Arc<Notify> = Arc::clone(notify);
             drop(in_progress);
             notify.notified().await;
             // 完了後はキャッシュに入っているはず
-            let c = cache.cache.lock().map_err(|e| e.to_string())?;
+            let c = lock_mutex(&cache.cache)?;
             if let Some(peaks) = c.get(&file_path) {
                 let duration = peaks.len() as f64 / PEAKS_PER_SECOND as f64;
                 return Ok(WaveformData {
@@ -63,7 +67,7 @@ pub async fn get_waveform(
     // 処理中フラグを設定
     let notify: Arc<Notify> = Arc::new(Notify::new());
     {
-        let mut in_progress: std::sync::MutexGuard<'_, HashMap<String, Arc<Notify>>> = cache.in_progress.lock().map_err(|e| e.to_string())?;
+        let mut in_progress = lock_mutex(&cache.in_progress)?;
         in_progress.insert(file_path.clone(), Arc::clone(&notify));
     }
 
@@ -76,7 +80,7 @@ pub async fn get_waveform(
 
     // 処理中フラグを解除し、待機中のリクエストに通知
     {
-        let mut in_progress: std::sync::MutexGuard<'_, HashMap<String, Arc<Notify>>> = cache.in_progress.lock().map_err(|e| e.to_string())?;
+        let mut in_progress = lock_mutex(&cache.in_progress)?;
         in_progress.remove(&file_path);
     }
     notify.notify_waiters();
@@ -85,7 +89,7 @@ pub async fn get_waveform(
 
     // キャッシュに保存
     {
-        let mut c = cache.cache.lock().map_err(|e| e.to_string())?;
+        let mut c = lock_mutex(&cache.cache)?;
         c.insert(file_path.clone(), peaks.clone());
     }
 
