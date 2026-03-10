@@ -203,7 +203,7 @@ pub struct ExportState {
 
 #[tauri::command]
 pub fn check_ffmpeg() -> Result<String, String> {
-    let output = Command::new("ffmpeg")
+    let output = Command::new(super::ffmpeg_path::ffmpeg_path())
         .arg("-version")
         .output()
         .map_err(|_| {
@@ -263,7 +263,7 @@ pub async fn export_video(
     log::info!("FFmpeg command: ffmpeg {}", args.join(" "));
 
     // FFmpegをサブプロセスとして起動
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(super::ffmpeg_path::ffmpeg_path())
         .args(&args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
