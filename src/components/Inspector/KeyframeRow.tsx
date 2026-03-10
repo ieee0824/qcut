@@ -207,6 +207,8 @@ export const KeyframeRow: React.FC<KeyframeRowProps> = ({
                 </select>
                 <button
                   onClick={() => onRemoveKeyframe(kf.time)}
+                  aria-label={t('keyframe.removeKeyframe')}
+                  title={t('keyframe.removeKeyframe')}
                   style={{
                     background: 'none',
                     border: 'none',

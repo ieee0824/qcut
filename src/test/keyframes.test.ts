@@ -98,10 +98,10 @@ describe('interpolateKeyframes', () => {
     expect(interpolateKeyframes(kfs, 3.0)).toBeCloseTo(0.5);
   });
 
-  it('should handle unsorted keyframes', () => {
+  it('should interpolate correctly with already-sorted keyframes', () => {
     const kfs: Keyframe[] = [
-      { time: 4.0, value: 1.0, easing: 'linear' },
       { time: 0.0, value: 0.0, easing: 'linear' },
+      { time: 4.0, value: 1.0, easing: 'linear' },
     ];
     expect(interpolateKeyframes(kfs, 2.0)).toBeCloseTo(0.5);
   });

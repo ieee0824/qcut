@@ -276,6 +276,7 @@
     "easeOut": "Ease Out",
     "easeInOut": "Ease In/Out",
     "editTime": "Edit time",
-    "editValue": "Edit value"
+    "editValue": "Edit value",
+    "removeKeyframe": "Remove keyframe"
   }
 }

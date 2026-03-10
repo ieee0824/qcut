@@ -14,22 +14,22 @@ function applyEasing(t: number, easing: EasingType): number {
  * キーフレーム列から指定時刻の値を補間して返す。
  * キーフレームが 0 個の場合は null を返す。
  * キーフレームが 1 個の場合はその値を返す（補間なし）。
+ * ※ ストアは挿入時にソート済みを保証するため、引数は time 昇順であること。
  */
 export function interpolateKeyframes(keyframes: Keyframe[], time: number): number | null {
   if (keyframes.length === 0) return null;
   if (keyframes.length === 1) return keyframes[0].value;
 
-  const sorted = [...keyframes].sort((a, b) => a.time - b.time);
+  // ストアは挿入時にソート済みのため、ここでのソートは不要
+  if (time <= keyframes[0].time) return keyframes[0].value;
+  if (time >= keyframes[keyframes.length - 1].time) return keyframes[keyframes.length - 1].value;
 
-  if (time <= sorted[0].time) return sorted[0].value;
-  if (time >= sorted[sorted.length - 1].time) return sorted[sorted.length - 1].value;
-
-  let prev = sorted[0];
-  let next = sorted[1];
-  for (let i = 0; i < sorted.length - 1; i++) {
-    if (sorted[i].time <= time && sorted[i + 1].time > time) {
-      prev = sorted[i];
-      next = sorted[i + 1];
+  let prev = keyframes[0];
+  let next = keyframes[1];
+  for (let i = 0; i < keyframes.length - 1; i++) {
+    if (keyframes[i].time <= time && keyframes[i + 1].time > time) {
+      prev = keyframes[i];
+      next = keyframes[i + 1];
       break;
     }
   }

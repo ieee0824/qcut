@@ -193,7 +193,8 @@ export const createClipSlice = (set: Set) => ({
               const updated = existing.filter(kf => Math.abs(kf.time - time) > 0.001);
               const newKeyframes = { ...clip.keyframes, [effectKey]: updated };
               if (updated.length === 0) delete newKeyframes[effectKey];
-              return { ...clip, keyframes: newKeyframes };
+              const hasKeys = Object.keys(newKeyframes).length > 0;
+              return { ...clip, keyframes: hasKeys ? newKeyframes : undefined };
             }),
           }
         : track
@@ -202,6 +203,7 @@ export const createClipSlice = (set: Set) => ({
   }),
 
   updateKeyframeEasing: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number, easing: EasingType) => set((state) => {
+    logAction('updateKeyframeEasing', `track=${trackId} clip=${clipId} key=${effectKey} time=${time.toFixed(2)} easing=${easing}`);
     const newTracks = state.tracks.map(track =>
       track.id === trackId
         ? {

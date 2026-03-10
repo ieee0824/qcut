@@ -35,11 +35,14 @@ export const useCanvasRenderer = ({
   // キーフレームがある場合は常に canvas を使用（保守的）
   const needsCanvas = needsCanvasPipeline(baseEffects) || (currentClip ? hasActiveKeyframes(currentClip) : false);
 
-  // renderCanvasFrame 内で最新の currentClip を参照するための ref
+  // renderCanvasFrame 内で最新の currentClip / needsCanvas を参照するための ref
   const currentClipRef = useRef(currentClip);
   currentClipRef.current = currentClip;
+  const needsCanvasRef = useRef(needsCanvas);
+  needsCanvasRef.current = needsCanvas;
 
   const renderCanvasFrame = useCallback(() => {
+    if (!needsCanvasRef.current) return;
     if (!videoRef.current || !canvasRef.current) return;
 
     const clip = currentClipRef.current;
