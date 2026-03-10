@@ -1,6 +1,7 @@
 import { useTimelineStore } from '@/store/timelineStore';
 import type { Clip } from '@/store/timelineStore';
 import { logAction } from '@/store/actionLogger';
+import { usePluginStore } from '@/store/pluginStore';
 import type { PluginManifest, PluginPermission } from './types/manifest';
 import type {
   PluginContext,
@@ -151,10 +152,12 @@ export class PluginContextImpl implements PluginContext {
       registerPanel: (config: PanelConfig): Disposable => {
         this.requirePermission('ui:panel');
         this.registeredPanels.push(config);
+        usePluginStore.getState().addPanel({ ...config, pluginId: this.pluginId });
         const disposable = {
           dispose: () => {
             const idx = this.registeredPanels.indexOf(config);
             if (idx >= 0) this.registeredPanels.splice(idx, 1);
+            usePluginStore.getState().removePanel(this.pluginId, config.id);
           },
         };
         this.disposables.push(disposable);
@@ -164,10 +167,12 @@ export class PluginContextImpl implements PluginContext {
       registerToolbarButton: (config: ToolbarButtonConfig): Disposable => {
         this.requirePermission('ui:toolbar');
         this.registeredToolbarButtons.push(config);
+        usePluginStore.getState().addToolbarButton({ ...config, pluginId: this.pluginId });
         const disposable = {
           dispose: () => {
             const idx = this.registeredToolbarButtons.indexOf(config);
             if (idx >= 0) this.registeredToolbarButtons.splice(idx, 1);
+            usePluginStore.getState().removeToolbarButton(this.pluginId, config.id);
           },
         };
         this.disposables.push(disposable);
@@ -175,18 +180,26 @@ export class PluginContextImpl implements PluginContext {
       },
 
       showNotification: (message: string, type: 'info' | 'warning' | 'error') => {
-        // 将来的には UI に通知コンポーネントを追加
-        const prefix = `[Plugin:${this.pluginId}]`;
-        switch (type) {
-          case 'error':
-            console.error(prefix, message);
-            break;
-          case 'warning':
-            console.warn(prefix, message);
-            break;
-          default:
-            console.info(prefix, message);
-        }
+        const store = usePluginStore.getState();
+        const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        store.addNotification({
+          id,
+          pluginId: this.pluginId,
+          message,
+          type,
+          timestamp: Date.now(),
+        });
+        // 5秒後に自動削除。プラグインのライフサイクルに紐づけるため Disposable として登録
+        const timeoutId = setTimeout(() => {
+          usePluginStore.getState().removeNotification(id);
+        }, 5000);
+        const disposable: Disposable = {
+          dispose: () => {
+            clearTimeout(timeoutId);
+            usePluginStore.getState().removeNotification(id);
+          },
+        };
+        this.disposables.push(disposable);
       },
     };
   }

@@ -19,6 +19,9 @@ import { useExportStore } from './store/exportStore';
 import { useShortcutStore } from './store/shortcutStore';
 import { useProjectStore } from './store/projectStore';
 import { PluginManager } from './plugin-system';
+import { PluginSidebarPanels } from './components/Plugin/PluginPanels';
+import { PluginToolbarButtons } from './components/Plugin/PluginToolbarButtons';
+import { PluginNotifications } from './components/Plugin/PluginNotifications';
 import { parseSRT, parseASS, subtitlesToTrack, trackToSubtitles, exportSRT, exportASS } from './utils/subtitles';
 
 function App() {
@@ -224,6 +227,7 @@ function App() {
           <button onClick={togglePlay} className="play-btn">
             {isPlaying ? t('button.pause') : t('button.play')}
           </button>
+          <PluginToolbarButtons />
           <button onClick={() => setHelpVisible(true)} className="play-btn" title={t('shortcut.title')}>
             ?
           </button>
@@ -234,6 +238,7 @@ function App() {
           <VideoPreview />
           <EffectsPanel />
           <TextPanel />
+          <PluginSidebarPanels />
         </div>
         <div className="timeline-container">
           <Timeline />
@@ -241,6 +246,7 @@ function App() {
       </main>
       <ExportDialog />
       <ShortcutHelp />
+      <PluginNotifications />
     </div>
   );
 }
