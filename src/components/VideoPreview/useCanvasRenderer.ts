@@ -4,11 +4,13 @@ import { DEFAULT_EFFECTS } from '../../store/timelineStore';
 import type { WebGLPipeline } from './canvasEffects';
 import { needsCanvasPipeline, initWebGLPipeline, renderFrame, destroyPipeline } from './canvasEffects';
 import type { Clip as ClipType } from '../../store/timelineStore';
+import { getEffectsAtTime, hasActiveKeyframes } from '../../utils/keyframes';
 
 interface UseCanvasRendererParams {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   currentClip: ClipType | null;
+  currentTimeRef: React.MutableRefObject<number>;
 }
 
 interface UseCanvasRendererReturn {
@@ -21,18 +23,38 @@ export const useCanvasRenderer = ({
   videoRef,
   canvasRef,
   currentClip,
+  currentTimeRef,
 }: UseCanvasRendererParams): UseCanvasRendererReturn => {
   const pipelineRef = useRef<ReturnType<typeof initWebGLPipeline>>(null);
 
-  const effects: ClipEffects = useMemo(
+  // ベースエフェクト（キーフレームなし時）で WebGL の必要性を判定
+  const baseEffects: ClipEffects = useMemo(
     () => ({ ...DEFAULT_EFFECTS, ...currentClip?.effects }),
     [currentClip?.effects],
   );
-  const needsCanvas = needsCanvasPipeline(effects);
+  // キーフレームがある場合は常に canvas を使用（保守的）
+  const needsCanvas = needsCanvasPipeline(baseEffects) || (currentClip ? hasActiveKeyframes(currentClip) : false);
+
+  // renderCanvasFrame 内で最新の currentClip を参照するための ref
+  const currentClipRef = useRef(currentClip);
+  currentClipRef.current = currentClip;
 
   const renderCanvasFrame = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return;
-    if (!needsCanvas) return;
+
+    const clip = currentClipRef.current;
+    if (!clip) return;
+
+    // キーフレームがある場合は現在時刻で補間、なければベースエフェクトを使用
+    let effects: ClipEffects;
+    if (hasActiveKeyframes(clip)) {
+      const clipLocalTime = currentTimeRef.current - clip.startTime;
+      effects = getEffectsAtTime(clip, clipLocalTime);
+    } else {
+      effects = { ...DEFAULT_EFFECTS, ...clip.effects };
+    }
+
+    if (!needsCanvasPipeline(effects)) return;
 
     // Lazy init pipeline
     if (!pipelineRef.current) {
@@ -41,7 +63,7 @@ export const useCanvasRenderer = ({
     if (!pipelineRef.current) return;
 
     renderFrame(pipelineRef.current, videoRef.current, effects);
-  }, [videoRef, canvasRef, needsCanvas, effects]);
+  }, [videoRef, canvasRef, currentTimeRef]);
 
   // Re-render when effects change while paused
   useEffect(() => {

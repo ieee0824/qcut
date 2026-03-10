@@ -82,6 +82,20 @@ export const DEFAULT_EFFECTS: ClipEffects = {
   monochrome: 0,
 };
 
+// --- Keyframe types ---
+
+export type EasingType = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
+
+export interface Keyframe {
+  time: number;       // クリップ先頭からの秒数 (0 〜 clip.duration)
+  value: number;
+  easing: EasingType; // このキーフレームから次への補間方式
+}
+
+export type ClipKeyframes = Partial<Record<keyof ClipEffects, Keyframe[]>>;
+
+// --- Text types ---
+
 export type TextAnimation = 'none' | 'fadeIn' | 'fadeOut' | 'fadeInOut' | 'slideUp' | 'slideDown';
 
 export interface TextProperties {
@@ -166,6 +180,9 @@ export interface Clip {
   // エフェクト
   effects?: ClipEffects;
 
+  // キーフレームアニメーション
+  keyframes?: ClipKeyframes;
+
   // テキストオーバーレイ
   textProperties?: TextProperties;
 
@@ -222,6 +239,9 @@ export interface ClipSlice {
   setTransition: (trackId: string, clipId: string, transition: ClipTransition) => void;
   removeTransition: (trackId: string, clipId: string) => void;
   moveClipToTrack: (fromTrackId: string, clipId: string, toTrackId: string) => void;
+  addKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, keyframe: Keyframe) => void;
+  removeKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number) => void;
+  updateKeyframeEasing: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number, easing: EasingType) => void;
 }
 
 export interface HistorySlice {

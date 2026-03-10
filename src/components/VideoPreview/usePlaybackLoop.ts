@@ -5,6 +5,7 @@ import { useTimelineStore, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import type { Clip as ClipType, TransitionType } from '../../store/timelineStore';
 import type { TransitionInfo } from './useTransitionEffect';
 import { audioEngine } from '../../audio/AudioEngine';
+import { getEffectsAtTime, hasActiveKeyframes } from '../../utils/keyframes';
 
 const VIDEO_AUDIO_ID = '__video_main__';
 
@@ -316,7 +317,9 @@ export const usePlaybackLoop = ({
             combinedVolume = Math.max(0, Math.min(1, uiVolume * trackVol * clipVolume * audioFade));
           }
 
-          const effects = { ...DEFAULT_EFFECTS, ...clip.effects };
+          const effects = hasActiveKeyframes(clip)
+            ? getEffectsAtTime(clip, currentTimeRef.current - clip.startTime)
+            : { ...DEFAULT_EFFECTS, ...clip.effects };
           audioEngine.updateEffects(VIDEO_AUDIO_ID, effects, combinedVolume);
         }
 

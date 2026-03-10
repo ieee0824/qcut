@@ -137,6 +137,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     videoRef,
     canvasRef,
     currentClip,
+    currentTimeRef,
   });
 
   const { captureFrame } = useFrameCapture({

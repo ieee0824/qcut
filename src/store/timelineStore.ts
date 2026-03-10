@@ -4,6 +4,9 @@ export { useTimelineStore } from './timeline';
 
 export type {
   ClipEffects,
+  EasingType,
+  Keyframe,
+  ClipKeyframes,
   TextAnimation,
   TextProperties,
   TimecodeFormat,

@@ -17,6 +17,9 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 // Re-export all types and constants
 export type {
   ClipEffects,
+  EasingType,
+  Keyframe,
+  ClipKeyframes,
   TextAnimation,
   TextProperties,
   TimecodeFormat,
