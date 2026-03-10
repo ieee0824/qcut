@@ -33,3 +33,6 @@ coverage/
 *.msi
 *.deb
 *.AppImage
+
+# Security audit
+SECURITY_AUDIT.md
