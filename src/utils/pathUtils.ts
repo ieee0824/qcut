@@ -54,13 +54,22 @@ export function toRelativePath(filePath: string, baseDir: string): string {
   const fileSegments = normalizeToSegments(filePath);
   const baseSegments = normalizeToSegments(baseDir);
 
+  // Windows パスの場合はセグメント比較を case-insensitive にする
+  const isWindowsPath =
+    /^[A-Za-z]:[/\\]/.test(filePath) || /^[A-Za-z]:[/\\]/.test(baseDir);
+
   // 共通プレフィックスの長さを求める
   let commonLength = 0;
   while (
     commonLength < fileSegments.length &&
-    commonLength < baseSegments.length &&
-    fileSegments[commonLength] === baseSegments[commonLength]
+    commonLength < baseSegments.length
   ) {
+    const fileSeg = fileSegments[commonLength];
+    const baseSeg = baseSegments[commonLength];
+    const isEqual = isWindowsPath
+      ? fileSeg.toLowerCase() === baseSeg.toLowerCase()
+      : fileSeg === baseSeg;
+    if (!isEqual) break;
     commonLength++;
   }
 
@@ -93,10 +102,15 @@ export function resolveRelativePath(filePath: string, baseDir: string): string {
   const baseSegments = normalizeToSegments(baseDir);
   const relSegments = filePath.replace(/\\/g, '/').split('/');
 
+  // Windows の場合、ドライブセグメント (e.g., "C:") の最小長を保持
+  const minSegments = isWindows ? 1 : 0;
+
   const resultSegments = [...baseSegments];
   for (const segment of relSegments) {
     if (segment === '..') {
-      resultSegments.pop();
+      if (resultSegments.length > minSegments) {
+        resultSegments.pop();
+      }
     } else if (segment !== '.' && segment !== '') {
       resultSegments.push(segment);
     }

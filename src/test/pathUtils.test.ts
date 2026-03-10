@@ -44,7 +44,7 @@ describe('pathUtils', () => {
   });
 
   describe('toRelativePath', () => {
-    it('同じディレクトリの素材は ./filename になる', () => {
+    it('同じディレクトリの素材は filename になる', () => {
       expect(toRelativePath('/Users/test/video.mp4', '/Users/test')).toBe('video.mp4');
     });
 
@@ -68,6 +68,11 @@ describe('pathUtils', () => {
       expect(toRelativePath('C:\\Users\\test\\video.mp4', 'C:\\Users\\test')).toBe('video.mp4');
       expect(toRelativePath('C:\\Users\\test\\assets\\video.mp4', 'C:\\Users\\test')).toBe('assets/video.mp4');
       expect(toRelativePath('C:\\Users\\test\\video.mp4', 'C:\\Users\\test\\projects')).toBe('../video.mp4');
+    });
+
+    it('Windows パスの大文字小文字の違いを同一として扱う', () => {
+      expect(toRelativePath('C:\\Users\\Test\\video.mp4', 'C:\\Users\\test')).toBe('video.mp4');
+      expect(toRelativePath('C:\\users\\test\\assets\\video.mp4', 'C:\\Users\\Test')).toBe('assets/video.mp4');
     });
 
     it('異なるドライブレターの場合は絶対パスのまま返す', () => {
@@ -105,6 +110,15 @@ describe('pathUtils', () => {
       expect(resolveRelativePath('video.mp4', 'C:\\Users\\test')).toBe('C:\\Users\\test\\video.mp4');
       expect(resolveRelativePath('assets/video.mp4', 'C:\\Users\\test')).toBe('C:\\Users\\test\\assets\\video.mp4');
       expect(resolveRelativePath('../video.mp4', 'C:\\Users\\test\\projects')).toBe('C:\\Users\\test\\video.mp4');
+    });
+
+    it('Windows ルートより上に遡らない（ドライブレター保持）', () => {
+      expect(resolveRelativePath('../../video.mp4', 'C:\\Users')).toBe('C:\\video.mp4');
+      expect(resolveRelativePath('../../../video.mp4', 'C:\\Users')).toBe('C:\\video.mp4');
+    });
+
+    it('Unix ルートより上に遡らない', () => {
+      expect(resolveRelativePath('../../video.mp4', '/Users')).toBe('/video.mp4');
     });
 
     it('空の filePath はそのまま返す', () => {
