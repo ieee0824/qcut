@@ -70,12 +70,11 @@ export const useCanvasRenderer = ({
     renderFrame(pipelineRef.current, videoRef.current, effects);
   }, [videoRef, canvasRef, currentTimeRef]);
 
-  // Re-render when effects change while paused
+  // Re-render when effects change while paused (clip の変更にも追従)
   useEffect(() => {
-    if (needsCanvas) {
-      renderCanvasFrame();
-    }
-  }, [needsCanvas, renderCanvasFrame]);
+    if (!needsCanvas || !currentClip) return;
+    renderCanvasFrame();
+  }, [needsCanvas, renderCanvasFrame, currentClip]);
 
   // Video ready / seek完了時に canvas を再描画
   // WebKit では loadeddata 時点で useVideoSwitching の seek が未完了の場合があり、
