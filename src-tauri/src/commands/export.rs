@@ -78,6 +78,12 @@ pub struct ClipEffects {
     pub echo_decay: f64,
     #[serde(default)]
     pub reverb_amount: f64,
+    #[serde(default)]
+    pub blur_amount: f64,
+    #[serde(default)]
+    pub sharpen_amount: f64,
+    #[serde(default)]
+    pub monochrome: f64,
 }
 
 fn default_echo_decay() -> f64 {

@@ -58,6 +58,27 @@ describe('needsCanvasPipeline', () => {
       hslBlueSat: 0.8,
     })).toBe(true);
   });
+
+  it('should return true when blurAmount is non-zero', () => {
+    expect(needsCanvasPipeline({ ...DEFAULT_EFFECTS, blurAmount: 5 })).toBe(true);
+  });
+
+  it('should return true when sharpenAmount is non-zero', () => {
+    expect(needsCanvasPipeline({ ...DEFAULT_EFFECTS, sharpenAmount: 1.5 })).toBe(true);
+  });
+
+  it('should return true when monochrome is non-zero', () => {
+    expect(needsCanvasPipeline({ ...DEFAULT_EFFECTS, monochrome: 1 })).toBe(true);
+  });
+
+  it('should return false when filter values are within epsilon', () => {
+    expect(needsCanvasPipeline({
+      ...DEFAULT_EFFECTS,
+      blurAmount: 0.0005,
+      sharpenAmount: 0.0001,
+      monochrome: 0.0005,
+    })).toBe(false);
+  });
 });
 
 describe('initWebGLPipeline', () => {

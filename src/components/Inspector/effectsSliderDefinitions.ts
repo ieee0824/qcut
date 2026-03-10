@@ -54,3 +54,9 @@ export const FADE_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
   { key: 'fadeIn', label: 'effects.fadeIn', min: 0, max: 3, step: 0.1 },
   { key: 'fadeOut', label: 'effects.fadeOut', min: 0, max: 3, step: 0.1 },
 ];
+
+export const FILTER_SLIDERS: SliderDefinition<keyof ClipEffects>[] = [
+  { key: 'blurAmount', label: 'effects.blurAmount', min: 0, max: 20, step: 0.5 },
+  { key: 'sharpenAmount', label: 'effects.sharpenAmount', min: 0, max: 5, step: 0.1 },
+  { key: 'monochrome', label: 'effects.monochrome', min: 0, max: 1, step: 0.01 },
+];

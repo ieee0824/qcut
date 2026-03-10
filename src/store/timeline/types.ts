@@ -35,6 +35,9 @@ export interface ClipEffects {
   echoDelay: number;      // 0〜1000 ms, default 0 (0=オフ)
   echoDecay: number;      // 0〜0.9, default 0.3
   reverbAmount: number;   // 0〜1, default 0 (0=オフ)
+  blurAmount: number;     // 0〜20, default 0 (0=オフ)
+  sharpenAmount: number;  // 0〜5, default 0 (0=オフ)
+  monochrome: number;     // 0〜1, default 0 (0=オフ, 1=完全モノクロ)
 }
 
 export const DEFAULT_EFFECTS: ClipEffects = {
@@ -74,6 +77,9 @@ export const DEFAULT_EFFECTS: ClipEffects = {
   echoDelay: 0,
   echoDecay: 0.3,
   reverbAmount: 0,
+  blurAmount: 0,
+  sharpenAmount: 0,
+  monochrome: 0,
 };
 
 export type TextAnimation = 'none' | 'fadeIn' | 'fadeOut' | 'fadeInOut' | 'slideUp' | 'slideDown';
