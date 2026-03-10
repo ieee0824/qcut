@@ -41,9 +41,9 @@ pub async fn get_waveform(
 
     // 同一ファイルの並行処理を防止（生成中なら完了を待つ）
     {
-        let in_progress = cache.in_progress.lock().map_err(|e| e.to_string())?;
+        let in_progress: std::sync::MutexGuard<'_, HashMap<String, Arc<Notify>>> = cache.in_progress.lock().map_err(|e| e.to_string())?;
         if let Some(notify) = in_progress.get(&file_path) {
-            let notify = Arc::clone(notify);
+            let notify: Arc<Notify> = Arc::clone(notify);
             drop(in_progress);
             notify.notified().await;
             // 完了後はキャッシュに入っているはず
@@ -61,9 +61,9 @@ pub async fn get_waveform(
     }
 
     // 処理中フラグを設定
-    let notify = Arc::new(Notify::new());
+    let notify: Arc<Notify> = Arc::new(Notify::new());
     {
-        let mut in_progress = cache.in_progress.lock().map_err(|e| e.to_string())?;
+        let mut in_progress: std::sync::MutexGuard<'_, HashMap<String, Arc<Notify>>> = cache.in_progress.lock().map_err(|e| e.to_string())?;
         in_progress.insert(file_path.clone(), Arc::clone(&notify));
     }
 
@@ -76,7 +76,7 @@ pub async fn get_waveform(
 
     // 処理中フラグを解除し、待機中のリクエストに通知
     {
-        let mut in_progress = cache.in_progress.lock().map_err(|e| e.to_string())?;
+        let mut in_progress: std::sync::MutexGuard<'_, HashMap<String, Arc<Notify>>> = cache.in_progress.lock().map_err(|e| e.to_string())?;
         in_progress.remove(&file_path);
     }
     notify.notify_waiters();
