@@ -13,27 +13,38 @@ pub fn run() {
     })
     .manage(commands::waveform::WaveformCache {
       cache: std::sync::Mutex::new(HashMap::new()),
+      in_progress: std::sync::Mutex::new(HashMap::new()),
     })
     .plugin(tauri_plugin_dialog::init())
     .setup(|app| {
       let app_version = app.config().version.clone().unwrap_or_else(|| "unknown".to_string());
 
+      let log_level = if cfg!(debug_assertions) {
+        log::LevelFilter::Info
+      } else {
+        log::LevelFilter::Warn
+      };
+
+      let mut log_builder = tauri_plugin_log::Builder::default()
+        .level(log_level);
+
+      let app_data_dir = app.path().app_data_dir().expect("failed to get app_data_dir");
+      if let Err(e) = std::fs::create_dir_all(&app_data_dir) {
+        eprintln!("Failed to create app_data_dir {:?}: {}", app_data_dir, e);
+      }
+      let db_path = app_data_dir.join("logs.db");
+
+      if let Ok(sqlite_logger) = sqlite_logger::SqliteLogger::new(&db_path) {
+        log_builder = log_builder.target(tauri_plugin_log::Target::new(
+          tauri_plugin_log::TargetKind::Dispatch(sqlite_logger.to_fern_dispatch(app_version)),
+        ));
+      }
+
+      app.handle().plugin(log_builder.build())?;
       if cfg!(debug_assertions) {
-        let mut log_builder = tauri_plugin_log::Builder::default()
-          .level(log::LevelFilter::Info);
-
-        let app_data_dir = app.path().app_data_dir().expect("failed to get app_data_dir");
-        std::fs::create_dir_all(&app_data_dir).ok();
-        let db_path = app_data_dir.join("logs.db");
-
-        if let Ok(sqlite_logger) = sqlite_logger::SqliteLogger::new(&db_path) {
-          log_builder = log_builder.target(tauri_plugin_log::Target::new(
-            tauri_plugin_log::TargetKind::Dispatch(sqlite_logger.to_fern_dispatch(app_version)),
-          ));
-        }
-
-        app.handle().plugin(log_builder.build())?;
         log::info!("qcut started (debug build)");
+      } else {
+        log::warn!("qcut started (release build)");
       }
       Ok(())
     })
@@ -53,6 +64,7 @@ pub fn run() {
       commands::plugins::read_plugin_file,
       commands::plugins::read_plugin_settings,
       commands::plugins::write_plugin_settings,
+      commands::plugins::verify_plugin_integrity,
       commands::export::check_ffmpeg,
       commands::export::export_video,
       commands::export::cancel_export,

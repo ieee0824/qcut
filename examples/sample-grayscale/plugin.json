@@ -14,5 +14,8 @@
     "ui:panel"
   ],
   "minAppVersion": "0.1.0",
-  "category": "effect"
+  "category": "effect",
+  "checksums": {
+    "index.js": "d9e4be7858c8b8687cde57b4ac996b76c88487e3090c5486813985e937cb3567"
+  }
 }
