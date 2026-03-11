@@ -11,6 +11,7 @@ const VALID_PERMISSIONS: PluginPermission[] = [
   'settings:read', 'settings:write',
   'ui:panel', 'ui:toolbar',
   'frame:process',
+  'export:write',
 ];
 
 const VALID_TYPES: PluginType[] = ['typescript', 'wasm', 'hybrid'];
