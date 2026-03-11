@@ -221,6 +221,16 @@ describe('applySnap', () => {
     expect(result.startTime).toBe(0);
   });
 
+  it('末尾スナップで target-duration < 0 となる場合はスナップしない', () => {
+    // startTime=0, duration=0.6 → end=0.6
+    // target=0.5 → target - duration = -0.1 < 0
+    // 末尾距離 |0.6 - 0.5| = 0.1 < threshold=0.2 だがスナップしない
+    const result = applySnap(0, 0.6, [0.5], threshold);
+    expect(result.snapped).toBe(false);
+    expect(result.startTime).toBe(0);
+    expect(result.snapLine).toBeNull();
+  });
+
   it('複数ターゲットの中で最も近いものにスナップする', () => {
     const targets = [3.0, 5.0, 8.0];
     // startTime=4.85, 先頭が5.0に近い(差0.15)

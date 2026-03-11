@@ -17,6 +17,7 @@ export function useDragClip({ clipId, trackId, startTime, duration, pixelsPerSec
   const dragStartX = useRef(0);
   const dragStartTime = useRef(0);
   const committedRef = useRef(false);
+  const snapTargetsRef = useRef<number[]>([]);
 
   const {
     updateClipSilent,
@@ -30,6 +31,10 @@ export function useDragClip({ clipId, trackId, startTime, duration, pixelsPerSec
     setIsDragging(true);
     dragStartX.current = clientX;
     dragStartTime.current = startTime;
+    // ドラッグ開始時にスナップターゲットを一度だけ構築
+    const state = useTimelineStore.getState();
+    const allClips = state.tracks.flatMap(t => t.clips);
+    snapTargetsRef.current = collectSnapTargets(allClips, clipId, state.currentTime);
   };
 
   useEffect(() => {
@@ -44,12 +49,10 @@ export function useDragClip({ clipId, trackId, startTime, duration, pixelsPerSec
       let newStartTime = calculateDragNewStartTime(dragStartTime.current, deltaX, pixelsPerSecond);
 
       // スナップ適用
-      const state = useTimelineStore.getState();
-      if (state.snapEnabled) {
-        const allClips = state.tracks.flatMap(t => t.clips);
-        const targets = collectSnapTargets(allClips, clipId, state.currentTime);
+      const { snapEnabled } = useTimelineStore.getState();
+      if (snapEnabled) {
         const threshold = SNAP_THRESHOLD_PX / pixelsPerSecond;
-        const snap = applySnap(newStartTime, duration, targets, threshold);
+        const snap = applySnap(newStartTime, duration, snapTargetsRef.current, threshold);
         newStartTime = snap.startTime;
         setSnapLineTime(snap.snapLine);
       } else {

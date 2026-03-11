@@ -100,16 +100,20 @@ export function applySnap(
     // クリップ末尾がターゲットに近い
     const tailDist = Math.abs(endTime - target);
     if (tailDist < bestDist && tailDist <= threshold) {
-      bestDist = tailDist;
-      bestStartTime = target - duration;
-      bestSnapLine = target;
+      const candidateStartTime = target - duration;
+      // target < duration の場合クランプが必要になり、ガイドラインとクリップ端がずれるため除外
+      if (candidateStartTime >= 0) {
+        bestDist = tailDist;
+        bestStartTime = candidateStartTime;
+        bestSnapLine = target;
+      }
     }
   }
 
   const snapped = bestSnapLine !== null;
   return {
     snapped,
-    startTime: snapped ? Math.max(0, bestStartTime) : startTime,
+    startTime: snapped ? bestStartTime : startTime,
     snapLine: bestSnapLine,
   };
 }
