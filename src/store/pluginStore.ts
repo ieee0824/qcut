@@ -140,9 +140,18 @@ export const usePluginStore = create<PluginStoreState>((set) => ({
     })),
 
   addNotification: (notification) =>
-    set((state) => ({
-      notifications: [...state.notifications, notification],
-    })),
+    set((state) => {
+      // 同一プラグインの同一メッセージが 1 秒以内に届いた場合は重複とみなして無視する
+      // （React StrictMode による二重実行対策）
+      const isDuplicate = state.notifications.some(
+        (n) =>
+          n.pluginId === notification.pluginId &&
+          n.message === notification.message &&
+          notification.timestamp - n.timestamp < 1000,
+      );
+      if (isDuplicate) return state;
+      return { notifications: [...state.notifications, notification] };
+    }),
 
   removeNotification: (id) =>
     set((state) => ({
