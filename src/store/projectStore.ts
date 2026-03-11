@@ -132,6 +132,20 @@ function validateProjectFile(data: unknown): ProjectFile {
 }
 
 function applyProjectToStores(project: ProjectFile): void {
+  // 動画ファイルの URL を videoPreviewStore に先に登録
+  // （tracks 更新より先に登録しないと、最初のレンダーで currentVideoUrl=null になり
+  //  canvas が非表示のまま描画されない）
+  const videoPreview = useVideoPreviewStore.getState();
+  for (const track of project.timeline.tracks) {
+    if (track.type === 'text') continue;
+    for (const clip of track.clips) {
+      if (clip.filePath) {
+        const assetUrl = convertFileSrc(clip.filePath);
+        videoPreview.registerVideoUrl(clip.filePath, assetUrl);
+      }
+    }
+  }
+
   // タイムラインをリセットしてトラックを復元
   useTimelineStore.setState({
     tracks: project.timeline.tracks.map((track) => ({
@@ -145,18 +159,6 @@ function applyProjectToStores(project: ProjectFile): void {
     _history: [project.timeline.tracks],
     _historyIndex: 0,
   });
-
-  // 動画ファイルの URL を videoPreviewStore に登録
-  const videoPreview = useVideoPreviewStore.getState();
-  for (const track of project.timeline.tracks) {
-    if (track.type === 'text') continue;
-    for (const clip of track.clips) {
-      if (clip.filePath) {
-        const assetUrl = convertFileSrc(clip.filePath);
-        videoPreview.registerVideoUrl(clip.filePath, assetUrl);
-      }
-    }
-  }
 
   // エクスポート設定を復元
   if (project.exportSettings) {
