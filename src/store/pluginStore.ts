@@ -147,6 +147,7 @@ export const usePluginStore = create<PluginStoreState>((set) => ({
         (n) =>
           n.pluginId === notification.pluginId &&
           n.message === notification.message &&
+          n.type === notification.type &&
           notification.timestamp - n.timestamp < 1000,
       );
       if (isDuplicate) return state;

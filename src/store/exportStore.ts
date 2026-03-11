@@ -83,13 +83,17 @@ export const useExportStore = create<ExportState>((set) => ({
   })),
   setOutputPath: (path) => set({ outputPath: path }),
   // バックエンド取得フォーマットで上書きする際、既登録カスタムフォーマットを保持する
+  // key 単位でマージし、同一 key はカスタム側を優先する
   setFormatOptions: (options) => set((state) => {
     const customKeys = Object.keys(state.customFormatProfiles);
     const existingCustom = state.formatOptions.filter((o) => customKeys.includes(o.key));
-    return { formatOptions: [...options, ...existingCustom] };
+    const mergedByKey = new Map<string, FormatOption>();
+    options.forEach((option) => mergedByKey.set(option.key, option));
+    existingCustom.forEach((customOption) => mergedByKey.set(customOption.key, customOption));
+    return { formatOptions: Array.from(mergedByKey.values()) };
   }),
   registerCustomFormat: (profile) => set((state) => {
-    if (state.customFormatProfiles[profile.key]) return state;
+    if (state.customFormatProfiles[profile.key] || state.formatOptions.some((o) => o.key === profile.key)) return state;
     return {
       formatOptions: [
         ...state.formatOptions,

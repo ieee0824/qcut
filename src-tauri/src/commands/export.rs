@@ -195,7 +195,6 @@ pub struct ExportTrack {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
 pub struct CustomFormatProfile {
     pub video_codec: String,
     pub audio_codec: String,

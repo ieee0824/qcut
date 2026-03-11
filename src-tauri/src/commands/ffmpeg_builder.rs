@@ -115,8 +115,11 @@ pub(crate) fn validate_custom_format_profile(
     if !ALLOWED_AUDIO_CODECS.contains(&audio_codec) {
         return Err(format!("不正な audioCodec: {} (許可リスト外)", audio_codec));
     }
-    let re = Regex::new(r"^\d+k$").unwrap();
-    if !re.is_match(audio_bitrate) {
+    if !audio_bitrate.ends_with('k') {
+        return Err(format!("不正な audioBitrate: {} (例: 128k)", audio_bitrate));
+    }
+    let num_part = &audio_bitrate[..audio_bitrate.len() - 1];
+    if num_part.is_empty() || !num_part.chars().all(|c| c.is_ascii_digit()) {
         return Err(format!("不正な audioBitrate: {} (例: 128k)", audio_bitrate));
     }
     Ok(())
@@ -903,6 +906,19 @@ pub(crate) fn build_ffmpeg_args(
             "-b:a".into(),
             custom.audio_bitrate.clone(),
         ]);
+        // 出力ファイルの拡張子からコンテナフラグ（-f, extra_flags）を適用する
+        let out_ext = std::path::Path::new(&settings.output_path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("");
+        if let Some(base_profile) = FORMAT_PROFILES.iter().find(|p| p.ext == out_ext) {
+            if let Some(container) = base_profile.container {
+                args.extend(["-f".into(), container.into()]);
+            }
+            for flag in base_profile.extra_flags {
+                args.push((*flag).into());
+            }
+        }
     } else {
         let profile = get_format_profile(&settings.format);
         args.extend(["-c:v".into(), profile.video_codec.into()]);
