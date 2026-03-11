@@ -7,6 +7,8 @@ export type {
   EasingType,
   Keyframe,
   ClipKeyframes,
+  CurvePoint,
+  ToneCurves,
   TextAnimation,
   TextProperties,
   TimecodeFormat,
@@ -20,6 +22,8 @@ export type {
 
 export {
   DEFAULT_EFFECTS,
+  DEFAULT_CURVE_POINTS,
+  DEFAULT_TONE_CURVES,
   DEFAULT_TEXT_PROPERTIES,
   DEFAULT_TIMECODE_OVERLAY,
 } from './timeline';

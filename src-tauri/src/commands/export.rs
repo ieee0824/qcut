@@ -86,6 +86,20 @@ pub struct ClipEffects {
     pub monochrome: f64,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct CurvePoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ToneCurves {
+    pub rgb: Vec<CurvePoint>,
+    pub r: Vec<CurvePoint>,
+    pub g: Vec<CurvePoint>,
+    pub b: Vec<CurvePoint>,
+}
+
 fn default_echo_decay() -> f64 {
     0.3
 }
@@ -156,6 +170,7 @@ pub struct ExportClip {
     pub source_start_time: f64,
     pub source_end_time: f64,
     pub effects: Option<ClipEffects>,
+    pub tone_curves: Option<ToneCurves>,
     pub text_properties: Option<TextProperties>,
     pub transition: Option<ExportTransition>,
     pub timecode_overlay: Option<TimecodeOverlay>,

@@ -1,4 +1,4 @@
-use super::export::{ExportClip, ExportSettings, ExportTrack};
+use super::export::{CurvePoint, ExportClip, ExportSettings, ExportTrack, ToneCurves};
 use super::hsl_lut::{HslParams, generate_hsl_lut};
 use regex::Regex;
 
@@ -405,7 +405,17 @@ pub(crate) fn build_ffmpeg_args(
                     vfilter.push_str(&format!(",hue=s={:.2}", sat));
                 }
             }
+        }
 
+        // トーンカーブ（effects ブロックの外。tone_curves は clip 直下）
+        if let Some(ref tc) = clip.tone_curves {
+            let curves_str = build_ffmpeg_curves_filter(tc);
+            if !curves_str.is_empty() {
+                vfilter.push_str(&format!(",{}", curves_str));
+            }
+        }
+
+        if let Some(ref effects) = clip.effects {
             // フェードイン/フェードアウト
             let seg_duration = clip.source_end_time - clip.source_start_time;
             if effects.fade_in > 0.01 {
@@ -830,4 +840,81 @@ pub(crate) fn build_ffmpeg_args(
     args.push(settings.output_path.clone());
 
     Ok(FfmpegBuildResult { args, temp_files })
+}
+
+/// トーンカーブが線形（デフォルト）かどうかを判定する
+fn is_default_curve(points: &[CurvePoint]) -> bool {
+    if points.len() != 2 {
+        return false;
+    }
+    (points[0].x.abs() < 1e-6)
+        && (points[0].y.abs() < 1e-6)
+        && ((points[1].x - 1.0).abs() < 1e-6)
+        && ((points[1].y - 1.0).abs() < 1e-6)
+}
+
+/// チャンネルの制御点が2点未満の場合、端点(0,0)と(1,1)を補完する
+fn ensure_min_points(points: &[CurvePoint]) -> Vec<CurvePoint> {
+    if points.len() >= 2 {
+        return points.to_vec();
+    }
+    if points.len() == 1 {
+        // 1点のみの場合、もう片方の端点を追加
+        let p = &points[0];
+        if p.x < 0.5 {
+            return vec![p.clone(), CurvePoint { x: 1.0, y: 1.0 }];
+        } else {
+            return vec![CurvePoint { x: 0.0, y: 0.0 }, p.clone()];
+        }
+    }
+    // 0点の場合はデフォルト線形
+    vec![
+        CurvePoint { x: 0.0, y: 0.0 },
+        CurvePoint { x: 1.0, y: 1.0 },
+    ]
+}
+
+/// FFmpeg の `curves` フィルター文字列を生成する
+/// 例: curves=r='0/0 0.5/0.7 1/1':g='0/0 1/1':b='0/0 1/1':master='0/0 0.3/0.1 1/1'
+fn build_ffmpeg_curves_filter(tc: &ToneCurves) -> String {
+    let rgb = ensure_min_points(&tc.rgb);
+    let r = ensure_min_points(&tc.r);
+    let g = ensure_min_points(&tc.g);
+    let b = ensure_min_points(&tc.b);
+
+    let has_rgb = !is_default_curve(&rgb);
+    let has_r = !is_default_curve(&r);
+    let has_g = !is_default_curve(&g);
+    let has_b = !is_default_curve(&b);
+
+    if !has_rgb && !has_r && !has_g && !has_b {
+        return String::new();
+    }
+
+    let mut parts: Vec<String> = Vec::new();
+
+    if has_rgb {
+        parts.push(format!("master='{}'", curve_points_to_str(&rgb)));
+    }
+    if has_r {
+        parts.push(format!("r='{}'", curve_points_to_str(&r)));
+    }
+    if has_g {
+        parts.push(format!("g='{}'", curve_points_to_str(&g)));
+    }
+    if has_b {
+        parts.push(format!("b='{}'", curve_points_to_str(&b)));
+    }
+
+    format!("curves={}", parts.join(":"))
+}
+
+/// CurvePoint 配列を FFmpeg curves フィルターの制御点文字列に変換する
+/// 例: "0/0 0.25/0.3 0.5/0.7 1/1"
+fn curve_points_to_str(points: &[CurvePoint]) -> String {
+    points
+        .iter()
+        .map(|p| format!("{:.4}/{:.4}", p.x, p.y))
+        .collect::<Vec<_>>()
+        .join(" ")
 }

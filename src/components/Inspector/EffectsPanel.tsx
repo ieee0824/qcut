@@ -1,9 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTimelineStore, DEFAULT_EFFECTS, DEFAULT_TIMECODE_OVERLAY } from '../../store/timelineStore';
-import type { ClipEffects, EasingType, Keyframe, TimecodeOverlay } from '../../store/timelineStore';
+import { useTimelineStore, DEFAULT_EFFECTS, DEFAULT_TONE_CURVES, DEFAULT_TIMECODE_OVERLAY } from '../../store/timelineStore';
+import type { ClipEffects, EasingType, Keyframe, ToneCurves, TimecodeOverlay } from '../../store/timelineStore';
 import { ColorWheelPanel } from './ColorWheelPanel';
 import { ColorPresetPanel } from './ColorPresetPanel';
+import { CurveEditor } from './CurveEditor';
 import { EffectPresetPanel } from './EffectPresetPanel';
 import { KeyframeRow } from './KeyframeRow';
 import { TimecodePanel } from './TimecodePanel';
@@ -155,6 +156,10 @@ export const EffectsPanel: React.FC = () => {
     return { ...DEFAULT_TIMECODE_OVERLAY, ...selectedClip?.timecodeOverlay };
   }, [selectedClip?.timecodeOverlay]);
 
+  const toneCurves: ToneCurves = useMemo(() => {
+    return { ...DEFAULT_TONE_CURVES, ...selectedClip?.toneCurves };
+  }, [selectedClip?.toneCurves]);
+
   const handleTimecodeChange = useCallback(
     (overlay: TimecodeOverlay) => {
       if (!selectedTrackId || !selectedClipId) return;
@@ -164,6 +169,18 @@ export const EffectsPanel: React.FC = () => {
     },
     [selectedTrackId, selectedClipId, updateClip],
   );
+
+  const handleCurveChange = useCallback(
+    (curves: ToneCurves) => {
+      if (!selectedTrackId || !selectedClipId) return;
+      updateClipSilent(selectedTrackId, selectedClipId, { toneCurves: curves });
+    },
+    [selectedTrackId, selectedClipId, updateClipSilent],
+  );
+
+  const handleCurveCommit = useCallback(() => {
+    commitHistory();
+  }, [commitHistory]);
 
   const handleChange = useCallback(
     (key: keyof ClipEffects, value: number) => {
@@ -222,6 +239,7 @@ export const EffectsPanel: React.FC = () => {
     updateClip(selectedTrackId, selectedClipId, {
       effects: { ...DEFAULT_EFFECTS },
       keyframes: undefined,
+      toneCurves: undefined,
     });
   }, [selectedTrackId, selectedClipId, updateClip]);
 
@@ -334,6 +352,10 @@ export const EffectsPanel: React.FC = () => {
                 clipLocalTime={clipLocalTime}
               />
             ))}
+          </CollapsibleSection>
+
+          <CollapsibleSection id="toneCurve" title={t('effects.toneCurve')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <CurveEditor toneCurves={toneCurves} onChange={handleCurveChange} onCommit={handleCurveCommit} />
           </CollapsibleSection>
 
           <CollapsibleSection id="colorWheel" title={t('effects.colorWheel')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
