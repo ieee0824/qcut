@@ -1,0 +1,19 @@
+{
+  "id": "com.qcut.test.permission-error",
+  "name": "Sample Permission Error",
+  "version": "1.0.0",
+  "description": "テスト用: export:write 権限なしで registerFormat() を呼び、PluginPermissionError の発生を確認するプラグイン",
+  "author": "qcut-dev",
+  "type": "typescript",
+  "entry": {
+    "js": "index.js"
+  },
+  "permissions": [
+    "ui:panel"
+  ],
+  "minAppVersion": "0.2.0",
+  "category": "tool",
+  "checksums": {
+    "index.js": "4545b16255f3283c3f779f42a1a27bf6b2572857f6c79c16282f26a6a2c249a5"
+  }
+}
