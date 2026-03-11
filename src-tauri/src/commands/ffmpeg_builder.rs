@@ -93,6 +93,38 @@ const FORMAT_PROFILES: &[FormatProfile] = &[
     },
 ];
 
+// --- コーデック許可リスト（コマンドインジェクション対策）---
+
+const ALLOWED_VIDEO_CODECS: &[&str] = &[
+    "libx264", "libx265", "libvpx-vp9", "libaom-av1",
+];
+
+const ALLOWED_AUDIO_CODECS: &[&str] = &[
+    "aac", "mp3", "libopus", "flac", "pcm_s16le", "libvorbis",
+];
+
+/// プラグインから受け取ったカスタムフォーマットプロファイルを検証する
+pub(crate) fn validate_custom_format_profile(
+    video_codec: &str,
+    audio_codec: &str,
+    audio_bitrate: &str,
+) -> Result<(), String> {
+    if !ALLOWED_VIDEO_CODECS.contains(&video_codec) {
+        return Err(format!("不正な videoCodec: {} (許可リスト外)", video_codec));
+    }
+    if !ALLOWED_AUDIO_CODECS.contains(&audio_codec) {
+        return Err(format!("不正な audioCodec: {} (許可リスト外)", audio_codec));
+    }
+    if !audio_bitrate.ends_with('k') {
+        return Err(format!("不正な audioBitrate: {} (例: 128k)", audio_bitrate));
+    }
+    let num_part = &audio_bitrate[..audio_bitrate.len() - 1];
+    if num_part.is_empty() || !num_part.chars().all(|c| c.is_ascii_digit()) {
+        return Err(format!("不正な audioBitrate: {} (例: 128k)", audio_bitrate));
+    }
+    Ok(())
+}
+
 /// フロントエンドへ返すフォーマット情報
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -853,27 +885,62 @@ pub(crate) fn build_ffmpeg_args(
     args.push(format!("[{}]", final_a_label));
 
     // フォーマットプロファイルから出力設定を生成
-    let profile = get_format_profile(&settings.format);
-
-    args.extend(["-c:v".into(), profile.video_codec.into()]);
-    if let Some(preset) = profile.video_preset {
-        args.extend(["-preset".into(), preset.into()]);
-    }
-    args.extend([
-        "-b:v".into(),
-        settings.bitrate.clone(),
-        "-r".into(),
-        settings.fps.to_string(),
-        "-c:a".into(),
-        profile.audio_codec.into(),
-        "-b:a".into(),
-        profile.audio_bitrate.into(),
-    ]);
-    if let Some(container) = profile.container {
-        args.extend(["-f".into(), container.into()]);
-    }
-    for flag in profile.extra_flags {
-        args.push((*flag).into());
+    // カスタムプロファイルが指定されていれば allowlist 検証後に使用し、なければ静的プロファイルにフォールバック
+    if let Some(custom) = &settings.custom_format_profile {
+        validate_custom_format_profile(
+            &custom.video_codec,
+            &custom.audio_codec,
+            &custom.audio_bitrate,
+        )?;
+        args.extend(["-c:v".into(), custom.video_codec.clone()]);
+        if let Some(preset) = &custom.video_preset {
+            args.extend(["-preset".into(), preset.clone()]);
+        }
+        args.extend([
+            "-b:v".into(),
+            settings.bitrate.clone(),
+            "-r".into(),
+            settings.fps.to_string(),
+            "-c:a".into(),
+            custom.audio_codec.clone(),
+            "-b:a".into(),
+            custom.audio_bitrate.clone(),
+        ]);
+        // 出力ファイルの拡張子からコンテナフラグ（-f, extra_flags）を適用する
+        let out_ext = std::path::Path::new(&settings.output_path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("");
+        if let Some(base_profile) = FORMAT_PROFILES.iter().find(|p| p.ext == out_ext) {
+            if let Some(container) = base_profile.container {
+                args.extend(["-f".into(), container.into()]);
+            }
+            for flag in base_profile.extra_flags {
+                args.push((*flag).into());
+            }
+        }
+    } else {
+        let profile = get_format_profile(&settings.format);
+        args.extend(["-c:v".into(), profile.video_codec.into()]);
+        if let Some(preset) = profile.video_preset {
+            args.extend(["-preset".into(), preset.into()]);
+        }
+        args.extend([
+            "-b:v".into(),
+            settings.bitrate.clone(),
+            "-r".into(),
+            settings.fps.to_string(),
+            "-c:a".into(),
+            profile.audio_codec.into(),
+            "-b:a".into(),
+            profile.audio_bitrate.into(),
+        ]);
+        if let Some(container) = profile.container {
+            args.extend(["-f".into(), container.into()]);
+        }
+        for flag in profile.extra_flags {
+            args.push((*flag).into());
+        }
     }
     args.push(settings.output_path.clone());
 

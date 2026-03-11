@@ -195,6 +195,15 @@ pub struct ExportTrack {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CustomFormatProfile {
+    pub video_codec: String,
+    pub audio_codec: String,
+    pub audio_bitrate: String,
+    pub video_preset: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportSettings {
     pub format: String,
     pub width: u32,
@@ -205,6 +214,8 @@ pub struct ExportSettings {
     pub tracks: Vec<ExportTrack>,
     pub total_duration: f64,
     pub preview_height: f64,
+    #[serde(default)]
+    pub custom_format_profile: Option<CustomFormatProfile>,
 }
 
 #[derive(Debug, Serialize, Clone)]

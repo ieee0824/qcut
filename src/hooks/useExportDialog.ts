@@ -85,6 +85,7 @@ export function useExportDialog() {
     exportStartedAt,
     formatOptions,
     setFormatOptions,
+    customFormatProfiles,
   } = useExportStore();
   const tracks = useTimelineStore((s) => s.tracks);
   const duration = useTimelineStore((s) => s.duration);
@@ -150,12 +151,13 @@ export function useExportDialog() {
           tracks,
           totalDuration: duration,
           previewHeight: previewContainerHeight > 0 ? previewContainerHeight : settings.height,
+          customFormatProfile: customFormatProfiles[settings.format] ?? null,
         },
       });
     } catch (e) {
       setError(String(e));
     }
-  }, [outputPath, settings, tracks, duration, previewContainerHeight, setStatus, setProgress, setError, t]);
+  }, [outputPath, settings, tracks, duration, previewContainerHeight, customFormatProfiles, setStatus, setProgress, setError, t]);
 
   const handleCancel = useCallback(async () => {
     try {

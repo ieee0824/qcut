@@ -7,10 +7,7 @@ const IGNORED_ACTIONS = new Set([
   'updateClipSilent',
 ]);
 
-let pending = false;
-
 export function logAction(action: string, detail: string = '') {
-  if (IGNORED_ACTIONS.has(action) || pending) return;
-  pending = true;
-  invoke('log_action', { action, detail }).catch(() => {}).finally(() => { pending = false; });
+  if (IGNORED_ACTIONS.has(action)) return;
+  invoke('log_action', { action, detail }).catch(() => {});
 }

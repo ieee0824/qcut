@@ -145,7 +145,21 @@ export class PluginManager {
       console.error(`[Plugin ${pluginId}] Error:`, message);
       logAction(`pluginManager:error`, `${pluginId}: ${message}`);
 
-      usePluginStore.getState().setPluginState(pluginId, 'error', message);
+      const store = usePluginStore.getState();
+      store.setPluginState(pluginId, 'error', message);
+
+      const displayName = store.plugins[pluginId]?.manifest.name ?? pluginId;
+      const notifId = `plugin-error-${pluginId}-${Date.now()}`;
+      store.addNotification({
+        id: notifId,
+        pluginId,
+        message: `プラグイン "${displayName}" でエラーが発生しました: ${message}`,
+        type: 'error',
+        timestamp: Date.now(),
+      });
+      setTimeout(() => {
+        usePluginStore.getState().removeNotification(notifId);
+      }, 5000);
 
       const context = this.contexts.get(pluginId);
       if (context) {
