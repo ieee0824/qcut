@@ -853,13 +853,39 @@ fn is_default_curve(points: &[CurvePoint]) -> bool {
         && ((points[1].y - 1.0).abs() < 1e-6)
 }
 
+/// チャンネルの制御点が2点未満の場合、端点(0,0)と(1,1)を補完する
+fn ensure_min_points(points: &[CurvePoint]) -> Vec<CurvePoint> {
+    if points.len() >= 2 {
+        return points.to_vec();
+    }
+    if points.len() == 1 {
+        // 1点のみの場合、もう片方の端点を追加
+        let p = &points[0];
+        if p.x < 0.5 {
+            return vec![p.clone(), CurvePoint { x: 1.0, y: 1.0 }];
+        } else {
+            return vec![CurvePoint { x: 0.0, y: 0.0 }, p.clone()];
+        }
+    }
+    // 0点の場合はデフォルト線形
+    vec![
+        CurvePoint { x: 0.0, y: 0.0 },
+        CurvePoint { x: 1.0, y: 1.0 },
+    ]
+}
+
 /// FFmpeg の `curves` フィルター文字列を生成する
 /// 例: curves=r='0/0 0.5/0.7 1/1':g='0/0 1/1':b='0/0 1/1':master='0/0 0.3/0.1 1/1'
 fn build_ffmpeg_curves_filter(tc: &ToneCurves) -> String {
-    let has_rgb = !is_default_curve(&tc.rgb);
-    let has_r = !is_default_curve(&tc.r);
-    let has_g = !is_default_curve(&tc.g);
-    let has_b = !is_default_curve(&tc.b);
+    let rgb = ensure_min_points(&tc.rgb);
+    let r = ensure_min_points(&tc.r);
+    let g = ensure_min_points(&tc.g);
+    let b = ensure_min_points(&tc.b);
+
+    let has_rgb = !is_default_curve(&rgb);
+    let has_r = !is_default_curve(&r);
+    let has_g = !is_default_curve(&g);
+    let has_b = !is_default_curve(&b);
 
     if !has_rgb && !has_r && !has_g && !has_b {
         return String::new();
@@ -868,16 +894,16 @@ fn build_ffmpeg_curves_filter(tc: &ToneCurves) -> String {
     let mut parts: Vec<String> = Vec::new();
 
     if has_rgb {
-        parts.push(format!("master='{}'", curve_points_to_str(&tc.rgb)));
+        parts.push(format!("master='{}'", curve_points_to_str(&rgb)));
     }
     if has_r {
-        parts.push(format!("r='{}'", curve_points_to_str(&tc.r)));
+        parts.push(format!("r='{}'", curve_points_to_str(&r)));
     }
     if has_g {
-        parts.push(format!("g='{}'", curve_points_to_str(&tc.g)));
+        parts.push(format!("g='{}'", curve_points_to_str(&g)));
     }
     if has_b {
-        parts.push(format!("b='{}'", curve_points_to_str(&tc.b)));
+        parts.push(format!("b='{}'", curve_points_to_str(&b)));
     }
 
     format!("curves={}", parts.join(":"))

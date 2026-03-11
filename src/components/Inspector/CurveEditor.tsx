@@ -155,6 +155,10 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ toneCurves, onChange, 
         // 新しい点を追加
         const nx = clamp01(fromCanvasX(cx));
         const ny = clamp01(fromCanvasY(cy));
+        // 既存の点と近すぎる場合は追加しない（重複防止）
+        const MIN_X_DIST = 0.01;
+        const tooClose = points.some((p) => Math.abs(p.x - nx) < MIN_X_DIST);
+        if (tooClose) return;
         const newPoints = [...points, { x: nx, y: ny }].sort((a, b) => a.x - b.x);
         const newIdx = newPoints.findIndex((p) => Math.abs(p.x - nx) < 1e-6 && Math.abs(p.y - ny) < 1e-6);
         onChange({ ...toneCurves, [activeChannel]: newPoints });

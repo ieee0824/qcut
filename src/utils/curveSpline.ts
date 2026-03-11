@@ -20,11 +20,34 @@ export function buildCurveLUT(points: CurvePoint[], size: number = 256): Float32
 
   // x でソート（破壊を避けるためコピー）
   const sorted = [...points].sort((a, b) => a.x - b.x);
-  const n = sorted.length;
+
+  // 重複・近接するx値を持つ点をマージ（NaN/Infinity防止）
+  const MIN_X_INTERVAL = 0.001;
+  const deduped: CurvePoint[] = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = deduped[deduped.length - 1];
+    if (sorted[i].x - prev.x < MIN_X_INTERVAL) {
+      // 近接する点は後の点のy値で上書き
+      deduped[deduped.length - 1] = { x: prev.x, y: sorted[i].y };
+    } else {
+      deduped.push(sorted[i]);
+    }
+  }
+
+  // マージ後2点未満になったらリニア補間にフォールバック
+  if (deduped.length < 2) {
+    const p = deduped[0];
+    for (let i = 0; i < size; i++) {
+      lut[i] = clamp01(p.y);
+    }
+    return lut;
+  }
+
+  const n = deduped.length;
 
   // 2点のみの場合は線形補間
   if (n === 2) {
-    const [p0, p1] = sorted;
+    const [p0, p1] = deduped;
     const dx = p1.x - p0.x;
     for (let i = 0; i < size; i++) {
       const t = i / (size - 1);
@@ -39,7 +62,7 @@ export function buildCurveLUT(points: CurvePoint[], size: number = 256): Float32
   }
 
   // 自然三次スプライン補間
-  const splineY = cubicSplineInterpolate(sorted);
+  const splineY = cubicSplineInterpolate(deduped);
 
   for (let i = 0; i < size; i++) {
     const t = i / (size - 1);

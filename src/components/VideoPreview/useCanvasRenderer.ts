@@ -77,7 +77,8 @@ export const useCanvasRenderer = ({
       debugFrameCountRef.current = (debugFrameCountRef.current + 1) % 60;
       if (debugFrameCountRef.current === 0) {
         const kfKeys = Object.keys(clip.keyframes ?? {}).join(',');
-        logAction('renderCanvasFrame', `t=${clipLocalTime.toFixed(2)} kfKeys=${kfKeys} brightness=${effects.brightness?.toFixed(3)} contrast=${effects.contrast?.toFixed(3)} needsCanvasPipeline=${needsCanvasPipeline(effects)}`);
+        const tc = currentClipRef.current?.toneCurves ?? DEFAULT_TONE_CURVES;
+        logAction('renderCanvasFrame', `t=${clipLocalTime.toFixed(2)} kfKeys=${kfKeys} brightness=${effects.brightness?.toFixed(3)} contrast=${effects.contrast?.toFixed(3)} needsCanvasPipeline=${needsCanvasPipeline(effects, tc)}`);
       }
     } else {
       effects = { ...DEFAULT_EFFECTS, ...clip.effects };
@@ -85,7 +86,7 @@ export const useCanvasRenderer = ({
 
     // キーフレームがアクティブな場合、canvas がビデオを隠しているため
     // WebGL 専用エフェクトがなくても必ず描画する（早期リターンしない）
-    if (!needsCanvasPipeline(effects) && !activeKf) {
+    if (!needsCanvasPipeline(effects, currentClipRef.current?.toneCurves ?? DEFAULT_TONE_CURVES) && !activeKf) {
       return;
     }
 

@@ -420,8 +420,15 @@ export function renderFrame(
 /**
  * ToneCurves から 256x1 RGBA テクスチャデータを生成する。
  * R=Rカーブ, G=Gカーブ, B=Bカーブ, A=RGBマスターカーブ
+ * 同一参照のtoneCurvesに対してはキャッシュを返す。
  */
+let _cachedToneCurves: ToneCurves | null = null;
+let _cachedLUTData: Uint8Array | null = null;
+
 function buildCurveLUTTexture(toneCurves: ToneCurves): Uint8Array {
+  if (_cachedToneCurves === toneCurves && _cachedLUTData) {
+    return _cachedLUTData;
+  }
   const rLUT = buildCurveLUT(toneCurves.r, 256);
   const gLUT = buildCurveLUT(toneCurves.g, 256);
   const bLUT = buildCurveLUT(toneCurves.b, 256);
@@ -434,6 +441,8 @@ function buildCurveLUTTexture(toneCurves: ToneCurves): Uint8Array {
     data[i * 4 + 2] = Math.round(bLUT[i] * 255);
     data[i * 4 + 3] = Math.round(rgbLUT[i] * 255);
   }
+  _cachedToneCurves = toneCurves;
+  _cachedLUTData = data;
   return data;
 }
 

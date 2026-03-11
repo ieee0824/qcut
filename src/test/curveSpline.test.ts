@@ -92,6 +92,50 @@ describe('buildCurveLUT', () => {
     }
   });
 
+  it('should handle duplicate x values without NaN', () => {
+    const points: CurvePoint[] = [
+      { x: 0, y: 0 },
+      { x: 0.5, y: 0.3 },
+      { x: 0.5, y: 0.7 },
+      { x: 1, y: 1 },
+    ];
+    const lut = buildCurveLUT(points, 256);
+    for (let i = 0; i < 256; i++) {
+      expect(lut[i]).not.toBeNaN();
+      expect(lut[i]).toBeGreaterThanOrEqual(0);
+      expect(lut[i]).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('should handle near-identical x values without NaN', () => {
+    const points: CurvePoint[] = [
+      { x: 0, y: 0 },
+      { x: 0.5, y: 0.3 },
+      { x: 0.5005, y: 0.7 },
+      { x: 1, y: 1 },
+    ];
+    const lut = buildCurveLUT(points, 256);
+    for (let i = 0; i < 256; i++) {
+      expect(lut[i]).not.toBeNaN();
+      expect(lut[i]).toBeGreaterThanOrEqual(0);
+      expect(lut[i]).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('should handle all points at the same x', () => {
+    const points: CurvePoint[] = [
+      { x: 0.5, y: 0.2 },
+      { x: 0.5, y: 0.5 },
+      { x: 0.5, y: 0.8 },
+    ];
+    const lut = buildCurveLUT(points, 256);
+    for (let i = 0; i < 256; i++) {
+      expect(lut[i]).not.toBeNaN();
+      expect(lut[i]).toBeGreaterThanOrEqual(0);
+      expect(lut[i]).toBeLessThanOrEqual(1);
+    }
+  });
+
   it('should work with custom size', () => {
     const points: CurvePoint[] = [
       { x: 0, y: 0 },
