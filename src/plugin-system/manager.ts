@@ -158,13 +158,24 @@ export class PluginManager {
     const discovered = await this.loader.discoverPlugins();
     const imported = discovered.find((d) => d.manifest.id === result.pluginId);
     if (imported) {
+      const id = imported.manifest.id;
       const store = usePluginStore.getState();
-      if (!store.plugins[imported.manifest.id]) {
-        store.registerPlugin(imported.manifest, true);
+
+      // 上書きインポート時: 旧インスタンスを先に無効化してリソースリークを防ぐ
+      if (this.instances.has(id)) {
+        await this.deactivatePlugin(id);
       }
-      this.pluginDirs.set(imported.manifest.id, imported.dir);
-      await this.activatePlugin(imported.manifest.id);
-      logAction('pluginManager:import', imported.manifest.id);
+
+      // ストアの manifest を最新版で上書き（enabled=true で再登録）
+      store.registerPlugin(imported.manifest, true);
+
+      this.pluginDirs.set(id, imported.dir);
+      await this.activatePlugin(id);
+
+      // enabled=true を永続化
+      await this.persistEnabledState(id, true);
+
+      logAction('pluginManager:import', id);
     }
 
     return result;

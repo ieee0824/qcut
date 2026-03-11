@@ -288,7 +288,8 @@
     "deleteConfirm": "プラグイン \"{{name}}\" を削除しますか？この操作は元に戻せません。",
     "stateActive": "有効",
     "stateInactive": "無効",
-    "stateError": "エラー"
+    "stateError": "エラー",
+    "toggleEnabled": "{{name}} の有効/無効を切替"
   },
   "keyframe": {
     "addKeyframe": "キーフレームを追加",

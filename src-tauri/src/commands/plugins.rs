@@ -48,10 +48,64 @@ pub fn import_plugin(
         return Err(format!("不正なプラグイン ID: {}", plugin_id));
     }
 
-    // 必須フィールドの存在チェック
-    for field in &["name", "version", "type", "entry"] {
+    // 必須フィールドの存在チェック（フロント側 PluginLoader.validateManifest と同等）
+    for field in &["name", "version", "type", "entry", "description", "author", "minAppVersion", "category", "permissions"] {
         if manifest.get(field).is_none() {
             return Err(format!("plugin.json に必須フィールド \"{}\" がありません", field));
+        }
+    }
+
+    // 文字列フィールドの型チェック
+    for field in &["name", "version", "type", "description", "author", "minAppVersion", "category"] {
+        if manifest.get(field).and_then(|v| v.as_str()).is_none() {
+            return Err(format!("plugin.json の \"{}\" フィールドは文字列である必要があります", field));
+        }
+    }
+
+    // permissions: 文字列配列であること
+    let permissions = manifest.get("permissions").unwrap();
+    if !permissions.is_array() {
+        return Err("plugin.json の \"permissions\" フィールドは配列である必要があります".to_string());
+    }
+    if !permissions.as_array().unwrap().iter().all(|p| p.is_string()) {
+        return Err("plugin.json の \"permissions\" 配列の要素はすべて文字列である必要があります".to_string());
+    }
+
+    // category の許可リストチェック
+    let valid_categories = ["effect", "filter", "export", "import", "ui", "tool"];
+    let category = manifest.get("category").and_then(|v| v.as_str()).unwrap();
+    if !valid_categories.contains(&category) {
+        return Err(format!("plugin.json の \"category\" が不正です: {} (許可値: {:?})", category, valid_categories));
+    }
+
+    // type と entry の整合性チェック
+    let plugin_type = manifest.get("type").and_then(|v| v.as_str()).unwrap();
+    let entry = manifest.get("entry").unwrap();
+    match plugin_type {
+        "typescript" => {
+            let ok = entry.as_str().is_some()
+                || entry.as_object().and_then(|o| o.get("js")).and_then(|v| v.as_str()).is_some();
+            if !ok {
+                return Err("type=\"typescript\" の場合、entry に js フィールドまたは文字列が必要です".to_string());
+            }
+        }
+        "wasm" => {
+            let ok = entry.as_str().is_some()
+                || entry.as_object().and_then(|o| o.get("wasm")).and_then(|v| v.as_str()).is_some();
+            if !ok {
+                return Err("type=\"wasm\" の場合、entry に wasm フィールドまたは文字列が必要です".to_string());
+            }
+        }
+        "hybrid" => {
+            let obj = entry.as_object().ok_or("type=\"hybrid\" の場合、entry はオブジェクトである必要があります")?;
+            let has_js = obj.get("js").and_then(|v| v.as_str()).is_some();
+            let has_wasm = obj.get("wasm").and_then(|v| v.as_str()).is_some();
+            if !has_js || !has_wasm {
+                return Err("type=\"hybrid\" の場合、entry に js と wasm の両フィールドが必要です".to_string());
+            }
+        }
+        other => {
+            return Err(format!("plugin.json の \"type\" が不正です: {} (許可値: typescript, wasm, hybrid)", other));
         }
     }
 
@@ -78,25 +132,39 @@ pub fn import_plugin(
     fs::create_dir_all(&dest)
         .map_err(|e| format!("インポート先ディレクトリの作成に失敗: {}", e))?;
 
-    // src_path 内のファイルをコピー（サブディレクトリは対象外）
-    let entries = fs::read_dir(src)
-        .map_err(|e| format!("ソースディレクトリの読み込みに失敗: {}", e))?;
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("ディレクトリエントリの読み込みに失敗: {}", e))?;
-        let file_type = entry.file_type()
-            .map_err(|e| format!("ファイルタイプの取得に失敗: {}", e))?;
-        if file_type.is_file() {
-            let file_name = entry.file_name();
-            let dest_file = dest.join(&file_name);
-            fs::copy(entry.path(), &dest_file)
-                .map_err(|e| format!("{} のコピーに失敗: {}", file_name.to_string_lossy(), e))?;
-        }
-    }
+    // src_path 内のファイル・サブディレクトリを再帰的にコピーする
+    copy_dir_recursive(src, &dest)?;
 
     Ok(ImportPluginResult {
         plugin_id: plugin_id.to_string(),
         conflict: false,
     })
+}
+
+/// ディレクトリを再帰的にコピーする（シンボリックリンクは通常ファイル/ディレクトリとして追跡）
+fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
+    fs::create_dir_all(dest)
+        .map_err(|e| format!("ディレクトリ作成に失敗 {}: {}", dest.display(), e))?;
+
+    let entries = fs::read_dir(src)
+        .map_err(|e| format!("ディレクトリの読み込みに失敗 {}: {}", src.display(), e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("ディレクトリエントリの読み込みに失敗: {}", e))?;
+        let file_type = entry.file_type()
+            .map_err(|e| format!("ファイルタイプの取得に失敗: {}", e))?;
+        let dest_path = dest.join(entry.file_name());
+
+        if file_type.is_dir() {
+            copy_dir_recursive(&entry.path(), &dest_path)?;
+        } else {
+            // 通常ファイルおよびシンボリックリンク（実体をコピー）
+            fs::copy(entry.path(), &dest_path)
+                .map_err(|e| format!("{} のコピーに失敗: {}", entry.file_name().to_string_lossy(), e))?;
+        }
+    }
+
+    Ok(())
 }
 
 /// インストール済みプラグインを削除する

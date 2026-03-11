@@ -16,6 +16,8 @@ export function PluginManagerDialog({ manager, onClose }: PluginManagerDialogPro
   const [importing, setImporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const toMessage = (e: unknown) => e instanceof Error ? e.message : String(e);
+
   const handleImport = async () => {
     const selected = await open({ directory: true, multiple: false, title: t('plugin.selectDirectory') });
     if (!selected || Array.isArray(selected)) return;
@@ -29,17 +31,14 @@ export function PluginManagerDialog({ manager, onClose }: PluginManagerDialogPro
           t('plugin.overwriteConfirm', { id: result.pluginId }),
           { title: 'qcut', kind: 'warning' },
         );
-        if (!confirmed) {
-          setImporting(false);
-          return;
-        }
+        if (!confirmed) return;
         result = await manager.importPlugin(selected, true);
       }
       if (!result.conflict) {
         setErrorMessage(null);
       }
     } catch (e) {
-      setErrorMessage(String(e));
+      setErrorMessage(toMessage(e));
     } finally {
       setImporting(false);
     }
@@ -48,8 +47,9 @@ export function PluginManagerDialog({ manager, onClose }: PluginManagerDialogPro
   const handleToggle = async (id: string, currentEnabled: boolean) => {
     try {
       await manager.togglePlugin(id, !currentEnabled);
+      setErrorMessage(null);
     } catch (e) {
-      setErrorMessage(String(e));
+      setErrorMessage(toMessage(e));
     }
   };
 
@@ -61,8 +61,9 @@ export function PluginManagerDialog({ manager, onClose }: PluginManagerDialogPro
     if (!confirmed) return;
     try {
       await manager.deletePlugin(id);
+      setErrorMessage(null);
     } catch (e) {
-      setErrorMessage(String(e));
+      setErrorMessage(toMessage(e));
     }
   };
 
@@ -168,6 +169,7 @@ export function PluginManagerDialog({ manager, onClose }: PluginManagerDialogPro
                     checked={entry.enabled}
                     onChange={() => handleToggle(entry.manifest.id, entry.enabled)}
                     style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    aria-label={t('plugin.toggleEnabled', { name: entry.manifest.name })}
                   />
                 </label>
 
