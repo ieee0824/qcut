@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 
 mod sqlite_logger;
 
@@ -46,6 +47,78 @@ pub fn run() {
       } else {
         log::warn!("qcut started (release build)");
       }
+      // OS ネイティブメニューバーを構築する
+      let file_menu = Submenu::with_items(
+        app,
+        "File",
+        true,
+        &[
+          &MenuItem::with_id(app, "file.openProject",    "Open Project...",    true, None::<&str>)?,
+          &MenuItem::with_id(app, "file.saveProject",    "Save Project",       true, None::<&str>)?,
+          &MenuItem::with_id(app, "file.saveProjectAs",  "Save Project As...", true, None::<&str>)?,
+          &PredefinedMenuItem::separator(app)?,
+          &MenuItem::with_id(app, "file.exportVideo",    "Export Video...",    true, None::<&str>)?,
+          &PredefinedMenuItem::separator(app)?,
+          &MenuItem::with_id(app, "file.importSubtitle", "Import Subtitle...", true, None::<&str>)?,
+          &MenuItem::with_id(app, "file.exportSRT",      "Export SRT",         true, None::<&str>)?,
+          &MenuItem::with_id(app, "file.exportASS",      "Export ASS",         true, None::<&str>)?,
+        ],
+      )?;
+      let edit_menu = Submenu::with_items(
+        app,
+        "Edit",
+        true,
+        &[
+          &MenuItem::with_id(app, "edit.undo",  "Undo",  true, None::<&str>)?,
+          &MenuItem::with_id(app, "edit.redo",  "Redo",  true, None::<&str>)?,
+          &PredefinedMenuItem::separator(app)?,
+          &MenuItem::with_id(app, "edit.copy",  "Copy",  true, None::<&str>)?,
+          &MenuItem::with_id(app, "edit.paste", "Paste", true, None::<&str>)?,
+        ],
+      )?;
+      let timeline_menu = Submenu::with_items(
+        app,
+        "Timeline",
+        true,
+        &[
+          &MenuItem::with_id(app, "timeline.addAudioTrack", "Add Audio Track", true, None::<&str>)?,
+          &MenuItem::with_id(app, "timeline.addTextTrack",  "Add Text Track",  true, None::<&str>)?,
+        ],
+      )?;
+      let view_menu = Submenu::with_items(
+        app,
+        "View",
+        true,
+        &[
+          &MenuItem::with_id(app, "view.languageJa", "日本語", true, None::<&str>)?,
+          &MenuItem::with_id(app, "view.languageEn", "English", true, None::<&str>)?,
+        ],
+      )?;
+      let plugins_menu = Submenu::with_items(
+        app,
+        "Plugins",
+        true,
+        &[
+          &MenuItem::with_id(app, "plugins.manager", "Plugin Manager...", true, None::<&str>)?,
+        ],
+      )?;
+      let help_menu = Submenu::with_items(
+        app,
+        "Help",
+        true,
+        &[
+          &MenuItem::with_id(app, "help.shortcuts", "Keyboard Shortcuts", true, None::<&str>)?,
+        ],
+      )?;
+      let menu = Menu::with_items(
+        app,
+        &[&file_menu, &edit_menu, &timeline_menu, &view_menu, &plugins_menu, &help_menu],
+      )?;
+      app.set_menu(menu)?;
+      app.on_menu_event(|app, event| {
+        app.emit("menu-event", event.id.as_ref()).ok();
+      });
+
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![

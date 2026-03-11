@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
 import { ask } from '@tauri-apps/plugin-dialog';
 import './App.css';
 import Timeline from './components/Timeline/Timeline';
@@ -24,12 +25,12 @@ import { PluginToolbarButtons } from './components/Plugin/PluginToolbarButtons';
 import { PluginNotifications } from './components/Plugin/PluginNotifications';
 import { PluginManagerDialog } from './components/Plugin/PluginManagerDialog';
 import { parseSRT, parseASS, subtitlesToTrack, trackToSubtitles, exportSRT, exportASS } from './utils/subtitles';
+import { MENU_ACTION } from './menu/menuActions';
 
 function App() {
   const { t, i18n } = useTranslation();
   const { isPlaying, setIsPlaying } = useTimelineStore();
   const videoPreviewStore = useVideoPreviewStore();
-  const { setDialogOpen: setExportDialogOpen, setStatus: setExportStatus } = useExportStore();
   const { setHelpVisible } = useShortcutStore();
   const pluginManagerRef = useRef<PluginManager | null>(null);
   const [isPluginManagerOpen, setIsPluginManagerOpen] = useState(false);
@@ -89,18 +90,6 @@ function App() {
     };
   }, []);
 
-  // 言語切り替え
-  const handleLanguageChange = (lang: string) => {
-    i18n.changeLanguage(lang);
-    localStorage.setItem('i18n-language', lang);
-  };
-
-  const togglePlay = () => {
-    const newPlayingState = !isPlaying;
-    setIsPlaying(newPlayingState);
-    videoPreviewStore.setIsPlaying(newPlayingState);
-  };
-
   const handleAddTextTrack = useCallback(() => {
     const { addTrack, addClip, tracks } = useTimelineStore.getState();
     const trackId = `track-text-${Date.now()}`;
@@ -146,12 +135,12 @@ function App() {
     try {
       await invoke('check_ffmpeg');
       useExportStore.getState().reset();
-      setExportStatus('configuring');
-      setExportDialogOpen(true);
+      useExportStore.getState().setStatus('configuring');
+      useExportStore.getState().setDialogOpen(true);
     } catch (e) {
       window.alert(String(e));
     }
-  }, [setExportStatus, setExportDialogOpen]);
+  }, []);
 
   const handleExportSubtitle = useCallback((format: 'srt' | 'ass') => {
     const { tracks } = useTimelineStore.getState();
@@ -169,44 +158,81 @@ function App() {
     URL.revokeObjectURL(url);
   }, []);
 
+  // OS ネイティブメニューバーからのイベントを受け取り、各ハンドラーへ dispatch する
+  useEffect(() => {
+    const unlisten = listen<string>('menu-event', (event) => {
+      const id = event.payload;
+      switch (id) {
+        case MENU_ACTION.FILE_OPEN_PROJECT:
+          useProjectStore.getState().openProject();
+          break;
+        case MENU_ACTION.FILE_SAVE_PROJECT:
+          useProjectStore.getState().saveProject();
+          break;
+        case MENU_ACTION.FILE_SAVE_PROJECT_AS:
+          useProjectStore.getState().saveProjectAs();
+          break;
+        case MENU_ACTION.FILE_EXPORT_VIDEO:
+          handleExport();
+          break;
+        case MENU_ACTION.FILE_IMPORT_SUBTITLE:
+          handleImportSubtitle();
+          break;
+        case MENU_ACTION.FILE_EXPORT_SRT:
+          handleExportSubtitle('srt');
+          break;
+        case MENU_ACTION.FILE_EXPORT_ASS:
+          handleExportSubtitle('ass');
+          break;
+        case MENU_ACTION.EDIT_UNDO:
+          useTimelineStore.getState().undo();
+          break;
+        case MENU_ACTION.EDIT_REDO:
+          useTimelineStore.getState().redo();
+          break;
+        case MENU_ACTION.EDIT_COPY:
+          useTimelineStore.getState().copySelectedClip();
+          break;
+        case MENU_ACTION.EDIT_PASTE:
+          useTimelineStore.getState().pasteClip();
+          break;
+        case MENU_ACTION.TIMELINE_ADD_AUDIO_TRACK:
+          handleAddAudioTrack();
+          break;
+        case MENU_ACTION.TIMELINE_ADD_TEXT_TRACK:
+          handleAddTextTrack();
+          break;
+        case MENU_ACTION.VIEW_LANGUAGE_JA:
+          i18n.changeLanguage('ja');
+          localStorage.setItem('i18n-language', 'ja');
+          break;
+        case MENU_ACTION.VIEW_LANGUAGE_EN:
+          i18n.changeLanguage('en');
+          localStorage.setItem('i18n-language', 'en');
+          break;
+        case MENU_ACTION.PLUGINS_MANAGER:
+          setIsPluginManagerOpen(true);
+          break;
+        case MENU_ACTION.HELP_SHORTCUTS:
+          setHelpVisible(true);
+          break;
+      }
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const togglePlay = () => {
+    const newPlayingState = !isPlaying;
+    setIsPlaying(newPlayingState);
+    videoPreviewStore.setIsPlaying(newPlayingState);
+  };
+
   return (
     <div className="app">
       <header className="app-header">
         <h1>{t('app.title')}</h1>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          {/* 言語切り替えボタン */}
-          <div style={{ display: 'flex', gap: '0.3rem', borderRadius: '4px', border: '1px solid #ccc', padding: '0.2rem' }}>
-            <button
-              onClick={() => handleLanguageChange('ja')}
-              style={{
-                padding: '0.4rem 0.8rem',
-                backgroundColor: i18n.language === 'ja' ? '#4a9eff' : 'transparent',
-                color: i18n.language === 'ja' ? '#fff' : '#ccc',
-                border: 'none',
-                borderRadius: '3px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: i18n.language === 'ja' ? 'bold' : 'normal',
-              }}
-            >
-              日本語
-            </button>
-            <button
-              onClick={() => handleLanguageChange('en')}
-              style={{
-                padding: '0.4rem 0.8rem',
-                backgroundColor: i18n.language === 'en' ? '#4a9eff' : 'transparent',
-                color: i18n.language === 'en' ? '#fff' : '#ccc',
-                border: 'none',
-                borderRadius: '3px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: i18n.language === 'en' ? 'bold' : 'normal',
-              }}
-            >
-              English
-            </button>
-          </div>
           <FileOperations />
           <button onClick={handleAddAudioTrack} className="play-btn" title={t('timeline.addAudioTrack')}>
             ♪+
@@ -214,28 +240,10 @@ function App() {
           <button onClick={handleAddTextTrack} className="play-btn" title={t('text.addTextTrack')}>
             T+
           </button>
-          <button onClick={handleImportSubtitle} className="play-btn" title={t('text.importSubtitle')}>
-            {t('text.importSubtitle')}
-          </button>
-          <button onClick={() => handleExportSubtitle('srt')} className="play-btn" title={t('text.exportSubtitle')}>
-            SRT
-          </button>
-          <button onClick={() => handleExportSubtitle('ass')} className="play-btn" title={t('text.exportSubtitle')}>
-            ASS
-          </button>
-          <button onClick={handleExport} className="play-btn" title={t('export.title')}>
-            {t('export.button')}
-          </button>
           <button onClick={togglePlay} className="play-btn">
             {isPlaying ? t('button.pause') : t('button.play')}
           </button>
           <PluginToolbarButtons />
-          <button onClick={() => setIsPluginManagerOpen(true)} className="play-btn" title={t('plugin.managerTitle')}>
-            {t('plugin.managerButton')}
-          </button>
-          <button onClick={() => setHelpVisible(true)} className="play-btn" title={t('shortcut.title')}>
-            ?
-          </button>
         </div>
       </header>
       <main className="app-main">
