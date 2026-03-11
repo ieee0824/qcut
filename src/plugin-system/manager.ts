@@ -4,6 +4,12 @@ import { logAction } from '@/store/actionLogger';
 import { PluginLoader } from './loader';
 import { PluginContextImpl } from './context';
 import type { QcutPlugin } from './types/plugin';
+import type { PluginManifest } from './types/manifest';
+
+interface ImportPluginResult {
+  pluginId: string;
+  conflict: boolean;
+}
 
 interface PluginSettingsEntry {
   enabled: boolean;
@@ -135,6 +141,72 @@ export class PluginManager {
 
   getContext(id: string): PluginContextImpl | undefined {
     return this.contexts.get(id);
+  }
+
+  /**
+   * プラグインディレクトリをインポートする。
+   * conflict=true が返った場合は上書き確認後に force=true で再呼び出しする。
+   * インポート成功後は自動的にプラグインを登録・有効化する。
+   */
+  async importPlugin(srcPath: string, force: boolean): Promise<ImportPluginResult> {
+    const result = await invoke<ImportPluginResult>('import_plugin', { srcPath, force });
+    if (result.conflict) {
+      return result;
+    }
+
+    // インポートしたプラグインを発見・登録・有効化する
+    const discovered = await this.loader.discoverPlugins();
+    const imported = discovered.find((d) => d.manifest.id === result.pluginId);
+    if (imported) {
+      const id = imported.manifest.id;
+      const store = usePluginStore.getState();
+
+      // 上書きインポート時: 旧インスタンスを先に無効化してリソースリークを防ぐ
+      if (this.instances.has(id)) {
+        await this.deactivatePlugin(id);
+      }
+
+      // ストアの manifest を最新版で上書き（enabled=true で再登録）
+      store.registerPlugin(imported.manifest, true);
+
+      this.pluginDirs.set(id, imported.dir);
+      await this.activatePlugin(id);
+
+      // enabled=true を永続化
+      await this.persistEnabledState(id, true);
+
+      logAction('pluginManager:import', id);
+    }
+
+    return result;
+  }
+
+  /**
+   * インストール済みプラグインを削除する（無効化後にファイルを削除）。
+   */
+  async deletePlugin(id: string): Promise<void> {
+    // まず無効化
+    if (this.instances.has(id)) {
+      await this.deactivatePlugin(id);
+    }
+
+    await invoke('delete_plugin', { pluginId: id });
+
+    const store = usePluginStore.getState();
+    store.removePlugin(id);
+    this.pluginDirs.delete(id);
+
+    // plugin-settings.json からも削除
+    const settings = await this.loadPersistedSettings();
+    delete settings[id];
+    await this.savePersistedSettings(settings);
+
+    logAction('pluginManager:delete', id);
+  }
+
+  /** 現在ロード済みのプラグイン一覧を返す（UI 表示用） */
+  getPluginManifests(): PluginManifest[] {
+    return Object.values(usePluginStore.getState().plugins).map((e) => e.manifest);
   }
 
   private async safeCall<T>(pluginId: string, fn: () => Promise<T>): Promise<T | null> {

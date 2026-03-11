@@ -275,6 +275,22 @@
     "minutes": "min remaining",
     "hours": "h "
   },
+  "plugin": {
+    "managerTitle": "Plugin Manager",
+    "managerButton": "Plugins",
+    "addPlugin": "Add Plugin",
+    "importing": "Importing...",
+    "close": "Close",
+    "delete": "Delete",
+    "noPlugins": "No plugins installed",
+    "selectDirectory": "Select plugin directory",
+    "overwriteConfirm": "Plugin \"{{id}}\" is already installed. Overwrite it?",
+    "deleteConfirm": "Delete plugin \"{{name}}\"? This cannot be undone.",
+    "stateActive": "Active",
+    "stateInactive": "Inactive",
+    "stateError": "Error",
+    "toggleEnabled": "Toggle {{name}} enabled"
+  },
   "keyframe": {
     "addKeyframe": "Add Keyframe",
     "linear": "Linear",

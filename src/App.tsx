@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -22,6 +22,7 @@ import { PluginManager } from './plugin-system';
 import { PluginSidebarPanels } from './components/Plugin/PluginPanels';
 import { PluginToolbarButtons } from './components/Plugin/PluginToolbarButtons';
 import { PluginNotifications } from './components/Plugin/PluginNotifications';
+import { PluginManagerDialog } from './components/Plugin/PluginManagerDialog';
 import { parseSRT, parseASS, subtitlesToTrack, trackToSubtitles, exportSRT, exportASS } from './utils/subtitles';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
   const { setDialogOpen: setExportDialogOpen, setStatus: setExportStatus } = useExportStore();
   const { setHelpVisible } = useShortcutStore();
   const pluginManagerRef = useRef<PluginManager | null>(null);
+  const [isPluginManagerOpen, setIsPluginManagerOpen] = useState(false);
 
   useKeyboardShortcuts();
 
@@ -228,6 +230,9 @@ function App() {
             {isPlaying ? t('button.pause') : t('button.play')}
           </button>
           <PluginToolbarButtons />
+          <button onClick={() => setIsPluginManagerOpen(true)} className="play-btn" title={t('plugin.managerTitle')}>
+            {t('plugin.managerButton')}
+          </button>
           <button onClick={() => setHelpVisible(true)} className="play-btn" title={t('shortcut.title')}>
             ?
           </button>
@@ -247,6 +252,12 @@ function App() {
       <ExportDialog />
       <ShortcutHelp />
       <PluginNotifications />
+      {isPluginManagerOpen && pluginManagerRef.current && (
+        <PluginManagerDialog
+          manager={pluginManagerRef.current}
+          onClose={() => setIsPluginManagerOpen(false)}
+        />
+      )}
     </div>
   );
 }
