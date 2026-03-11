@@ -1,10 +1,9 @@
-import { ExportFormat } from '../../store/exportStore';
+import type { ExportFormat } from '../../store/exportStore';
 import {
   useExportDialog,
   RESOLUTION_OPTIONS,
   FPS_OPTIONS,
   BITRATE_OPTIONS,
-  FORMAT_OPTIONS,
 } from '../../hooks/useExportDialog';
 import './ExportDialog.css';
 
@@ -20,6 +19,7 @@ export const ExportDialog: React.FC = () => {
     setSettings,
     resolutionIndex,
     estimatedRemaining,
+    formatOptions,
     handleSelectOutput,
     handleStartExport,
     handleCancel,
@@ -43,8 +43,8 @@ export const ExportDialog: React.FC = () => {
                 value={settings.format}
                 onChange={(e) => setSettings({ format: e.target.value as ExportFormat })}
               >
-                {FORMAT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
+                {formatOptions.map((opt) => (
+                  <option key={opt.key} value={opt.key}>
                     {opt.label}
                   </option>
                 ))}

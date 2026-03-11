@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
-use super::ffmpeg_builder::{build_ffmpeg_args, collect_audio_clips, collect_text_clips, collect_video_clips};
+use super::ffmpeg_builder::{build_ffmpeg_args, collect_audio_clips, collect_text_clips, collect_video_clips, list_format_infos, FormatInfo};
 use super::progress_parser::ProgressParser;
 
 // --- データ構造 ---
@@ -385,4 +385,9 @@ pub async fn export_video(
 pub fn cancel_export(state: tauri::State<'_, ExportState>) -> Result<(), String> {
     state.cancel_flag.store(true, Ordering::SeqCst);
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_export_formats() -> Vec<FormatInfo> {
+    list_format_infos()
 }

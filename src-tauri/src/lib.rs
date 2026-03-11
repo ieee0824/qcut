@@ -68,6 +68,7 @@ pub fn run() {
       commands::export::check_ffmpeg,
       commands::export::export_video,
       commands::export::cancel_export,
+      commands::export::get_export_formats,
       commands::presets::read_transition_presets,
       commands::presets::write_transition_presets,
       commands::presets::read_color_presets,

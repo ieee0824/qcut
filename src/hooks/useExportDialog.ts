@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { save } from '@tauri-apps/plugin-dialog';
-import { useExportStore, ExportFormat } from '../store/exportStore';
+import { useExportStore } from '../store/exportStore';
+import type { ExportFormat, FormatOption } from '../store/exportStore';
 import { useTimelineStore } from '../store/timelineStore';
 import { useVideoPreviewStore } from '../store/videoPreviewStore';
 
@@ -29,6 +30,7 @@ const BITRATE_OPTIONS = [
   { label: '20 Mbps', value: '20M' },
 ];
 
+// テスト互換のため静的エクスポートを維持しつつ、実行時はバックエンドから動的取得する
 const FORMAT_OPTIONS: { label: string; value: ExportFormat; ext: string; filterName: string }[] = [
   { label: 'MP4 (H.264)', value: 'mp4', ext: 'mp4', filterName: 'MP4' },
   { label: 'MOV (H.264)', value: 'mov', ext: 'mov', filterName: 'MOV' },
@@ -84,10 +86,20 @@ export function useExportDialog() {
     setOutputPath,
     reset,
     exportStartedAt,
+    formatOptions,
+    setFormatOptions,
   } = useExportStore();
   const tracks = useTimelineStore((s) => s.tracks);
   const duration = useTimelineStore((s) => s.duration);
   const previewContainerHeight = useVideoPreviewStore((s) => s.previewContainerHeight);
+
+  // バックエンドからエクスポートフォーマット一覧を取得
+  useEffect(() => {
+    invoke<FormatOption[]>('get_export_formats')
+      .then((options) => setFormatOptions(options))
+      .catch(() => { /* フォールバックとしてデフォルト値を維持 */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // バックエンドからの進捗イベントをリッスン
   useEffect(() => {
@@ -112,13 +124,13 @@ export function useExportDialog() {
   }, [status, setStatus, setProgress, setError]);
 
   const handleSelectOutput = useCallback(async () => {
-    const fmt = FORMAT_OPTIONS.find((f) => f.value === settings.format) ?? FORMAT_OPTIONS[0];
+    const fmt = formatOptions.find((f) => f.key === settings.format) ?? formatOptions[0];
     const path = await save({
       defaultPath: `output.${fmt.ext}`,
       filters: [{ name: fmt.filterName, extensions: [fmt.ext] }],
     });
     if (path) setOutputPath(path);
-  }, [setOutputPath, settings.format]);
+  }, [setOutputPath, settings.format, formatOptions]);
 
   const handleStartExport = useCallback(async () => {
     if (!outputPath) return;
@@ -194,6 +206,7 @@ export function useExportDialog() {
     setSettings,
     resolutionIndex,
     estimatedRemaining,
+    formatOptions,
     handleSelectOutput,
     handleStartExport,
     handleCancel,
