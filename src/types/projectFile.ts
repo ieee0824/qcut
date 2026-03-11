@@ -1,10 +1,4 @@
-import type {
-  ClipEffects,
-  ClipKeyframes,
-  ToneCurves,
-  TextProperties,
-  ClipTransition,
-} from '../store/timelineStore';
+import type { Clip, Track } from '../store/timelineStore';
 import type { ExportSettings } from '../store/exportStore';
 
 /**
@@ -45,31 +39,10 @@ export interface ProjectTimeline {
   tracks: ProjectTrack[];
 }
 
-export interface ProjectTrack {
-  id: string;
-  type: 'video' | 'audio' | 'text';
-  name: string;
-  clips: ProjectClip[];
-  volume: number;
-  mute: boolean;
-  solo: boolean;
-}
-
-export interface ProjectClip {
-  id: string;
-  name: string;
-  startTime: number;
-  duration: number;
-  color?: string;
-
-  /** 素材ファイルパス（プロジェクトファイルからの相対パス） */
-  filePath: string;
-  sourceStartTime: number;
-  sourceEndTime: number;
-
-  effects?: ClipEffects;
-  keyframes?: ClipKeyframes;
-  toneCurves?: ToneCurves;
-  textProperties?: TextProperties;
-  transition?: ClipTransition;
-}
+/**
+ * ProjectTrack / ProjectClip は runtime の Track / Clip と同一型を使用する。
+ * 手動でフィールドを列挙すると新規フィールド追加時に漏れが発生するため、
+ * 型エイリアスで統一する。
+ */
+export type ProjectClip = Clip;
+export type ProjectTrack = Track;

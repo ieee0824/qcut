@@ -104,7 +104,14 @@ export const useCanvasRenderer = ({
   useEffect(() => {
     if (!needsCanvas || !currentClip) return;
     renderCanvasFrame();
-  }, [needsCanvas, renderCanvasFrame, currentClip]);
+    // Video src が切り替わり readyState=0 の場合、loadeddata を待って再描画
+    const video = videoRef.current;
+    if (video && video.readyState < 2) {
+      const retry = () => renderCanvasFrame();
+      video.addEventListener('loadeddata', retry, { once: true });
+      return () => video.removeEventListener('loadeddata', retry);
+    }
+  }, [needsCanvas, renderCanvasFrame, currentClip, videoRef]);
 
   // キーフレームマーカードラッグ中のリアルタイムプレビュー
   useEffect(() => {
