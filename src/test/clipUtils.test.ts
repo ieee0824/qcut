@@ -4,6 +4,8 @@ import {
   calculateClipPosition,
   calculateContextMenuTime,
   clampMenuPosition,
+  collectSnapTargets,
+  applySnap,
 } from '../components/Timeline/clipUtils';
 
 describe('calculateDragNewStartTime', () => {
@@ -116,5 +118,115 @@ describe('clampMenuPosition', () => {
     // menu 2000x1200, viewport 1920x1080 → x = 1920-2000 = -80 → 0, y = 1080-1200 = -120 → 0
     const result = clampMenuPosition({ x: 500, y: 500 }, 2000, 1200, vw, vh);
     expect(result).toEqual({ x: 0, y: 0 });
+  });
+});
+
+// --- collectSnapTargets ---
+
+describe('collectSnapTargets', () => {
+  it('他のクリップの開始・終了位置を収集する', () => {
+    const clips = [
+      { startTime: 2, duration: 3 },  // end=5
+      { startTime: 8, duration: 2 },  // end=10
+    ];
+    const targets = collectSnapTargets(clips, 'clip-self', 5.0);
+    // 2, 5, 8, 10 + playhead=5.0
+    expect(targets).toContain(2);
+    expect(targets).toContain(5);
+    expect(targets).toContain(8);
+    expect(targets).toContain(10);
+    expect(targets).toContain(5.0);
+  });
+
+  it('自分自身のクリップを除外する', () => {
+    const clips = [
+      { startTime: 2, duration: 3, id: 'clip-1' },
+      { startTime: 8, duration: 2, id: 'clip-2' },
+    ];
+    const targets = collectSnapTargets(clips, 'clip-1', 0);
+    expect(targets).not.toContain(2);
+    expect(targets).not.toContain(5);
+    expect(targets).toContain(8);
+    expect(targets).toContain(10);
+  });
+
+  it('プレイヘッド位置を含む', () => {
+    const targets = collectSnapTargets([], 'clip-1', 7.5);
+    expect(targets).toContain(7.5);
+  });
+
+  it('重複するターゲットを除外する', () => {
+    const clips = [
+      { startTime: 5, duration: 3 },  // end=8
+      { startTime: 8, duration: 2 },  // start=8（重複）
+    ];
+    const targets = collectSnapTargets(clips, 'clip-self', 8);
+    const count8 = targets.filter(t => t === 8).length;
+    expect(count8).toBe(1);
+  });
+});
+
+// --- applySnap ---
+
+describe('applySnap', () => {
+  const threshold = 0.2; // 10px / 50pps
+
+  it('クリップ先頭がターゲットに近い場合スナップする', () => {
+    const targets = [5.0];
+    const result = applySnap(4.9, 3, targets, threshold);
+    expect(result.snapped).toBe(true);
+    expect(result.startTime).toBe(5.0);
+    expect(result.snapLine).toBe(5.0);
+  });
+
+  it('クリップ末尾がターゲットに近い場合スナップする', () => {
+    const targets = [10.0];
+    // startTime=6.9, duration=3 → end=9.9 → snap to 10 → startTime=7.0
+    const result = applySnap(6.9, 3, targets, threshold);
+    expect(result.snapped).toBe(true);
+    expect(result.startTime).toBe(7.0);
+    expect(result.snapLine).toBe(10.0);
+  });
+
+  it('閾値外の場合スナップしない', () => {
+    const targets = [5.0];
+    const result = applySnap(4.5, 3, targets, threshold);
+    expect(result.snapped).toBe(false);
+    expect(result.startTime).toBe(4.5);
+    expect(result.snapLine).toBeNull();
+  });
+
+  it('先頭と末尾の両方が閾値内の場合、より近い方にスナップする', () => {
+    const targets = [5.0, 8.05];
+    // startTime=5.1, duration=3 → end=8.1
+    // 先頭: |5.1 - 5.0| = 0.1
+    // 末尾: |8.1 - 8.05| = 0.05 → こちらが近い
+    const result = applySnap(5.1, 3, targets, threshold);
+    expect(result.snapped).toBe(true);
+    expect(result.startTime).toBeCloseTo(5.05);
+    expect(result.snapLine).toBe(8.05);
+  });
+
+  it('ターゲットが空の場合スナップしない', () => {
+    const result = applySnap(5, 3, [], threshold);
+    expect(result.snapped).toBe(false);
+    expect(result.startTime).toBe(5);
+  });
+
+  it('スナップ後の startTime が負にならない', () => {
+    const targets = [0];
+    // startTime=0.1, duration=3 → 先頭スナップで startTime=0
+    const result = applySnap(0.1, 3, targets, threshold);
+    expect(result.snapped).toBe(true);
+    expect(result.startTime).toBe(0);
+  });
+
+  it('複数ターゲットの中で最も近いものにスナップする', () => {
+    const targets = [3.0, 5.0, 8.0];
+    // startTime=4.85, 先頭が5.0に近い(差0.15)
+    const result = applySnap(4.85, 2, targets, threshold);
+    expect(result.snapped).toBe(true);
+    expect(result.startTime).toBe(5.0);
+    expect(result.snapLine).toBe(5.0);
   });
 });

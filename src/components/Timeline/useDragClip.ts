@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
-import { calculateDragNewStartTime } from './clipUtils';
+import { calculateDragNewStartTime, collectSnapTargets, applySnap } from './clipUtils';
+
+const SNAP_THRESHOLD_PX = 10;
 
 interface UseDragClipParams {
   clipId: string;
   trackId: string;
   startTime: number;
+  duration: number;
   pixelsPerSecond: number;
 }
 
-export function useDragClip({ clipId, trackId, startTime, pixelsPerSecond }: UseDragClipParams) {
+export function useDragClip({ clipId, trackId, startTime, duration, pixelsPerSecond }: UseDragClipParams) {
   const [isDragging, setIsDragging] = useState(false);
   const dragStartX = useRef(0);
   const dragStartTime = useRef(0);
@@ -19,6 +22,7 @@ export function useDragClip({ clipId, trackId, startTime, pixelsPerSecond }: Use
     updateClipSilent,
     commitHistory,
     moveClipToTrack,
+    setSnapLineTime,
   } = useTimelineStore();
 
   const startDrag = (clientX: number) => {
@@ -37,7 +41,21 @@ export function useDragClip({ clipId, trackId, startTime, pixelsPerSecond }: Use
     const handleMouseMove = (e: globalThis.MouseEvent) => {
       // 水平方向の移動
       const deltaX = e.clientX - dragStartX.current;
-      const newStartTime = calculateDragNewStartTime(dragStartTime.current, deltaX, pixelsPerSecond);
+      let newStartTime = calculateDragNewStartTime(dragStartTime.current, deltaX, pixelsPerSecond);
+
+      // スナップ適用
+      const state = useTimelineStore.getState();
+      if (state.snapEnabled) {
+        const allClips = state.tracks.flatMap(t => t.clips);
+        const targets = collectSnapTargets(allClips, clipId, state.currentTime);
+        const threshold = SNAP_THRESHOLD_PX / pixelsPerSecond;
+        const snap = applySnap(newStartTime, duration, targets, threshold);
+        newStartTime = snap.startTime;
+        setSnapLineTime(snap.snapLine);
+      } else {
+        setSnapLineTime(null);
+      }
+
       updateClipSilent(currentTrackId, clipId, { startTime: newStartTime });
 
       // 垂直方向: ドロップ先トラックの判定
@@ -59,6 +77,7 @@ export function useDragClip({ clipId, trackId, startTime, pixelsPerSecond }: Use
 
     const handleMouseUp = () => {
       document.querySelectorAll('.timeline-track.drop-target').forEach(el => el.classList.remove('drop-target'));
+      setSnapLineTime(null);
       committedRef.current = true;
       commitHistory();
       setIsDragging(false);
@@ -72,11 +91,12 @@ export function useDragClip({ clipId, trackId, startTime, pixelsPerSecond }: Use
       window.removeEventListener('mouseup', handleMouseUp);
       // アンマウント等でmouseupが発火しなかった場合のフォールバック
       document.querySelectorAll('.timeline-track.drop-target').forEach(el => el.classList.remove('drop-target'));
+      setSnapLineTime(null);
       if (!committedRef.current) {
         commitHistory();
       }
     };
-  }, [isDragging, pixelsPerSecond, trackId, clipId, updateClipSilent, commitHistory, moveClipToTrack]);
+  }, [isDragging, pixelsPerSecond, duration, trackId, clipId, updateClipSilent, commitHistory, moveClipToTrack, setSnapLineTime]);
 
   return { isDragging, startDrag };
 }

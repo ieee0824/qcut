@@ -35,6 +35,7 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     clipId: clip.id,
     trackId,
     startTime: clip.startTime,
+    duration: clip.duration,
     pixelsPerSecond,
   });
 
