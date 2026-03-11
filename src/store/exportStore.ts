@@ -10,7 +10,7 @@ export interface FormatOption {
   filterName: string;
 }
 
-const DEFAULT_FORMAT_OPTIONS: FormatOption[] = [
+export const DEFAULT_FORMAT_OPTIONS: FormatOption[] = [
   { key: 'mp4', label: 'MP4 (H.264)', ext: 'mp4', filterName: 'MP4' },
   { key: 'mov', label: 'MOV (H.264)', ext: 'mov', filterName: 'MOV' },
   { key: 'avi', label: 'AVI (H.264)', ext: 'avi', filterName: 'AVI' },

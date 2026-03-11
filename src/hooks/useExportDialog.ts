@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { save } from '@tauri-apps/plugin-dialog';
-import { useExportStore } from '../store/exportStore';
+import { useExportStore, DEFAULT_FORMAT_OPTIONS } from '../store/exportStore';
 import type { ExportFormat, FormatOption } from '../store/exportStore';
 import { useTimelineStore } from '../store/timelineStore';
 import { useVideoPreviewStore } from '../store/videoPreviewStore';
@@ -30,13 +30,10 @@ const BITRATE_OPTIONS = [
   { label: '20 Mbps', value: '20M' },
 ];
 
-// テスト互換のため静的エクスポートを維持しつつ、実行時はバックエンドから動的取得する
-const FORMAT_OPTIONS: { label: string; value: ExportFormat; ext: string; filterName: string }[] = [
-  { label: 'MP4 (H.264)', value: 'mp4', ext: 'mp4', filterName: 'MP4' },
-  { label: 'MOV (H.264)', value: 'mov', ext: 'mov', filterName: 'MOV' },
-  { label: 'AVI (H.264)', value: 'avi', ext: 'avi', filterName: 'AVI' },
-  { label: 'WebM (VP9)', value: 'webm', ext: 'webm', filterName: 'WebM' },
-];
+// DEFAULT_FORMAT_OPTIONS から導出（単一の真実の源を維持）
+// テストは value フィールドを期待するため key -> value にマッピング
+const FORMAT_OPTIONS: { label: string; value: ExportFormat; ext: string; filterName: string }[] =
+  DEFAULT_FORMAT_OPTIONS.map((opt) => ({ ...opt, value: opt.key }));
 
 /**
  * 残り時間をフォーマットして返す純粋関数。
@@ -98,8 +95,7 @@ export function useExportDialog() {
     invoke<FormatOption[]>('get_export_formats')
       .then((options) => setFormatOptions(options))
       .catch(() => { /* フォールバックとしてデフォルト値を維持 */ });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setFormatOptions]);
 
   // バックエンドからの進捗イベントをリッスン
   useEffect(() => {
