@@ -246,6 +246,10 @@ export class PluginContextImpl implements PluginContext {
     return {
       registerFormat: (profile: ExportFormatProfile): Disposable => {
         this.requirePermission('export:write');
+        if (this.registeredExportFormatKeys.includes(profile.key)) {
+          // 既に登録済みの場合は no-op な Disposable を返す
+          return { dispose: () => {} };
+        }
         useExportStore.getState().registerCustomFormat(profile);
         this.registeredExportFormatKeys.push(profile.key);
         const disposable = {
