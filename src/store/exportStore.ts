@@ -1,7 +1,21 @@
 import { create } from 'zustand';
 
 export type ExportStatus = 'idle' | 'configuring' | 'exporting' | 'complete' | 'error' | 'cancelled';
-export type ExportFormat = 'mp4' | 'mov' | 'avi' | 'webm';
+export type ExportFormat = string;
+
+export interface FormatOption {
+  key: string;
+  label: string;
+  ext: string;
+  filterName: string;
+}
+
+export const DEFAULT_FORMAT_OPTIONS: FormatOption[] = [
+  { key: 'mp4', label: 'MP4 (H.264)', ext: 'mp4', filterName: 'MP4' },
+  { key: 'mov', label: 'MOV (H.264)', ext: 'mov', filterName: 'MOV' },
+  { key: 'avi', label: 'AVI (H.264)', ext: 'avi', filterName: 'AVI' },
+  { key: 'webm', label: 'WebM (VP9)', ext: 'webm', filterName: 'WebM' },
+];
 
 export interface ExportSettings {
   format: ExportFormat;
@@ -20,6 +34,7 @@ export interface ExportState {
   settings: ExportSettings;
   outputPath: string | null;
   exportStartedAt: number | null;
+  formatOptions: FormatOption[];
 
   setStatus: (status: ExportStatus) => void;
   setProgress: (progress: number, currentTime: number) => void;
@@ -27,6 +42,7 @@ export interface ExportState {
   setDialogOpen: (open: boolean) => void;
   setSettings: (settings: Partial<ExportSettings>) => void;
   setOutputPath: (path: string) => void;
+  setFormatOptions: (options: FormatOption[]) => void;
   reset: () => void;
 }
 
@@ -47,6 +63,7 @@ export const useExportStore = create<ExportState>((set) => ({
   settings: { ...DEFAULT_SETTINGS },
   outputPath: null,
   exportStartedAt: null,
+  formatOptions: DEFAULT_FORMAT_OPTIONS,
 
   setStatus: (status) => set((state) => ({
     status,
@@ -59,6 +76,7 @@ export const useExportStore = create<ExportState>((set) => ({
     settings: { ...state.settings, ...partial },
   })),
   setOutputPath: (path) => set({ outputPath: path }),
+  setFormatOptions: (options) => set({ formatOptions: options }),
   reset: () => set({
     status: 'idle',
     progress: 0,

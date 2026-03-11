@@ -30,7 +30,10 @@ fn validate_export_settings(settings: &ExportSettings) -> Result<(), String> {
 // --- フォーマット定義テーブル ---
 
 pub(crate) struct FormatProfile {
-    key: &'static str,
+    pub(crate) key: &'static str,
+    pub(crate) label: &'static str,
+    pub(crate) ext: &'static str,
+    pub(crate) filter_name: &'static str,
     pub(crate) video_codec: &'static str,
     pub(crate) video_preset: Option<&'static str>,
     pub(crate) audio_codec: &'static str,
@@ -42,6 +45,9 @@ pub(crate) struct FormatProfile {
 const FORMAT_PROFILES: &[FormatProfile] = &[
     FormatProfile {
         key: "mp4",
+        label: "MP4 (H.264)",
+        ext: "mp4",
+        filter_name: "MP4",
         video_codec: "libx264",
         video_preset: Some("medium"),
         audio_codec: "aac",
@@ -51,6 +57,9 @@ const FORMAT_PROFILES: &[FormatProfile] = &[
     },
     FormatProfile {
         key: "mov",
+        label: "MOV (H.264)",
+        ext: "mov",
+        filter_name: "MOV",
         video_codec: "libx264",
         video_preset: Some("medium"),
         audio_codec: "aac",
@@ -60,6 +69,9 @@ const FORMAT_PROFILES: &[FormatProfile] = &[
     },
     FormatProfile {
         key: "avi",
+        label: "AVI (H.264)",
+        ext: "avi",
+        filter_name: "AVI",
         video_codec: "libx264",
         video_preset: Some("medium"),
         audio_codec: "mp3",
@@ -69,6 +81,9 @@ const FORMAT_PROFILES: &[FormatProfile] = &[
     },
     FormatProfile {
         key: "webm",
+        label: "WebM (VP9)",
+        ext: "webm",
+        filter_name: "WebM",
         video_codec: "libvpx-vp9",
         video_preset: None,
         audio_codec: "libopus",
@@ -77,6 +92,29 @@ const FORMAT_PROFILES: &[FormatProfile] = &[
         extra_flags: &[],
     },
 ];
+
+/// フロントエンドへ返すフォーマット情報
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FormatInfo {
+    pub key: String,
+    pub label: String,
+    pub ext: String,
+    pub filter_name: String,
+}
+
+/// 利用可能なエクスポートフォーマット一覧を返す
+pub(crate) fn list_format_infos() -> Vec<FormatInfo> {
+    FORMAT_PROFILES
+        .iter()
+        .map(|p| FormatInfo {
+            key: p.key.to_string(),
+            label: p.label.to_string(),
+            ext: p.ext.to_string(),
+            filter_name: p.filter_name.to_string(),
+        })
+        .collect()
+}
 
 pub(crate) fn get_format_profile(key: &str) -> &'static FormatProfile {
     FORMAT_PROFILES
