@@ -652,6 +652,139 @@ describe('projectStore', () => {
     expect(recentProjects[0].path).toBe('/tmp/b.qcut');
   });
 
+  // --- クリップの全プロパティ保存・復元 ---
+
+  const clipWithAllProperties = {
+    id: 'clip-full',
+    name: 'full.mp4',
+    startTime: 0,
+    duration: 10,
+    filePath: '/videos/full.mp4',
+    sourceStartTime: 0,
+    sourceEndTime: 10,
+    effects: {
+      brightness: 1.2,
+      contrast: 0.8,
+      saturation: 1.5,
+      colorTemperature: 0.3,
+      hue: 10,
+      hslRedSat: 0, hslYellowSat: 0, hslGreenSat: 0,
+      hslCyanSat: 0, hslBlueSat: 0, hslMagentaSat: 0,
+      liftR: 0, liftG: 0, liftB: 0,
+      gammaR: 0, gammaG: 0, gammaB: 0,
+      gainR: 0, gainG: 0, gainB: 0,
+      rotation: 0, scaleX: 1, scaleY: 1,
+      positionX: 0, positionY: 0,
+      fadeIn: 0.5, fadeOut: 0.5,
+      volume: 1, eqLow: 0, eqMid: 0, eqHigh: 0,
+      denoiseAmount: 0, highpassFreq: 0,
+      echoDelay: 0, echoDecay: 0.3, reverbAmount: 0,
+      blurAmount: 0, sharpenAmount: 0, monochrome: 0,
+    },
+    toneCurves: {
+      rgb: [{ x: 0, y: 0 }, { x: 0.5, y: 0.6 }, { x: 1, y: 1 }],
+      r: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+      g: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+      b: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+    },
+    timecodeOverlay: {
+      enabled: true,
+      startDateTime: 1700000000000,
+      format: 'hm' as const,
+      positionX: 50,
+      positionY: 10,
+      fontSize: 24,
+      fontColor: '#ffffff',
+    },
+    keyframes: {
+      brightness: [
+        { time: 0, value: 1.0, easing: 'linear' as const },
+        { time: 5, value: 1.5, easing: 'easeOut' as const },
+      ],
+    },
+  };
+
+  const fullProjectJson: ProjectFile = {
+    ...validProjectJson,
+    timeline: {
+      tracks: [{
+        id: 'video-1',
+        type: 'video',
+        name: 'Video 1',
+        volume: 1.0,
+        mute: false,
+        solo: false,
+        clips: [clipWithAllProperties],
+      }],
+    },
+  };
+
+  it('saveProject がクリップの effects, toneCurves, timecodeOverlay, keyframes を含む', async () => {
+    useTimelineStore.setState({
+      tracks: fullProjectJson.timeline.tracks,
+    });
+
+    vi.mocked(invoke).mockResolvedValue(undefined);
+    useProjectStore.setState({ projectFilePath: '/tmp/test.qcut' });
+
+    await useProjectStore.getState().saveProject();
+
+    const saveCall = vi.mocked(invoke).mock.calls.find((c) => c[0] === 'save_project');
+    const args = saveCall![1] as { content: string };
+    const parsed = JSON.parse(args.content);
+    const clip = parsed.timeline.tracks[0].clips[0];
+
+    expect(clip.effects).toBeDefined();
+    expect(clip.effects.brightness).toBe(1.2);
+    expect(clip.effects.contrast).toBe(0.8);
+
+    expect(clip.toneCurves).toBeDefined();
+    expect(clip.toneCurves.rgb).toHaveLength(3);
+    expect(clip.toneCurves.rgb[1]).toEqual({ x: 0.5, y: 0.6 });
+
+    expect(clip.timecodeOverlay).toBeDefined();
+    expect(clip.timecodeOverlay.enabled).toBe(true);
+    expect(clip.timecodeOverlay.fontSize).toBe(24);
+
+    expect(clip.keyframes).toBeDefined();
+    expect(clip.keyframes.brightness).toHaveLength(2);
+    expect(clip.keyframes.brightness[1].value).toBe(1.5);
+  });
+
+  it('loadProjectFromPath でクリップの全プロパティが復元される（ラウンドトリップ）', async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === 'read_project') return JSON.stringify(fullProjectJson);
+      if (cmd === 'get_file_info') return { name: 'full.mp4', path: '/videos/full.mp4', size: 1000, last_modified: 0 };
+      return undefined;
+    });
+
+    await useProjectStore.getState().loadProjectFromPath('/tmp/full.qcut');
+
+    const timeline = useTimelineStore.getState();
+    const clip = timeline.tracks[0].clips[0];
+
+    // effects
+    expect(clip.effects).toBeDefined();
+    expect(clip.effects!.brightness).toBe(1.2);
+    expect(clip.effects!.fadeIn).toBe(0.5);
+
+    // toneCurves
+    expect(clip.toneCurves).toBeDefined();
+    expect(clip.toneCurves!.rgb).toHaveLength(3);
+    expect(clip.toneCurves!.rgb[1]).toEqual({ x: 0.5, y: 0.6 });
+
+    // timecodeOverlay
+    expect(clip.timecodeOverlay).toBeDefined();
+    expect(clip.timecodeOverlay!.enabled).toBe(true);
+    expect(clip.timecodeOverlay!.startDateTime).toBe(1700000000000);
+
+    // keyframes
+    expect(clip.keyframes).toBeDefined();
+    expect(clip.keyframes!.brightness).toHaveLength(2);
+    expect(clip.keyframes!.brightness![0].easing).toBe('linear');
+    expect(clip.keyframes!.brightness![1].value).toBe(1.5);
+  });
+
   it('clearRecentProjects で全件削除する', async () => {
     useProjectStore.setState({
       recentProjects: [{ name: 'A', path: '/tmp/a.qcut', lastOpened: 1000, exists: true }],
