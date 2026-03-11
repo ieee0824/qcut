@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { Track } from '../store/timelineStore';
 import {
   AUDIO_EXTENSIONS,
@@ -6,6 +6,7 @@ import {
   isAudioFile,
   getNextTrackId,
   extractFileName,
+  getMediaDuration,
 } from '../components/FileOperations/fileOperationsUtils';
 
 describe('fileOperationsUtils', () => {
@@ -96,9 +97,12 @@ describe('fileOperationsUtils', () => {
       expect(extractFileName('/Users/test/videos/sample.mp4')).toBe('sample.mp4');
     });
 
-    it('Windowsパスからファイル名を抽出できない（既知のバグ: Issue #164）', () => {
-      // split('/') が先に評価され、バックスラッシュのみのパスではフルパスが返る
-      expect(extractFileName('C:\\Users\\test\\videos\\sample.mp4')).toBe('C:\\Users\\test\\videos\\sample.mp4');
+    it('Windowsパスからファイル名を抽出する', () => {
+      expect(extractFileName('C:\\Users\\test\\videos\\sample.mp4')).toBe('sample.mp4');
+    });
+
+    it('混在パス（スラッシュとバックスラッシュ）からファイル名を抽出する', () => {
+      expect(extractFileName('C:\\Users/test\\videos/sample.mp4')).toBe('sample.mp4');
     });
 
     it('ファイル名のみの場合はそのまま返す', () => {
@@ -107,6 +111,74 @@ describe('fileOperationsUtils', () => {
 
     it('空文字列の場合は空文字列を返す', () => {
       expect(extractFileName('')).toBe('');
+    });
+  });
+
+  // --- getMediaDuration ---
+
+  describe('getMediaDuration', () => {
+    it('video 要素の loadedmetadata で duration を返す', async () => {
+      const mockElement = {
+        preload: '',
+        src: '',
+        duration: 10.5,
+        onloadedmetadata: null as (() => void) | null,
+        onerror: null as (() => void) | null,
+      };
+      vi.spyOn(document, 'createElement').mockReturnValueOnce(mockElement as unknown as HTMLElement);
+
+      const promise = getMediaDuration('http://example.com/video.mp4', 'video');
+      mockElement.onloadedmetadata?.();
+
+      await expect(promise).resolves.toBe(10.5);
+      expect(mockElement.preload).toBe('metadata');
+      expect(mockElement.src).toBe('http://example.com/video.mp4');
+    });
+
+    it('audio 要素の loadedmetadata で duration を返す', async () => {
+      const mockElement = {
+        preload: '',
+        src: '',
+        duration: 180.0,
+        onloadedmetadata: null as (() => void) | null,
+        onerror: null as (() => void) | null,
+      };
+      vi.spyOn(document, 'createElement').mockReturnValueOnce(mockElement as unknown as HTMLElement);
+
+      const promise = getMediaDuration('http://example.com/audio.mp3', 'audio');
+      mockElement.onloadedmetadata?.();
+
+      await expect(promise).resolves.toBe(180.0);
+    });
+
+    it('onerror 時に動画用のエラーメッセージで reject する', async () => {
+      const mockElement = {
+        preload: '',
+        src: '',
+        onloadedmetadata: null as (() => void) | null,
+        onerror: null as (() => void) | null,
+      };
+      vi.spyOn(document, 'createElement').mockReturnValueOnce(mockElement as unknown as HTMLElement);
+
+      const promise = getMediaDuration('http://example.com/bad.mp4', 'video');
+      mockElement.onerror?.();
+
+      await expect(promise).rejects.toThrow('動画のメタデータ読み込みに失敗しました');
+    });
+
+    it('onerror 時に音声用のエラーメッセージで reject する', async () => {
+      const mockElement = {
+        preload: '',
+        src: '',
+        onloadedmetadata: null as (() => void) | null,
+        onerror: null as (() => void) | null,
+      };
+      vi.spyOn(document, 'createElement').mockReturnValueOnce(mockElement as unknown as HTMLElement);
+
+      const promise = getMediaDuration('http://example.com/bad.mp3', 'audio');
+      mockElement.onerror?.();
+
+      await expect(promise).rejects.toThrow('音声のメタデータ読み込みに失敗しました');
     });
   });
 });

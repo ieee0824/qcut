@@ -34,7 +34,7 @@ export const getNextTrackId = (existingTracks: Track[], type: 'video' | 'audio')
  * ファイルパスからファイル名を抽出する
  */
 export const extractFileName = (fullPath: string): string => {
-  return fullPath.split('/').pop() ?? fullPath.split('\\').pop() ?? fullPath;
+  return fullPath.split(/[/\\]/).pop() ?? fullPath;
 };
 
 /**
