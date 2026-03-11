@@ -244,6 +244,9 @@ function App() {
             {isPlaying ? t('button.pause') : t('button.play')}
           </button>
           <PluginToolbarButtons />
+          <button onClick={() => setHelpVisible(true)} className="play-btn" title={t('shortcut.title')}>
+            ?
+          </button>
         </div>
       </header>
       <main className="app-main">
