@@ -242,10 +242,15 @@ export interface PlaybackSlice {
   isPlaying: boolean;
   selectedClipId: string | null;
   selectedTrackId: string | null;
+  snapEnabled: boolean;
+  snapLineTime: number | null;
   setPixelsPerSecond: (pps: number) => void;
   setCurrentTime: (time: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setSelectedClip: (trackId: string | null, clipId: string | null) => void;
+  setSnapEnabled: (enabled: boolean) => void;
+  toggleSnap: () => void;
+  setSnapLineTime: (time: number | null) => void;
   zoomIn: () => void;
   zoomOut: () => void;
 }

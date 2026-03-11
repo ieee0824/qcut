@@ -109,7 +109,10 @@
     "unmute": "ミュート解除",
     "solo": "ソロ",
     "unSolo": "ソロ解除",
-    "volume": "音量"
+    "volume": "音量",
+    "snap": "スナップ",
+    "snapOn": "スナップを有効にする",
+    "snapOff": "スナップを無効にする"
   },
   "text": {
     "title": "テキスト",

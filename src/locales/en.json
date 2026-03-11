@@ -109,7 +109,10 @@
     "unmute": "Unmute",
     "solo": "Solo",
     "unSolo": "Unsolo",
-    "volume": "Volume"
+    "volume": "Volume",
+    "snap": "Snap",
+    "snapOn": "Enable snap",
+    "snapOff": "Disable snap"
   },
   "text": {
     "title": "Text",

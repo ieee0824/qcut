@@ -46,6 +46,9 @@ function Timeline() {
     updateTrackVolume,
     toggleMute,
     toggleSolo,
+    snapEnabled,
+    toggleSnap,
+    snapLineTime,
   } = useTimelineStore();
 
   const { t } = useTranslation();
@@ -130,6 +133,13 @@ function Timeline() {
           <button onClick={zoomOut} className="timeline-btn">-</button>
           <span className="timeline-zoom">{Math.round(pixelsPerSecond)}px/s</span>
           <button onClick={zoomIn} className="timeline-btn">+</button>
+          <button
+            onClick={toggleSnap}
+            className={`snap-toggle-btn${snapEnabled ? ' active' : ''}`}
+            title={snapEnabled ? t('timeline.snapOff') : t('timeline.snapOn')}
+          >
+            {t('timeline.snap')}
+          </button>
         </div>
         <TimelineTimecode />
       </div>
@@ -204,6 +214,12 @@ function Timeline() {
             style={{ width: `${timelineWidth}px` }}
           >
             <Playhead />
+            {snapLineTime !== null && (
+              <div
+                className="snap-guideline"
+                style={{ left: `${snapLineTime * pixelsPerSecond}px` }}
+              />
+            )}
             
             <div className="timeline-ruler">
               {Array.from({ length: Math.ceil(timelineWidth / pixelsPerSecond) + 1 }).map((_, i) => (

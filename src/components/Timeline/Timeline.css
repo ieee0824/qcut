@@ -736,3 +736,36 @@
   background-color: #b71c1c;
 }
 
+/* スナップガイドライン */
+.snap-guideline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: #ffd700;
+  z-index: 99;
+  pointer-events: none;
+  box-shadow: 0 0 4px rgba(255, 215, 0, 0.6);
+}
+
+/* スナップトグルボタン */
+.snap-toggle-btn {
+  background-color: #3a3a3a;
+  color: #888;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.snap-toggle-btn:hover {
+  background-color: #4a4a4a;
+}
+
+.snap-toggle-btn.active {
+  background-color: #4a9eff;
+  color: #fff;
+}
+
