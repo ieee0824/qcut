@@ -65,6 +65,8 @@ pub fn run() {
       commands::plugins::read_plugin_settings,
       commands::plugins::write_plugin_settings,
       commands::plugins::verify_plugin_integrity,
+      commands::plugins::import_plugin,
+      commands::plugins::delete_plugin,
       commands::export::check_ffmpeg,
       commands::export::export_video,
       commands::export::cancel_export,

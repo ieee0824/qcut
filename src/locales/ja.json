@@ -275,6 +275,21 @@
     "minutes": "分",
     "hours": "時間"
   },
+  "plugin": {
+    "managerTitle": "プラグイン管理",
+    "managerButton": "プラグイン",
+    "addPlugin": "プラグインを追加",
+    "importing": "インポート中...",
+    "close": "閉じる",
+    "delete": "削除",
+    "noPlugins": "インストール済みのプラグインはありません",
+    "selectDirectory": "プラグインディレクトリを選択",
+    "overwriteConfirm": "プラグイン \"{{id}}\" は既にインストールされています。上書きしますか？",
+    "deleteConfirm": "プラグイン \"{{name}}\" を削除しますか？この操作は元に戻せません。",
+    "stateActive": "有効",
+    "stateInactive": "無効",
+    "stateError": "エラー"
+  },
   "keyframe": {
     "addKeyframe": "キーフレームを追加",
     "linear": "リニア",

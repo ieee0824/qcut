@@ -4,6 +4,142 @@ use std::io::Read;
 use std::path::Path;
 use tauri::Manager;
 
+/// import_plugin のインポート結果
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportPluginResult {
+    pub plugin_id: String,
+    /// 同一 ID のプラグインが既にインストール済みの場合 true
+    pub conflict: bool,
+}
+
+/// プラグインディレクトリを app_data_dir/plugins/{id}/ にインポートする
+/// force=false かつ既存プラグインがある場合は conflict=true を返すだけでコピーしない
+/// force=true の場合は上書きする
+#[tauri::command]
+pub fn import_plugin(
+    app_handle: tauri::AppHandle,
+    src_path: String,
+    force: bool,
+) -> Result<ImportPluginResult, String> {
+    let src = Path::new(&src_path);
+
+    // plugin.json を読み込んで id を取得する
+    let manifest_path = src.join("plugin.json");
+    if !manifest_path.exists() {
+        return Err("plugin.json が見つかりません。プラグインディレクトリを選択してください。".to_string());
+    }
+    let manifest_content = fs::read_to_string(&manifest_path)
+        .map_err(|e| format!("plugin.json の読み込みに失敗: {}", e))?;
+    let manifest: serde_json::Value = serde_json::from_str(&manifest_content)
+        .map_err(|e| format!("plugin.json のパースに失敗: {}", e))?;
+
+    let plugin_id = manifest
+        .get("id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "plugin.json に id フィールドがありません".to_string())?;
+
+    // id にパストラバーサル文字が含まれていないことを確認
+    if plugin_id.is_empty()
+        || plugin_id.contains('/')
+        || plugin_id.contains('\\')
+        || plugin_id.contains("..")
+    {
+        return Err(format!("不正なプラグイン ID: {}", plugin_id));
+    }
+
+    // 必須フィールドの存在チェック
+    for field in &["name", "version", "type", "entry"] {
+        if manifest.get(field).is_none() {
+            return Err(format!("plugin.json に必須フィールド \"{}\" がありません", field));
+        }
+    }
+
+    let app_data = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
+    let plugins_dir = app_data.join("plugins");
+    let dest = plugins_dir.join(plugin_id);
+
+    // 既存プラグインとの衝突チェック
+    if dest.exists() && !force {
+        return Ok(ImportPluginResult {
+            plugin_id: plugin_id.to_string(),
+            conflict: true,
+        });
+    }
+
+    // コピー先ディレクトリを作成（上書きの場合は一旦削除）
+    if dest.exists() {
+        fs::remove_dir_all(&dest)
+            .map_err(|e| format!("既存プラグインの削除に失敗: {}", e))?;
+    }
+    fs::create_dir_all(&dest)
+        .map_err(|e| format!("インポート先ディレクトリの作成に失敗: {}", e))?;
+
+    // src_path 内のファイルをコピー（サブディレクトリは対象外）
+    let entries = fs::read_dir(src)
+        .map_err(|e| format!("ソースディレクトリの読み込みに失敗: {}", e))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("ディレクトリエントリの読み込みに失敗: {}", e))?;
+        let file_type = entry.file_type()
+            .map_err(|e| format!("ファイルタイプの取得に失敗: {}", e))?;
+        if file_type.is_file() {
+            let file_name = entry.file_name();
+            let dest_file = dest.join(&file_name);
+            fs::copy(entry.path(), &dest_file)
+                .map_err(|e| format!("{} のコピーに失敗: {}", file_name.to_string_lossy(), e))?;
+        }
+    }
+
+    Ok(ImportPluginResult {
+        plugin_id: plugin_id.to_string(),
+        conflict: false,
+    })
+}
+
+/// インストール済みプラグインを削除する
+#[tauri::command]
+pub fn delete_plugin(
+    app_handle: tauri::AppHandle,
+    plugin_id: String,
+) -> Result<(), String> {
+    // plugin_id のバリデーション
+    if plugin_id.is_empty()
+        || plugin_id.contains('/')
+        || plugin_id.contains('\\')
+        || plugin_id.contains("..")
+    {
+        return Err(format!("不正なプラグイン ID: {}", plugin_id));
+    }
+
+    let app_data = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
+    let plugin_dir = app_data.join("plugins").join(&plugin_id);
+
+    if !plugin_dir.exists() {
+        return Err(format!("プラグインが見つかりません: {}", plugin_id));
+    }
+
+    // セキュリティ: plugins/ ディレクトリ外へのアクセスを防止
+    let canonical = plugin_dir
+        .canonicalize()
+        .map_err(|e| format!("パスの正規化に失敗: {}", e))?;
+    let plugins_dir = app_data.join("plugins");
+    let plugins_canonical = plugins_dir.canonicalize().unwrap_or(plugins_dir);
+    if !canonical.starts_with(&plugins_canonical) {
+        return Err("プラグインディレクトリ外のパスは削除できません".to_string());
+    }
+
+    fs::remove_dir_all(&canonical)
+        .map_err(|e| format!("プラグインの削除に失敗: {}", e))?;
+
+    Ok(())
+}
+
 /// プラグインディレクトリ内のサブディレクトリ一覧を返す
 #[tauri::command]
 pub fn list_plugin_dirs(app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
