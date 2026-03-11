@@ -11,6 +11,9 @@ pub fn run() {
     .manage(commands::export::ExportState {
       cancel_flag: Arc::new(AtomicBool::new(false)),
     })
+    .manage(commands::export::CustomFormatsState {
+      formats: std::sync::Mutex::new(Vec::new()),
+    })
     .manage(commands::waveform::WaveformCache {
       cache: std::sync::Mutex::new(HashMap::new()),
       in_progress: std::sync::Mutex::new(HashMap::new()),
@@ -32,6 +35,33 @@ pub fn run() {
       if let Err(e) = std::fs::create_dir_all(&app_data_dir) {
         eprintln!("Failed to create app_data_dir {:?}: {}", app_data_dir, e);
       }
+
+      // カスタムエクスポートフォーマットを起動時に読み込む
+      let formats_path = app_data_dir.join("export-formats.json");
+      if formats_path.exists() {
+        match std::fs::read_to_string(&formats_path) {
+          Ok(json) => {
+            match serde_json::from_str::<Vec<commands::ffmpeg_builder::CustomFormatEntry>>(&json) {
+              Ok(entries) => {
+                let valid: Vec<commands::ffmpeg_builder::CustomFormatEntry> = entries.into_iter().filter(|e| {
+                  match commands::ffmpeg_builder::validate_custom_format(e) {
+                    Ok(()) => true,
+                    Err(err) => {
+                      eprintln!("カスタムフォーマット '{}' は無効: {}", e.key, err);
+                      false
+                    }
+                  }
+                }).collect();
+                let state = app.state::<commands::export::CustomFormatsState>();
+                *state.formats.lock().unwrap() = valid;
+              }
+              Err(e) => eprintln!("export-formats.json のパースに失敗: {}", e),
+            }
+          }
+          Err(e) => eprintln!("export-formats.json の読み込みに失敗: {}", e),
+        }
+      }
+
       let db_path = app_data_dir.join("logs.db");
 
       if let Ok(sqlite_logger) = sqlite_logger::SqliteLogger::new(&db_path) {

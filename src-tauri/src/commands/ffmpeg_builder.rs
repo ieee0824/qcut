@@ -93,6 +93,101 @@ const FORMAT_PROFILES: &[FormatProfile] = &[
     },
 ];
 
+// --- コーデック許可リスト（コマンドインジェクション対策）---
+
+const ALLOWED_VIDEO_CODECS: &[&str] = &[
+    "libx264", "libx265", "libvpx-vp9", "libaom-av1",
+];
+
+const ALLOWED_AUDIO_CODECS: &[&str] = &[
+    "aac", "mp3", "libopus", "flac", "pcm_s16le", "libvorbis",
+];
+
+// --- カスタムフォーマット ---
+
+/// JSON 設定ファイルから読み込むカスタムフォーマットエントリ
+#[derive(Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CustomFormatEntry {
+    pub key: String,
+    pub label: String,
+    pub ext: String,
+    pub filter_name: String,
+    pub video_codec: String,
+    pub audio_codec: String,
+    pub audio_bitrate: String,
+    #[serde(default)]
+    pub video_preset: Option<String>,
+    #[serde(default)]
+    pub container: Option<String>,
+}
+
+/// カスタムフォーマットのバリデーション（許可リスト方式）
+pub(crate) fn validate_custom_format(entry: &CustomFormatEntry) -> Result<(), String> {
+    if !ALLOWED_VIDEO_CODECS.contains(&entry.video_codec.as_str()) {
+        return Err(format!("不正な videoCodec: {} (許可リスト外)", entry.video_codec));
+    }
+    if !ALLOWED_AUDIO_CODECS.contains(&entry.audio_codec.as_str()) {
+        return Err(format!("不正な audioCodec: {} (許可リスト外)", entry.audio_codec));
+    }
+    let re = Regex::new(r"^\d+k$").unwrap();
+    if !re.is_match(&entry.audio_bitrate) {
+        return Err(format!("不正な audioBitrate: {} (例: 128k)", entry.audio_bitrate));
+    }
+    Ok(())
+}
+
+// --- フォーマット解決 ---
+
+/// build_ffmpeg_args で使う所有権付きフォーマットプロファイル
+pub(crate) struct OwnedFormatProfile {
+    pub video_codec: String,
+    pub video_preset: Option<String>,
+    pub audio_codec: String,
+    pub audio_bitrate: String,
+    pub container: Option<String>,
+    pub extra_flags: Vec<String>,
+}
+
+/// フォーマットキーから OwnedFormatProfile を解決する。
+/// 静的プロファイルを優先し、見つからなければカスタムフォーマット、
+/// それも見つからなければ mp4 にフォールバック。
+pub(crate) fn resolve_format_profile(
+    key: &str,
+    custom: &[CustomFormatEntry],
+) -> OwnedFormatProfile {
+    if let Some(p) = FORMAT_PROFILES.iter().find(|p| p.key == key) {
+        return OwnedFormatProfile {
+            video_codec: p.video_codec.to_string(),
+            video_preset: p.video_preset.map(|s| s.to_string()),
+            audio_codec: p.audio_codec.to_string(),
+            audio_bitrate: p.audio_bitrate.to_string(),
+            container: p.container.map(|s| s.to_string()),
+            extra_flags: p.extra_flags.iter().map(|s| s.to_string()).collect(),
+        };
+    }
+    if let Some(f) = custom.iter().find(|f| f.key == key) {
+        return OwnedFormatProfile {
+            video_codec: f.video_codec.clone(),
+            video_preset: f.video_preset.clone(),
+            audio_codec: f.audio_codec.clone(),
+            audio_bitrate: f.audio_bitrate.clone(),
+            container: f.container.clone(),
+            extra_flags: vec![],
+        };
+    }
+    // デフォルト: mp4
+    let p = &FORMAT_PROFILES[0];
+    OwnedFormatProfile {
+        video_codec: p.video_codec.to_string(),
+        video_preset: p.video_preset.map(|s| s.to_string()),
+        audio_codec: p.audio_codec.to_string(),
+        audio_bitrate: p.audio_bitrate.to_string(),
+        container: p.container.map(|s| s.to_string()),
+        extra_flags: p.extra_flags.iter().map(|s| s.to_string()).collect(),
+    }
+}
+
 /// フロントエンドへ返すフォーマット情報
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -103,9 +198,9 @@ pub(crate) struct FormatInfo {
     pub filter_name: String,
 }
 
-/// 利用可能なエクスポートフォーマット一覧を返す
-pub(crate) fn list_format_infos() -> Vec<FormatInfo> {
-    FORMAT_PROFILES
+/// 利用可能なエクスポートフォーマット一覧を返す（組み込み + カスタム）
+pub(crate) fn list_format_infos(custom: &[CustomFormatEntry]) -> Vec<FormatInfo> {
+    let mut infos: Vec<FormatInfo> = FORMAT_PROFILES
         .iter()
         .map(|p| FormatInfo {
             key: p.key.to_string(),
@@ -113,14 +208,16 @@ pub(crate) fn list_format_infos() -> Vec<FormatInfo> {
             ext: p.ext.to_string(),
             filter_name: p.filter_name.to_string(),
         })
-        .collect()
-}
-
-pub(crate) fn get_format_profile(key: &str) -> &'static FormatProfile {
-    FORMAT_PROFILES
-        .iter()
-        .find(|p| p.key == key)
-        .unwrap_or(&FORMAT_PROFILES[0]) // mp4 をデフォルトにフォールバック
+        .collect();
+    for f in custom {
+        infos.push(FormatInfo {
+            key: f.key.clone(),
+            label: f.label.clone(),
+            ext: f.ext.clone(),
+            filter_name: f.filter_name.clone(),
+        });
+    }
+    infos
 }
 
 // --- ヘルパー関数 ---
@@ -226,6 +323,7 @@ pub(crate) fn build_ffmpeg_args(
     video_clips: &[VideoTrackClip],
     text_clips: &[&ExportClip],
     audio_track_clips: &[AudioTrackClip],
+    custom_formats: &[CustomFormatEntry],
 ) -> Result<FfmpegBuildResult, String> {
     // セキュリティ: 数値パラメータのバリデーション
     validate_export_settings(settings)?;
@@ -853,11 +951,11 @@ pub(crate) fn build_ffmpeg_args(
     args.push(format!("[{}]", final_a_label));
 
     // フォーマットプロファイルから出力設定を生成
-    let profile = get_format_profile(&settings.format);
+    let profile = resolve_format_profile(&settings.format, custom_formats);
 
-    args.extend(["-c:v".into(), profile.video_codec.into()]);
+    args.extend(["-c:v".into(), profile.video_codec]);
     if let Some(preset) = profile.video_preset {
-        args.extend(["-preset".into(), preset.into()]);
+        args.extend(["-preset".into(), preset]);
     }
     args.extend([
         "-b:v".into(),
@@ -865,15 +963,15 @@ pub(crate) fn build_ffmpeg_args(
         "-r".into(),
         settings.fps.to_string(),
         "-c:a".into(),
-        profile.audio_codec.into(),
+        profile.audio_codec,
         "-b:a".into(),
-        profile.audio_bitrate.into(),
+        profile.audio_bitrate,
     ]);
     if let Some(container) = profile.container {
-        args.extend(["-f".into(), container.into()]);
+        args.extend(["-f".into(), container]);
     }
     for flag in profile.extra_flags {
-        args.push((*flag).into());
+        args.push(flag);
     }
     args.push(settings.output_path.clone());
 

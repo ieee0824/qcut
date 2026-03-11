@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
-use super::ffmpeg_builder::{build_ffmpeg_args, collect_audio_clips, collect_text_clips, collect_video_clips, list_format_infos, FormatInfo};
+use super::ffmpeg_builder::{build_ffmpeg_args, collect_audio_clips, collect_text_clips, collect_video_clips, list_format_infos, CustomFormatEntry, FormatInfo};
 use super::progress_parser::ProgressParser;
 
 // --- データ構造 ---
@@ -220,6 +220,10 @@ pub struct ExportState {
     pub cancel_flag: Arc<AtomicBool>,
 }
 
+pub struct CustomFormatsState {
+    pub formats: std::sync::Mutex<Vec<CustomFormatEntry>>,
+}
+
 // --- コマンド ---
 
 #[tauri::command]
@@ -245,6 +249,7 @@ pub async fn export_video(
     app_handle: AppHandle,
     settings: ExportSettings,
     state: tauri::State<'_, ExportState>,
+    custom_formats_state: tauri::State<'_, CustomFormatsState>,
 ) -> Result<(), String> {
     // キャンセルフラグをリセット
     state.cancel_flag.store(false, Ordering::SeqCst);
@@ -278,7 +283,9 @@ pub async fn export_video(
     }
 
     // FFmpegコマンドを構築
-    let build_result = build_ffmpeg_args(&settings, &video_clips, &text_clips, &audio_track_clips)?;
+    let custom_formats = custom_formats_state.formats.lock().unwrap();
+    let build_result = build_ffmpeg_args(&settings, &video_clips, &text_clips, &audio_track_clips, &custom_formats)?;
+    drop(custom_formats);
     let args = build_result.args;
     let temp_files = build_result.temp_files;
     log::info!("FFmpeg command: {} {}", super::ffmpeg_path::ffmpeg_path(), args.join(" "));
@@ -388,6 +395,7 @@ pub fn cancel_export(state: tauri::State<'_, ExportState>) -> Result<(), String>
 }
 
 #[tauri::command]
-pub fn get_export_formats() -> Vec<FormatInfo> {
-    list_format_infos()
+pub fn get_export_formats(state: tauri::State<'_, CustomFormatsState>) -> Vec<FormatInfo> {
+    let custom = state.formats.lock().unwrap();
+    list_format_infos(&custom)
 }
