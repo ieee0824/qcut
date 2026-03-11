@@ -2,6 +2,7 @@ import { useTimelineStore } from '@/store/timelineStore';
 import type { Clip } from '@/store/timelineStore';
 import { logAction } from '@/store/actionLogger';
 import { usePluginStore } from '@/store/pluginStore';
+import { useExportStore } from '@/store/exportStore';
 import type { PluginManifest, PluginPermission } from './types/manifest';
 import type {
   PluginContext,
@@ -10,6 +11,8 @@ import type {
   PluginUiApi,
   PluginSettingsApi,
   PluginLogApi,
+  PluginExportApi,
+  ExportFormatProfile,
   Disposable,
   ClipChangeEvent,
   PanelConfig,
@@ -33,6 +36,7 @@ export class PluginContextImpl implements PluginContext {
   readonly registeredPanels: PanelConfig[] = [];
   readonly registeredToolbarButtons: ToolbarButtonConfig[] = [];
   readonly frameRenderCallbacks: Array<(frame: ImageData) => ImageData> = [];
+  private registeredExportFormatKeys: string[] = [];
 
   constructor(
     public readonly pluginId: string,
@@ -238,6 +242,25 @@ export class PluginContextImpl implements PluginContext {
     };
   }
 
+  get export(): PluginExportApi {
+    return {
+      registerFormat: (profile: ExportFormatProfile): Disposable => {
+        this.requirePermission('export:write');
+        useExportStore.getState().registerCustomFormat(profile);
+        this.registeredExportFormatKeys.push(profile.key);
+        const disposable = {
+          dispose: () => {
+            useExportStore.getState().unregisterCustomFormat(profile.key);
+            const idx = this.registeredExportFormatKeys.indexOf(profile.key);
+            if (idx >= 0) this.registeredExportFormatKeys.splice(idx, 1);
+          },
+        };
+        this.disposables.push(disposable);
+        return disposable;
+      },
+    };
+  }
+
   get log(): PluginLogApi {
     const prefix = `[Plugin:${this.pluginId}]`;
     return {
@@ -275,6 +298,7 @@ export class PluginContextImpl implements PluginContext {
     this.registeredPanels.length = 0;
     this.registeredToolbarButtons.length = 0;
     this.frameRenderCallbacks.length = 0;
+    this.registeredExportFormatKeys.length = 0;
     this.settingsListeners.clear();
   }
 

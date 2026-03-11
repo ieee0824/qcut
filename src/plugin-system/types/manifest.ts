@@ -9,7 +9,8 @@ export type PluginPermission =
   | 'settings:write'
   | 'ui:panel'
   | 'ui:toolbar'
-  | 'frame:process';
+  | 'frame:process'
+  | 'export:write';
 
 export type PluginType = 'typescript' | 'wasm' | 'hybrid';
 

@@ -60,6 +60,21 @@ export interface PluginLogApi {
   error(message: string): void;
 }
 
+export interface ExportFormatProfile {
+  key: string;
+  label: string;
+  ext: string;
+  filterName: string;
+  videoCodec: string;
+  audioCodec: string;
+  audioBitrate: string;
+  videoPreset?: string;
+}
+
+export interface PluginExportApi {
+  registerFormat(profile: ExportFormatProfile): Disposable;
+}
+
 export interface PluginContext {
   readonly pluginId: string;
   readonly manifest: Readonly<PluginManifest>;
@@ -68,4 +83,5 @@ export interface PluginContext {
   readonly ui: PluginUiApi;
   readonly settings: PluginSettingsApi;
   readonly log: PluginLogApi;
+  readonly export: PluginExportApi;
 }

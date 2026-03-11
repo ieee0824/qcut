@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import type { ExportFormatProfile } from '../plugin-system/types/api';
 
+export type { ExportFormatProfile };
 export type ExportStatus = 'idle' | 'configuring' | 'exporting' | 'complete' | 'error' | 'cancelled';
 export type ExportFormat = string;
 
@@ -35,6 +37,7 @@ export interface ExportState {
   outputPath: string | null;
   exportStartedAt: number | null;
   formatOptions: FormatOption[];
+  customFormatProfiles: Record<string, ExportFormatProfile>;
 
   setStatus: (status: ExportStatus) => void;
   setProgress: (progress: number, currentTime: number) => void;
@@ -43,6 +46,8 @@ export interface ExportState {
   setSettings: (settings: Partial<ExportSettings>) => void;
   setOutputPath: (path: string) => void;
   setFormatOptions: (options: FormatOption[]) => void;
+  registerCustomFormat: (profile: ExportFormatProfile) => void;
+  unregisterCustomFormat: (key: string) => void;
   reset: () => void;
 }
 
@@ -64,6 +69,7 @@ export const useExportStore = create<ExportState>((set) => ({
   outputPath: null,
   exportStartedAt: null,
   formatOptions: DEFAULT_FORMAT_OPTIONS,
+  customFormatProfiles: {},
 
   setStatus: (status) => set((state) => ({
     status,
@@ -76,7 +82,34 @@ export const useExportStore = create<ExportState>((set) => ({
     settings: { ...state.settings, ...partial },
   })),
   setOutputPath: (path) => set({ outputPath: path }),
-  setFormatOptions: (options) => set({ formatOptions: options }),
+  // バックエンド取得フォーマットで上書きする際、既登録カスタムフォーマットを保持する
+  setFormatOptions: (options) => set((state) => {
+    const customKeys = Object.keys(state.customFormatProfiles);
+    const existingCustom = state.formatOptions.filter((o) => customKeys.includes(o.key));
+    return { formatOptions: [...options, ...existingCustom] };
+  }),
+  registerCustomFormat: (profile) => set((state) => {
+    if (state.customFormatProfiles[profile.key]) return state;
+    return {
+      formatOptions: [
+        ...state.formatOptions,
+        { key: profile.key, label: profile.label, ext: profile.ext, filterName: profile.filterName },
+      ],
+      customFormatProfiles: { ...state.customFormatProfiles, [profile.key]: profile },
+    };
+  }),
+  unregisterCustomFormat: (key) => set((state) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { [key]: _removed, ...rest } = state.customFormatProfiles;
+    const newSettings = state.settings.format === key
+      ? { ...state.settings, format: DEFAULT_SETTINGS.format }
+      : state.settings;
+    return {
+      formatOptions: state.formatOptions.filter((o) => o.key !== key),
+      customFormatProfiles: rest,
+      settings: newSettings,
+    };
+  }),
   reset: () => set({
     status: 'idle',
     progress: 0,
@@ -86,3 +119,4 @@ export const useExportStore = create<ExportState>((set) => ({
     exportStartedAt: null,
   }),
 }));
+
