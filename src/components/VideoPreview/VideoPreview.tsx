@@ -140,6 +140,20 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     currentTimeRef,
   });
 
+  // videoUrls 登録が tracks 更新より遅れるため、currentVideoUrl が確定した時点で再描画
+  useEffect(() => {
+    if (!needsCanvas || !currentVideoUrl) return;
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.readyState >= 2) {
+      renderCanvasFrame();
+    } else {
+      const onReady = () => renderCanvasFrame();
+      video.addEventListener('loadeddata', onReady, { once: true });
+      return () => video.removeEventListener('loadeddata', onReady);
+    }
+  }, [currentVideoUrl, needsCanvas, renderCanvasFrame, videoRef]);
+
   const { captureFrame } = useFrameCapture({
     videoRef,
     pipelineRef,
