@@ -476,16 +476,18 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         {/* HLS ステータスインジケータ */}
         {(isHlsGenerating || hlsPath || hlsError) && (
           <div
+            title={hlsError ?? undefined}
             style={{
               position: 'absolute',
               top: 4,
               right: 8,
               fontSize: '11px',
               color: hlsError ? '#f66' : hlsPath ? '#4c4' : '#aaa',
-              pointerEvents: 'none',
+              pointerEvents: hlsError ? 'auto' : 'none',
+              cursor: hlsError ? 'help' : 'default',
             }}
           >
-            {isHlsGenerating ? 'HLS 生成中...' : hlsError ? 'HLS エラー' : 'HLS ▶'}
+            {isHlsGenerating ? 'HLS 生成中...' : hlsError ? 'HLS エラー ⚠' : 'HLS ▶'}
           </div>
         )}
         {!hasCurrentClip && (

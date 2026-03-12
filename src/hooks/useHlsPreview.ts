@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTimelineStore } from '../store/timelineStore';
 import { useHlsPreviewStore, type HlsSegment } from '../store/hlsPreviewStore';
+import { logAction } from '../store/actionLogger';
 
 const DEBOUNCE_MS = 1500;
 
@@ -73,7 +74,9 @@ export function useHlsPreview() {
           useHlsPreviewStore.getState().setHlsReady(result.playlist_path, segments);
         } catch (e) {
           if (myId !== generationIdRef.current) return; // 古いエラーは破棄
-          useHlsPreviewStore.getState().setError(String(e));
+          const errMsg = String(e);
+          logAction('hlsPreviewError', errMsg);
+          useHlsPreviewStore.getState().setError(errMsg);
         }
       }, DEBOUNCE_MS);
     };
