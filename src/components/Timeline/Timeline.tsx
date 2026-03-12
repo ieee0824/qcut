@@ -126,6 +126,12 @@ function Timeline() {
     }
   };
 
+  const handleHeaderWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (timelineContainerRef.current) {
+      timelineContainerRef.current.scrollTop += e.deltaY;
+    }
+  };
+
   return (
     <div className="timeline">
       <div className="timeline-header">
@@ -145,7 +151,7 @@ function Timeline() {
       </div>
       
       <div className="timeline-content">
-        <div className="timeline-track-headers" ref={trackHeadersRef}>
+        <div className="timeline-track-headers" ref={trackHeadersRef} onWheel={handleHeaderWheel}>
           <div className="timeline-track-header-spacer" />
           {tracks.map((track) => {
             const primaryClipName = track.clips[0]?.name;
