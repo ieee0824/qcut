@@ -90,6 +90,12 @@ function App() {
     };
   }, []);
 
+  // 起動時に現在の言語をネイティブメニューのチェック状態へ同期する
+  useEffect(() => {
+    invoke('update_language_menu', { lang: i18n.language }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleAddTextTrack = useCallback(() => {
     const { addTrack, addClip, tracks } = useTimelineStore.getState();
     const trackId = `track-text-${Date.now()}`;

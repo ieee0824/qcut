@@ -2,9 +2,22 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 
 mod sqlite_logger;
+
+/// フロントエンドから現在の言語を受け取り、View メニューのチェック状態を同期する
+#[tauri::command]
+fn update_language_menu(app: tauri::AppHandle, lang: String) {
+  if let Some(menu) = app.menu() {
+    if let Some(item) = menu.get("view.languageJa") {
+      item.as_check_menuitem().map(|i| i.set_checked(lang == "ja").ok());
+    }
+    if let Some(item) = menu.get("view.languageEn") {
+      item.as_check_menuitem().map(|i| i.set_checked(lang == "en").ok());
+    }
+  }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -85,13 +98,15 @@ pub fn run() {
           &MenuItem::with_id(app, "timeline.addTextTrack",  "Add Text Track",  true, None::<&str>)?,
         ],
       )?;
+      // 言語選択は CheckMenuItem で現在選択中の言語をチェック状態で表示する
+      // 初期値は ja（起動後にフロントエンドから update_language_menu で正確な状態に同期される）
       let view_menu = Submenu::with_items(
         app,
         "View",
         true,
         &[
-          &MenuItem::with_id(app, "view.languageJa", "日本語", true, None::<&str>)?,
-          &MenuItem::with_id(app, "view.languageEn", "English", true, None::<&str>)?,
+          &CheckMenuItem::with_id(app, "view.languageJa", "日本語", true, true,  None::<&str>)?,
+          &CheckMenuItem::with_id(app, "view.languageEn", "English", true, false, None::<&str>)?,
         ],
       )?;
       let plugins_menu = Submenu::with_items(
@@ -116,12 +131,25 @@ pub fn run() {
       )?;
       app.set_menu(menu)?;
       app.on_menu_event(|app, event| {
-        app.emit("menu-event", event.id.as_ref()).ok();
+        let id = event.id.as_ref();
+        // 言語切替時はチェック状態をメニュー側でも更新する
+        if id == "view.languageJa" || id == "view.languageEn" {
+          if let Some(menu) = app.menu() {
+            if let Some(item) = menu.get("view.languageJa") {
+              item.as_check_menuitem().map(|i| i.set_checked(id == "view.languageJa").ok());
+            }
+            if let Some(item) = menu.get("view.languageEn") {
+              item.as_check_menuitem().map(|i| i.set_checked(id == "view.languageEn").ok());
+            }
+          }
+        }
+        app.emit("menu-event", id).ok();
       });
 
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
+      update_language_menu,
       commands::video::get_video_info,
       commands::files::get_file_info,
       commands::files::open_file_dialog,
@@ -158,4 +186,5 @@ pub fn run() {
 }
 
 mod commands;
+
 
