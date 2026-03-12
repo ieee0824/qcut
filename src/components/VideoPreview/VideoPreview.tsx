@@ -14,6 +14,7 @@ import { useFrameCapture } from './useFrameCapture';
 import { audioEngine } from '../../audio/AudioEngine';
 import { useHlsPreview } from '../../hooks/useHlsPreview';
 import { useHlsPreviewStore, timelineToHls, type HlsSegment } from '../../store/hlsPreviewStore';
+import { logAction } from '../../store/actionLogger';
 
 const VIDEO_AUDIO_ID = '__video_main__';
 
@@ -242,16 +243,19 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         hlsSegmentsRef.current = state.hlsSegments;
         if (videoRef.current) {
           const wasPlaying = useVideoPreviewStore.getState().isPlaying;
+          const hlsUrl = convertFileSrc(state.hlsPath);
+          logAction('hlsLoad', JSON.stringify({ url: hlsUrl, wasPlaying }));
           if (wasPlaying) {
             stopPlaybackLoopRef.current();
             videoRef.current.pause();
           }
-          videoRef.current.src = convertFileSrc(state.hlsPath);
+          videoRef.current.src = hlsUrl;
           videoRef.current.load();
           videoRef.current.addEventListener(
             'loadedmetadata',
             () => {
               if (!videoRef.current) return;
+              logAction('hlsMetadata', JSON.stringify({ duration: videoRef.current.duration, readyState: videoRef.current.readyState }));
               setDuration(videoRef.current.duration);
               const hlsTime = timelineToHls(currentTimeRef.current, hlsSegmentsRef.current);
               if (hlsTime !== null) videoRef.current.currentTime = hlsTime;
@@ -259,6 +263,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             },
             { once: true },
           );
+          videoRef.current.addEventListener('error', (e) => {
+            logAction('hlsVideoError', JSON.stringify({ code: (e.target as HTMLVideoElement).error?.code, msg: (e.target as HTMLVideoElement).error?.message }));
+          }, { once: true });
         }
       } else {
         // HLS エラー時はフォールバック（クリップ別再生モードに戻す）
@@ -379,7 +386,19 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   };
 
   const handlePlayPause = () => {
-    if (!isPlaying && !findClipAtTime(currentTimeRef.current) && !findNextClipAfter(currentTimeRef.current)) {
+    const clipAtTime = findClipAtTime(currentTimeRef.current);
+    const nextClip = findNextClipAfter(currentTimeRef.current);
+    logAction('playPause', JSON.stringify({
+      isPlaying,
+      isHlsMode: isHlsModeRef.current,
+      hlsSegments: hlsSegmentsRef.current.length,
+      currentTime: currentTimeRef.current,
+      hasClip: !!clipAtTime,
+      hasNextClip: !!nextClip,
+      readyState: videoRef.current?.readyState,
+      src: videoRef.current?.src?.slice(-40),
+    }));
+    if (!isPlaying && !clipAtTime && !nextClip) {
       return;
     }
     const newPlayingState = !isPlaying;
