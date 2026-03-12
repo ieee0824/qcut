@@ -19,6 +19,7 @@ import { useVideoPreviewStore } from './store/videoPreviewStore';
 import { useExportStore } from './store/exportStore';
 import { useShortcutStore } from './store/shortcutStore';
 import { useProjectStore } from './store/projectStore';
+import { syncAllMenuAccelerators } from './utils/menuAccelerator';
 import { PluginManager } from './plugin-system';
 import { PluginSidebarPanels } from './components/Plugin/PluginPanels';
 import { PluginToolbarButtons } from './components/Plugin/PluginToolbarButtons';
@@ -95,6 +96,11 @@ function App() {
   useEffect(() => {
     invoke('update_language_menu', { lang: i18n.language }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 起動時に保存済みショートカットをネイティブメニューのアクセラレーターへ同期する
+  useEffect(() => {
+    syncAllMenuAccelerators(useShortcutStore.getState().shortcuts);
   }, []);
 
 

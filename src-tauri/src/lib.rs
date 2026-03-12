@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
+
+/// カスタマイズ可能なメニューアイテムへの直接参照を保持する State
+struct CustomMenuItems(Mutex<HashMap<String, MenuItem<tauri::Wry>>>);
 
 mod sqlite_logger;
 
@@ -18,6 +21,19 @@ fn read_text_file(path: String) -> Result<String, String> {
 fn write_text_file(path: String, content: String) -> Result<(), String> {
   std::fs::write(&path, content.as_bytes())
     .map_err(|e| format!("ファイルの書き込みに失敗: {}", e))
+}
+
+/// ネイティブメニューの accelerator を動的に更新する
+#[tauri::command]
+fn update_menu_accelerator(
+  state: tauri::State<CustomMenuItems>,
+  item_id: String,
+  accelerator: Option<String>,
+) -> Result<(), String> {
+  let map = state.0.lock().map_err(|e| e.to_string())?;
+  let mi = map.get(&item_id).ok_or_else(|| format!("item not found: {}", item_id))?;
+  mi.set_accelerator(accelerator.as_deref())
+    .map_err(|e| format!("set_accelerator failed: {}", e))
 }
 
 /// フロントエンドから現在の言語を受け取り、View メニューのチェック状態を同期する
@@ -36,6 +52,7 @@ fn update_language_menu(app: tauri::AppHandle, lang: String) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .manage(CustomMenuItems(Mutex::new(HashMap::new())))
     .manage(commands::export::ExportState {
       cancel_flag: Arc::new(AtomicBool::new(false)),
     })
@@ -75,14 +92,35 @@ pub fn run() {
         log::warn!("qcut started (release build)");
       }
       // OS ネイティブメニューバーを構築する
+      // カスタマイズ可能な MenuItem は後で accelerator を更新できるよう変数に保持する
+      let mi_open    = MenuItem::with_id(app, "file.openProject",    "Open Project...",    true, None::<&str>)?;
+      let mi_save    = MenuItem::with_id(app, "file.saveProject",    "Save Project",       true, None::<&str>)?;
+      let mi_save_as = MenuItem::with_id(app, "file.saveProjectAs",  "Save Project As...", true, None::<&str>)?;
+      let mi_undo    = MenuItem::with_id(app, "edit.undo",  "Undo",  true, None::<&str>)?;
+      let mi_redo    = MenuItem::with_id(app, "edit.redo",  "Redo",  true, None::<&str>)?;
+      let mi_copy    = MenuItem::with_id(app, "edit.copy",  "Copy",  true, None::<&str>)?;
+      let mi_paste   = MenuItem::with_id(app, "edit.paste", "Paste", true, None::<&str>)?;
+
+      {
+        let state = app.state::<CustomMenuItems>();
+        let mut map = state.0.lock().unwrap();
+        map.insert("file.openProject".into(),   mi_open.clone());
+        map.insert("file.saveProject".into(),   mi_save.clone());
+        map.insert("file.saveProjectAs".into(), mi_save_as.clone());
+        map.insert("edit.undo".into(),  mi_undo.clone());
+        map.insert("edit.redo".into(),  mi_redo.clone());
+        map.insert("edit.copy".into(),  mi_copy.clone());
+        map.insert("edit.paste".into(), mi_paste.clone());
+      }
+
       let file_menu = Submenu::with_items(
         app,
         "File",
         true,
         &[
-          &MenuItem::with_id(app, "file.openProject",    "Open Project...",    true, None::<&str>)?,
-          &MenuItem::with_id(app, "file.saveProject",    "Save Project",       true, None::<&str>)?,
-          &MenuItem::with_id(app, "file.saveProjectAs",  "Save Project As...", true, None::<&str>)?,
+          &mi_open,
+          &mi_save,
+          &mi_save_as,
           &PredefinedMenuItem::separator(app)?,
           &MenuItem::with_id(app, "file.exportVideo",    "Export Video...",    true, None::<&str>)?,
           &PredefinedMenuItem::separator(app)?,
@@ -96,11 +134,11 @@ pub fn run() {
         "Edit",
         true,
         &[
-          &MenuItem::with_id(app, "edit.undo",  "Undo",  true, None::<&str>)?,
-          &MenuItem::with_id(app, "edit.redo",  "Redo",  true, None::<&str>)?,
+          &mi_undo,
+          &mi_redo,
           &PredefinedMenuItem::separator(app)?,
-          &MenuItem::with_id(app, "edit.copy",  "Copy",  true, None::<&str>)?,
-          &MenuItem::with_id(app, "edit.paste", "Paste", true, None::<&str>)?,
+          &mi_copy,
+          &mi_paste,
         ],
       )?;
       let timeline_menu = Submenu::with_items(
@@ -165,6 +203,7 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       read_text_file,
       write_text_file,
+      update_menu_accelerator,
       update_language_menu,
       commands::video::get_video_info,
       commands::files::get_file_info,

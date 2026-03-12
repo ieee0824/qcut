@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useShortcutStore, formatBinding, type ShortcutBinding } from '../../store/shortcutStore';
-
+import { useShortcutStore, DEFAULT_SHORTCUTS, formatBinding, type ShortcutBinding } from '../../store/shortcutStore';
+import { syncMenuAccelerator, syncAllMenuAccelerators } from '../../utils/menuAccelerator';
 import './ShortcutHelp.css';
 
 export const ShortcutHelp: React.FC = () => {
@@ -43,6 +43,8 @@ export const ShortcutHelp: React.FC = () => {
       };
 
       updateBinding(recordingId, binding);
+      syncMenuAccelerator(recordingId, binding);
+
       stopRecording();
     };
 
@@ -95,7 +97,7 @@ export const ShortcutHelp: React.FC = () => {
           </tbody>
         </table>
         <div className="shortcut-help-footer">
-          <button onClick={resetToDefaults} className="shortcut-help-reset">
+          <button onClick={() => { resetToDefaults(); syncAllMenuAccelerators(DEFAULT_SHORTCUTS); }} className="shortcut-help-reset">
             {t('shortcut.reset')}
           </button>
         </div>
