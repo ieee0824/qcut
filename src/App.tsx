@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
-import { ask, open as openDialog } from '@tauri-apps/plugin-dialog';
+import { ask, open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 import './App.css';
 import Timeline from './components/Timeline/Timeline';
 import { VideoPreview } from './components/VideoPreview/VideoPreview';
@@ -149,20 +149,23 @@ function App() {
     }
   }, []);
 
-  const handleExportSubtitle = useCallback((format: 'srt' | 'ass') => {
+  const handleExportSubtitle = useCallback(async (format: 'srt' | 'ass') => {
     const { tracks } = useTimelineStore.getState();
     const textTrack = tracks.find((t) => t.type === 'text');
     if (!textTrack) return;
     const entries = trackToSubtitles(textTrack);
     if (entries.length === 0) return;
     const content = format === 'ass' ? exportASS(entries) : exportSRT(entries);
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `subtitle.${format}`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const path = await saveDialog({
+        defaultPath: `subtitle.${format}`,
+        filters: [{ name: format.toUpperCase(), extensions: [format] }],
+      });
+      if (!path) return;
+      await invoke('write_text_file', { path, content });
+    } catch (e) {
+      window.alert(String(e));
+    }
   }, []);
 
   // OS ネイティブメニューバーからのイベントを受け取り、各ハンドラーへ dispatch する

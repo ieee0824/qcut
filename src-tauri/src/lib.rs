@@ -13,6 +13,13 @@ fn read_text_file(path: String) -> Result<String, String> {
     .map_err(|e| format!("ファイルの読み込みに失敗: {}", e))
 }
 
+/// テキストファイルを書き込む（字幕エクスポート用）
+#[tauri::command]
+fn write_text_file(path: String, content: String) -> Result<(), String> {
+  std::fs::write(&path, content.as_bytes())
+    .map_err(|e| format!("ファイルの書き込みに失敗: {}", e))
+}
+
 /// フロントエンドから現在の言語を受け取り、View メニューのチェック状態を同期する
 #[tauri::command]
 fn update_language_menu(app: tauri::AppHandle, lang: String) {
@@ -157,6 +164,7 @@ pub fn run() {
     })
     .invoke_handler(tauri::generate_handler![
       read_text_file,
+      write_text_file,
       update_language_menu,
       commands::video::get_video_info,
       commands::files::get_file_info,
