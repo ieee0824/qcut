@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import Track from './Track';
 import Playhead from './Playhead';
 import './Timeline.css';
+import { normalizeWheelDelta } from '../../utils/wheelDelta';
 
 // タイムコード表示を分離して、currentTime 更新時に Timeline 全体が再レンダーされないようにする
 function TimelineTimecode() {
@@ -127,9 +128,10 @@ function Timeline() {
   };
 
   const handleHeaderWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (timelineContainerRef.current) {
-      timelineContainerRef.current.scrollTop += e.deltaY;
-    }
+    const container = timelineContainerRef.current;
+    if (!container) return;
+
+    container.scrollTop += normalizeWheelDelta(e.deltaY, e.deltaMode, container.clientHeight);
   };
 
   return (
