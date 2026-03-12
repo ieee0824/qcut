@@ -45,7 +45,12 @@ describe('timelineToHls', () => {
     expect(timelineToHls(8, segments)).toBe(6);
   });
 
-  it('gap 区間（タイムライン 6）は 0 を返す', () => {
-    expect(timelineToHls(6, segments)).toBe(0);
+  it('gap 区間（タイムライン 6）は null を返す', () => {
+    expect(timelineToHls(6, segments)).toBeNull();
+  });
+
+  it('タイムラインが末尾を超えた場合は最終セグメントの終端を返す', () => {
+    // 最終セグメント: hlsStart=5, duration=3 → HLS 終端は 8
+    expect(timelineToHls(100, segments)).toBe(8);
   });
 });

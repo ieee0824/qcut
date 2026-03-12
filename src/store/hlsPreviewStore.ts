@@ -18,14 +18,18 @@ export function hlsToTimeline(hlsTime: number, segments: HlsSegment[]): number {
   return 0;
 }
 
-/** タイムライン時刻 → HLS 時刻 */
-export function timelineToHls(timelineTime: number, segments: HlsSegment[]): number {
+/** タイムライン時刻 → HLS 時刻。gap 区間または segments が空の場合は null を返す */
+export function timelineToHls(timelineTime: number, segments: HlsSegment[]): number | null {
   for (const seg of segments) {
     if (timelineTime >= seg.timelineStart && timelineTime < seg.timelineStart + seg.duration) {
       return seg.hlsStart + (timelineTime - seg.timelineStart);
     }
   }
-  return 0;
+  const last = segments[segments.length - 1];
+  if (last && timelineTime >= last.timelineStart + last.duration) {
+    return last.hlsStart + last.duration;
+  }
+  return null;
 }
 
 interface HlsPreviewState {
@@ -49,6 +53,6 @@ export const useHlsPreviewStore = create<HlsPreviewState>((set) => ({
   setHlsReady: (path, segments) =>
     set({ hlsPath: path, hlsSegments: segments, error: null, isGenerating: false }),
   setIsGenerating: (generating) => set({ isGenerating: generating }),
-  setError: (error) => set({ error, isGenerating: false }),
+  setError: (error) => set({ error, isGenerating: false, hlsPath: null, hlsSegments: [] }),
   reset: () => set({ hlsPath: null, hlsSegments: [], isGenerating: false, error: null }),
 }));

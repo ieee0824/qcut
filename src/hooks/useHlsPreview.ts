@@ -17,14 +17,29 @@ interface HlsResult {
   segments: Array<{ hls_start: number; timeline_start: number; duration: number }>;
 }
 
+/** ビデオクリップの軽量シグネチャ（変更検知用） */
+function videoClipSignature(state: ReturnType<typeof useTimelineStore.getState>): string {
+  return state.tracks
+    .filter((tr) => tr.type === 'video')
+    .flatMap((tr) =>
+      tr.clips.map(
+        (c) => `${c.id}:${c.filePath}:${c.startTime}:${c.duration}:${c.sourceStartTime}:${c.sourceEndTime}`,
+      ),
+    )
+    .join('|');
+}
+
 export function useHlsPreview() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generationIdRef = useRef(0);
 
   useEffect(() => {
     const scheduleGeneration = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
 
       debounceRef.current = setTimeout(async () => {
+        const myId = ++generationIdRef.current;
+
         const tracks = useTimelineStore.getState().tracks;
         const clips: HlsClipInput[] = [];
 
@@ -42,13 +57,14 @@ export function useHlsPreview() {
         }
 
         if (clips.length === 0) {
-          useHlsPreviewStore.getState().reset();
+          if (myId === generationIdRef.current) useHlsPreviewStore.getState().reset();
           return;
         }
 
-        useHlsPreviewStore.getState().setIsGenerating(true);
+        if (myId === generationIdRef.current) useHlsPreviewStore.getState().setIsGenerating(true);
         try {
           const result = await invoke<HlsResult>('generate_preview_hls', { clips });
+          if (myId !== generationIdRef.current) return; // 古い結果は破棄
           const segments: HlsSegment[] = result.segments.map((s) => ({
             hlsStart: s.hls_start,
             timelineStart: s.timeline_start,
@@ -56,15 +72,18 @@ export function useHlsPreview() {
           }));
           useHlsPreviewStore.getState().setHlsReady(result.playlist_path, segments);
         } catch (e) {
+          if (myId !== generationIdRef.current) return; // 古いエラーは破棄
           useHlsPreviewStore.getState().setError(String(e));
         }
       }, DEBOUNCE_MS);
     };
 
-    // ビデオトラックのクリップ変化を購読
-    const unsubscribe = useTimelineStore.subscribe((state, prev) => {
-      const videoTracks = (t: typeof state) => t.tracks.filter((tr) => tr.type === 'video');
-      if (JSON.stringify(videoTracks(state)) !== JSON.stringify(videoTracks(prev))) {
+    // ビデオトラックのクリップ変化を購読（軽量シグネチャで比較）
+    let prevSignature = videoClipSignature(useTimelineStore.getState());
+    const unsubscribe = useTimelineStore.subscribe((state) => {
+      const sig = videoClipSignature(state);
+      if (sig !== prevSignature) {
+        prevSignature = sig;
         scheduleGeneration();
       }
     });
