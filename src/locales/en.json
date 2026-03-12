@@ -186,7 +186,9 @@
     "showHelp": "Show Shortcuts",
     "save": "Save Project",
     "saveAs": "Save As",
-    "openProject": "Open Project"
+    "openProject": "Open Project",
+    "pressKey": "Press a key...",
+    "clickToEdit": "Click to change"
   },
   "project": {
     "untitled": "Untitled Project",

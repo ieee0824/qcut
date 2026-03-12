@@ -84,7 +84,7 @@ pub fn run() {
           &MenuItem::with_id(app, "file.saveProject",    "Save Project",       true, None::<&str>)?,
           &MenuItem::with_id(app, "file.saveProjectAs",  "Save Project As...", true, None::<&str>)?,
           &PredefinedMenuItem::separator(app)?,
-          &MenuItem::with_id(app, "file.exportVideo",    "Export Video...",    true, None::<&str>)?,
+          &MenuItem::with_id(app, "file.exportVideo",    "Export Video...",    true, Some("CmdOrCtrl+E"))?,
           &PredefinedMenuItem::separator(app)?,
           &MenuItem::with_id(app, "file.importSubtitle", "Import Subtitle...", true, None::<&str>)?,
           &MenuItem::with_id(app, "file.exportSRT",      "Export SRT",         true, None::<&str>)?,
@@ -136,7 +136,7 @@ pub fn run() {
         "Help",
         true,
         &[
-          &MenuItem::with_id(app, "help.shortcuts", "Keyboard Shortcuts", true, None::<&str>)?,
+          &MenuItem::with_id(app, "help.shortcuts", "Keyboard Shortcuts", true, Some("CmdOrCtrl+Shift+/"))?,
         ],
       )?;
       let menu = Menu::with_items(

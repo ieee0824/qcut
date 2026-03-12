@@ -77,6 +77,28 @@
   text-align: center;
 }
 
+.shortcut-editable {
+  cursor: pointer;
+}
+
+.shortcut-editable:hover {
+  background: #3a3a4a;
+  border-color: #888;
+}
+
+.shortcut-recording {
+  cursor: pointer;
+  background: #1a3a5a;
+  border-color: #4a9eff;
+  color: #4a9eff;
+  animation: shortcut-blink 1s step-start infinite;
+  white-space: nowrap;
+}
+
+@keyframes shortcut-blink {
+  50% { opacity: 0.5; }
+}
+
 .shortcut-help-footer {
   margin-top: 1rem;
   display: flex;
