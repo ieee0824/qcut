@@ -237,7 +237,6 @@ pub fn run() {
       commands::presets::write_effect_presets,
       commands::waveform::get_waveform,
       commands::logging::log_action,
-      commands::preview_hls::generate_preview_hls,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
