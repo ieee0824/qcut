@@ -9,4 +9,5 @@ pub mod presets;
 pub mod waveform;
 pub mod logging;
 pub mod hsl_lut;
+pub mod preview_hls;
 
