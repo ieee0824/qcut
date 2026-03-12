@@ -186,7 +186,9 @@
     "showHelp": "ショートカット一覧",
     "save": "プロジェクトを保存",
     "saveAs": "名前を付けて保存",
-    "openProject": "プロジェクトを開く"
+    "openProject": "プロジェクトを開く",
+    "pressKey": "キーを押してください...",
+    "clickToEdit": "クリックして変更"
   },
   "project": {
     "untitled": "無題のプロジェクト",
