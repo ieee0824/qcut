@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import { useTimelineStore, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import { useTextOverlays } from './useTextOverlays';
@@ -11,6 +12,8 @@ import { useAudioTrackPlayback } from './useAudioTrackPlayback';
 import { useCanvasRenderer } from './useCanvasRenderer';
 import { useFrameCapture } from './useFrameCapture';
 import { audioEngine } from '../../audio/AudioEngine';
+import { useHlsPreview } from '../../hooks/useHlsPreview';
+import { useHlsPreviewStore, timelineToHls, type HlsSegment } from '../../store/hlsPreviewStore';
 
 const VIDEO_AUDIO_ID = '__video_main__';
 
@@ -51,6 +54,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     observer.observe(el);
     return () => observer.disconnect();
   }, [setPreviewContainerHeight]);
+
+  // HLS プレビュー
+  useHlsPreview();
+  const isHlsModeRef = useRef(false);
+  const hlsSegmentsRef = useRef<HlsSegment[]>([]);
+  const isHlsGenerating = useHlsPreviewStore((s) => s.isGenerating);
 
   // 共有 ref（複数フックで使用するため親で作成）
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -191,6 +200,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     findNextClipAfter,
     timelineTimeToSourceTime,
     videoUrls,
+    isHlsModeRef,
   });
 
   const { timeDisplayRef, seekBarRef, formatTime, updateTimeDisplay, startPlaybackLoop, stopPlaybackLoop } =
@@ -211,7 +221,50 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       getTransitionStyles,
       renderCanvasFrame,
       captureFrame,
+      isHlsModeRef,
+      hlsSegmentsRef,
     });
+
+  // HLS ストア購読: hlsPath が変わったら動画ソースを切り替え
+  const startPlaybackLoopRef = useRef(startPlaybackLoop);
+  startPlaybackLoopRef.current = startPlaybackLoop;
+  const stopPlaybackLoopRef = useRef(stopPlaybackLoop);
+  stopPlaybackLoopRef.current = stopPlaybackLoop;
+
+  useEffect(() => {
+    return useHlsPreviewStore.subscribe((state, prev) => {
+      if (state.hlsPath === prev.hlsPath && state.hlsSegments === prev.hlsSegments) return;
+
+      if (state.hlsPath) {
+        isHlsModeRef.current = true;
+        hlsSegmentsRef.current = state.hlsSegments;
+        if (videoRef.current) {
+          const wasPlaying = useVideoPreviewStore.getState().isPlaying;
+          if (wasPlaying) {
+            stopPlaybackLoopRef.current();
+            videoRef.current.pause();
+          }
+          videoRef.current.src = convertFileSrc(state.hlsPath);
+          videoRef.current.load();
+          videoRef.current.addEventListener(
+            'loadedmetadata',
+            () => {
+              if (!videoRef.current) return;
+              setDuration(videoRef.current.duration);
+              const hlsTime = timelineToHls(currentTimeRef.current, hlsSegmentsRef.current);
+              if (hlsTime !== null) videoRef.current.currentTime = hlsTime;
+              if (wasPlaying) startPlaybackLoopRef.current();
+            },
+            { once: true },
+          );
+        }
+      } else {
+        // HLS エラー時はフォールバック（クリップ別再生モードに戻す）
+        isHlsModeRef.current = false;
+        hlsSegmentsRef.current = [];
+      }
+    });
+  }, [videoRef, currentTimeRef, setDuration, isHlsModeRef, hlsSegmentsRef]);
 
   // --- エフェクト CSS ---
   const cssFilter = useMemo(() => {
@@ -302,12 +355,19 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
     return useTimelineStore.subscribe((state) => {
       if (!videoRef.current || useVideoPreviewStore.getState().isPlaying) return;
-      const sourceTime = timelineTimeToSourceTime(state.currentTime);
-      if (Math.abs(videoRef.current.currentTime - sourceTime) > 0.1) {
-        videoRef.current.currentTime = sourceTime;
+      if (isHlsModeRef.current) {
+        const hlsTime = timelineToHls(state.currentTime, hlsSegmentsRef.current);
+        if (hlsTime !== null && Math.abs(videoRef.current.currentTime - hlsTime) > 0.1) {
+          videoRef.current.currentTime = hlsTime;
+        }
+      } else {
+        const sourceTime = timelineTimeToSourceTime(state.currentTime);
+        if (Math.abs(videoRef.current.currentTime - sourceTime) > 0.1) {
+          videoRef.current.currentTime = sourceTime;
+        }
       }
     });
-  }, [isPlaying, timelineTimeToSourceTime]);
+  }, [isPlaying, timelineTimeToSourceTime, isHlsModeRef, hlsSegmentsRef]);
 
   // --- イベントハンドラ ---
   const handleMetadata = () => {
@@ -328,17 +388,21 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const handleSeek = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const timelineTime = parseFloat(e.target.value);
-      const sourceTime = timelineTimeToSourceTime(timelineTime);
 
       setVideoPreviewCurrentTime(timelineTime);
       useTimelineStore.getState().setCurrentTime(timelineTime);
       updateTimeDisplay(timelineTime);
 
       if (videoRef.current) {
-        videoRef.current.currentTime = sourceTime;
+        if (isHlsModeRef.current) {
+          const hlsTime = timelineToHls(timelineTime, hlsSegmentsRef.current);
+          if (hlsTime !== null) videoRef.current.currentTime = hlsTime;
+        } else {
+          videoRef.current.currentTime = timelineTimeToSourceTime(timelineTime);
+        }
       }
     },
-    [timelineTimeToSourceTime, setVideoPreviewCurrentTime, updateTimeDisplay],
+    [isHlsModeRef, hlsSegmentsRef, timelineTimeToSourceTime, setVideoPreviewCurrentTime, updateTimeDisplay],
   );
 
   // --- レンダリング ---
@@ -407,6 +471,21 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             objectFit: 'contain',
           }}
         />
+        {/* HLS 生成中インジケータ */}
+        {isHlsGenerating && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 4,
+              right: 8,
+              fontSize: '11px',
+              color: '#aaa',
+              pointerEvents: 'none',
+            }}
+          >
+            HLS 生成中...
+          </div>
+        )}
         {!hasCurrentClip && (
           <div
             style={{

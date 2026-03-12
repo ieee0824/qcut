@@ -6,6 +6,7 @@ import type { Clip as ClipType, TransitionType } from '../../store/timelineStore
 import type { TransitionInfo } from './useTransitionEffect';
 import { audioEngine } from '../../audio/AudioEngine';
 import { getEffectsAtTime, hasActiveKeyframes } from '../../utils/keyframes';
+import { hlsToTimeline, type HlsSegment } from '../../store/hlsPreviewStore';
 
 const VIDEO_AUDIO_ID = '__video_main__';
 
@@ -29,6 +30,8 @@ interface UsePlaybackLoopParams {
   ) => { outgoing: React.CSSProperties; incoming: React.CSSProperties };
   renderCanvasFrame?: () => void;
   captureFrame?: () => void;
+  isHlsModeRef: React.MutableRefObject<boolean>;
+  hlsSegmentsRef: React.MutableRefObject<HlsSegment[]>;
 }
 
 interface UsePlaybackLoopReturn {
@@ -57,6 +60,8 @@ export const usePlaybackLoop = ({
   getTransitionStyles,
   renderCanvasFrame,
   captureFrame,
+  isHlsModeRef,
+  hlsSegmentsRef,
 }: UsePlaybackLoopParams): UsePlaybackLoopReturn => {
   const playbackRafRef = useRef<number | null>(null);
   const lastTimestampRef = useRef(0);
@@ -110,6 +115,96 @@ export const usePlaybackLoop = ({
       lastTimestampRef.current = timestamp;
 
       if (!videoRef.current) {
+        playbackRafRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      // --- HLS モード ---
+      if (isHlsModeRef.current && hlsSegmentsRef.current.length > 0) {
+        const video = videoRef.current;
+
+        // ロード中は待つ
+        if (video.readyState < 2) {
+          playbackRafRef.current = window.requestAnimationFrame(tick);
+          return;
+        }
+
+        // 再生終了
+        if (video.ended) {
+          setIsPlaying(false);
+          useTimelineStore.getState().setIsPlaying(false);
+          playbackRafRef.current = null;
+          return;
+        }
+
+        // 一時停止中なら再開
+        if (video.paused) {
+          video.play();
+        }
+
+        // HLS 時刻 → タイムライン時刻
+        const hlsTime = video.currentTime;
+        const timelineTime = hlsToTimeline(hlsTime, hlsSegmentsRef.current);
+        currentTimeRef.current = timelineTime;
+        useTimelineStore.getState().setCurrentTime(timelineTime);
+        updateTimeDisplay(timelineTime);
+
+        // 現在クリップのエフェクト適用
+        const hlsClip = findClipAtTime(timelineTime);
+        if (hlsClip) {
+          const clipEndTime = hlsClip.startTime + hlsClip.duration;
+          const elapsed = timelineTime - hlsClip.startTime;
+          const remaining = clipEndTime - timelineTime;
+          const fadeIn = hlsClip.effects?.fadeIn ?? 0;
+          const fadeOut = hlsClip.effects?.fadeOut ?? 0;
+
+          // フェードイン/フェードアウト opacity
+          if (fadeIn > 0 || fadeOut > 0) {
+            let opacity = 1;
+            if (fadeIn > 0 && elapsed < fadeIn) opacity = Math.min(opacity, elapsed / fadeIn);
+            if (fadeOut > 0 && remaining < fadeOut) opacity = Math.min(opacity, remaining / fadeOut);
+            video.style.opacity = String(Math.max(0, Math.min(1, opacity)));
+          } else {
+            video.style.opacity = '1';
+          }
+
+          // 音声エフェクト
+          const clipVolume = hlsClip.effects?.volume ?? 1.0;
+          const uiVolume = useVideoPreviewStore.getState().volume / 100;
+          const allTracks = useTimelineStore.getState().tracks;
+          const videoTrack = allTracks.find(
+            (t) => t.type === 'video' && t.clips.some((c) => c.id === hlsClip.id),
+          );
+          const hasSolo = allTracks.some((t) => t.solo);
+          const isTrackMuted = videoTrack
+            ? videoTrack.mute || (hasSolo && !videoTrack.solo)
+            : false;
+          const trackVol = videoTrack?.volume ?? 1.0;
+
+          if (!audioEngine.hasGraph(VIDEO_AUDIO_ID)) {
+            audioEngine.connect(VIDEO_AUDIO_ID, video);
+          }
+
+          let audioFade = 1;
+          if (fadeIn > 0 || fadeOut > 0) {
+            if (fadeIn > 0 && elapsed < fadeIn) audioFade = Math.min(audioFade, elapsed / fadeIn);
+            if (fadeOut > 0 && remaining < fadeOut)
+              audioFade = Math.min(audioFade, remaining / fadeOut);
+            audioFade = Math.max(0, Math.min(1, audioFade));
+          }
+          const combinedVolume = isTrackMuted
+            ? 0
+            : Math.max(0, Math.min(1, uiVolume * trackVol * clipVolume * audioFade));
+
+          const hlsEffects = hasActiveKeyframes(hlsClip)
+            ? getEffectsAtTime(hlsClip, elapsed)
+            : { ...DEFAULT_EFFECTS, ...hlsClip.effects };
+          audioEngine.updateEffects(VIDEO_AUDIO_ID, hlsEffects, combinedVolume);
+        }
+
+        if (renderCanvasFrameRef.current) renderCanvasFrameRef.current();
+        if (captureFrameRef.current) captureFrameRef.current();
+
         playbackRafRef.current = window.requestAnimationFrame(tick);
         return;
       }
@@ -378,6 +473,8 @@ export const usePlaybackLoop = ({
     isLoadingVideoRef,
     isLoadingTransitionVideoRef,
     isInTransitionRef,
+    isHlsModeRef,
+    hlsSegmentsRef,
   ]);
 
   // RAF クリーンアップ

@@ -11,6 +11,7 @@ interface UseVideoSwitchingParams {
   findNextClipAfter: (time: number) => ClipType | null;
   timelineTimeToSourceTime: (time: number) => number;
   videoUrls: Record<string, string>;
+  isHlsModeRef: React.MutableRefObject<boolean>;
 }
 
 interface UseVideoSwitchingReturn {
@@ -28,6 +29,7 @@ export const useVideoSwitching = ({
   findNextClipAfter,
   timelineTimeToSourceTime,
   videoUrls,
+  isHlsModeRef,
 }: UseVideoSwitchingParams): UseVideoSwitchingReturn => {
   const preloadVideoRef = useRef<HTMLVideoElement>(null);
   const preloadedUrlRef = useRef<string>('');
@@ -84,10 +86,11 @@ export const useVideoSwitching = ({
     }
   }, [currentClip, findNextClipAfter, videoUrls]);
 
-  // 動画ファイルが切り替わったとき src を更新してシーク（停止中のみ）
+  // 動画ファイルが切り替わったとき src を更新してシーク（停止中かつ非 HLS モードのみ）
   useEffect(() => {
     if (!videoRef.current) return;
     if (useVideoPreviewStore.getState().isPlaying) return;
+    if (isHlsModeRef.current) return;
     if (currentVideoUrl === loadedVideoUrl.current) return;
 
     loadedVideoUrl.current = currentVideoUrl;
@@ -107,7 +110,7 @@ export const useVideoSwitching = ({
       },
       { once: true },
     );
-  }, [videoRef, currentTimeRef, currentVideoUrl, timelineTimeToSourceTime, setDuration]);
+  }, [videoRef, currentTimeRef, currentVideoUrl, timelineTimeToSourceTime, setDuration, isHlsModeRef]);
 
   return {
     preloadVideoRef,
