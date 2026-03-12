@@ -1,5 +1,6 @@
 use crate::commands::ffmpeg_path::ffmpeg_path;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::process::Stdio;
 use tauri::Manager;
 
@@ -28,29 +29,45 @@ pub struct HlsResult {
 #[tauri::command]
 pub async fn generate_preview_hls(
     app: tauri::AppHandle,
-    clips: Vec<HlsClip>,
+    mut clips: Vec<HlsClip>,
 ) -> Result<HlsResult, String> {
     if clips.is_empty() {
-        return Err("No clips provided".to_string());
+        return Err("クリップが指定されていません".to_string());
     }
 
-    // 出力先ディレクトリを app_data_dir 配下に作成
+    // timeline_start で昇順ソート（呼び出し元のソート順に依存しない）
+    clips.sort_by(|a, b| a.timeline_start.partial_cmp(&b.timeline_start).unwrap_or(std::cmp::Ordering::Equal));
+
+    // ファイルパスのバリデーション（改行文字を含む場合は concat 行注入のおそれがあるため拒否）
+    for clip in &clips {
+        if clip.file_path.contains('\n') || clip.file_path.contains('\r') {
+            return Err(format!(
+                "ファイルパスに無効な文字が含まれています: {}",
+                clip.file_path
+            ));
+        }
+        if !Path::new(&clip.file_path).exists() {
+            return Err(format!(
+                "ファイルが見つかりません: {}",
+                clip.file_path
+            ));
+        }
+    }
+
+    // 出力先ディレクトリを app_data_dir 配下に作成（入れ替え方式でクリーン）
     let output_dir = app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
         .join("preview_hls");
-    std::fs::create_dir_all(&output_dir).map_err(|e| e.to_string())?;
-
-    // 古いセグメントを削除
-    if let Ok(entries) = std::fs::read_dir(&output_dir) {
-        for entry in entries.flatten() {
-            let _ = std::fs::remove_file(entry.path());
-        }
+    if output_dir.exists() {
+        std::fs::remove_dir_all(&output_dir)
+            .map_err(|e| format!("出力ディレクトリの削除に失敗しました: {}", e))?;
     }
+    std::fs::create_dir_all(&output_dir)
+        .map_err(|e| format!("出力ディレクトリの作成に失敗しました: {}", e))?;
 
     // FFmpeg concat demuxer 用のリストファイルを生成
-    // clips はタイムライン順にソート済みであることを前提とする
     let concat_path = output_dir.join("concat.txt");
     let mut concat_content = String::new();
     let mut segments: Vec<HlsSegment> = Vec::new();
@@ -76,51 +93,75 @@ pub async fn generate_preview_hls(
     }
 
     if segments.is_empty() {
-        return Err("No valid clips to process".to_string());
+        return Err("有効なクリップがありません".to_string());
     }
 
-    std::fs::write(&concat_path, &concat_content).map_err(|e| e.to_string())?;
+    std::fs::write(&concat_path, &concat_content)
+        .map_err(|e| format!("concat ファイルの書き込みに失敗しました: {}", e))?;
 
     let playlist_path = output_dir.join("preview.m3u8");
     let segment_pattern = output_dir.join("seg%03d.ts");
 
-    let status = std::process::Command::new(ffmpeg_path())
-        .args([
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            concat_path.to_str().ok_or("invalid concat path")?,
-            "-c:v",
-            "copy",
-            "-c:a",
-            "aac",
-            "-hls_time",
-            "2",
-            "-hls_list_size",
-            "0",
-            "-hls_segment_filename",
-            segment_pattern.to_str().ok_or("invalid segment path")?,
-            "-y",
-            playlist_path.to_str().ok_or("invalid playlist path")?,
-        ])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|e| format!("Failed to run FFmpeg: {}", e))?;
+    // FFmpeg の実行（ブロッキング操作を spawn_blocking でオフロード）
+    let ffmpeg_exe = ffmpeg_path().to_owned();
+    let concat_path_str = concat_path
+        .to_str()
+        .ok_or("concat パスが無効です")?
+        .to_owned();
+    let segment_pattern_str = segment_pattern
+        .to_str()
+        .ok_or("セグメントパスが無効です")?
+        .to_owned();
+    let playlist_path_str = playlist_path
+        .to_str()
+        .ok_or("プレイリストパスが無効です")?
+        .to_owned();
 
-    if !status.success() {
-        return Err(
-            "FFmpeg HLS generation failed. Clips may use incompatible codecs.".to_string(),
-        );
+    let output = tauri::async_runtime::spawn_blocking(move || {
+        std::process::Command::new(&ffmpeg_exe)
+            .args([
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                &concat_path_str,
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-hls_time",
+                "2",
+                "-hls_list_size",
+                "0",
+                "-hls_segment_filename",
+                &segment_pattern_str,
+                "-y",
+                &playlist_path_str,
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()
+    })
+    .await
+    .map_err(|e| format!("FFmpeg タスクの起動に失敗しました: {}", e))?
+    .map_err(|e| format!("FFmpeg の実行に失敗しました: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "FFmpeg HLS 生成に失敗しました（コーデックが非互換の可能性があります）: {}",
+            stderr.lines().last().unwrap_or("詳細不明")
+        ));
     }
 
+    let result_path = playlist_path
+        .to_str()
+        .ok_or("プレイリストパスが無効です")?
+        .to_owned();
+
     Ok(HlsResult {
-        playlist_path: playlist_path
-            .to_str()
-            .ok_or("Invalid output path")?
-            .to_string(),
+        playlist_path: result_path,
         segments,
     })
 }
