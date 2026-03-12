@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
-import { ask } from '@tauri-apps/plugin-dialog';
+import { ask, open as openDialog } from '@tauri-apps/plugin-dialog';
 import './App.css';
 import Timeline from './components/Timeline/Timeline';
 import { VideoPreview } from './components/VideoPreview/VideoPreview';
@@ -120,21 +120,22 @@ function App() {
     addTrack({ id: trackId, type: 'audio', name: `Audio ${audioTracks.length + 1}`, clips: [] });
   }, []);
 
-  const handleImportSubtitle = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.srt,.ass,.ssa';
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      const text = await file.text();
-      const ext = file.name.split('.').pop()?.toLowerCase();
+  const handleImportSubtitle = useCallback(async () => {
+    const selected = await openDialog({
+      multiple: false,
+      filters: [{ name: 'Subtitle', extensions: ['srt', 'ass', 'ssa'] }],
+    });
+    if (!selected || Array.isArray(selected)) return;
+    try {
+      const text = await invoke<string>('read_text_file', { path: selected });
+      const ext = selected.split('.').pop()?.toLowerCase();
       const entries = ext === 'ass' || ext === 'ssa' ? parseASS(text) : parseSRT(text);
       if (entries.length === 0) return;
-      const track = subtitlesToTrack(entries, file.name);
-      useTimelineStore.getState().addTrack(track);
-    };
-    input.click();
+      const fileName = selected.split(/[\\/]/).pop() ?? 'subtitle';
+      useTimelineStore.getState().addTrack(subtitlesToTrack(entries, fileName));
+    } catch (e) {
+      window.alert(String(e));
+    }
   }, []);
 
   const handleExport = useCallback(async () => {

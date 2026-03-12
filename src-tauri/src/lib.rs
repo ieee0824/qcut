@@ -6,6 +6,13 @@ use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 
 mod sqlite_logger;
 
+/// ユーザーが選択したファイルのテキスト内容を返す（字幕ファイル読み込み用）
+#[tauri::command]
+fn read_text_file(path: String) -> Result<String, String> {
+  std::fs::read_to_string(&path)
+    .map_err(|e| format!("ファイルの読み込みに失敗: {}", e))
+}
+
 /// フロントエンドから現在の言語を受け取り、View メニューのチェック状態を同期する
 #[tauri::command]
 fn update_language_menu(app: tauri::AppHandle, lang: String) {
@@ -149,6 +156,7 @@ pub fn run() {
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
+      read_text_file,
       update_language_menu,
       commands::video::get_video_info,
       commands::files::get_file_info,
