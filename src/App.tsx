@@ -26,7 +26,7 @@ import { PluginToolbarButtons } from './components/Plugin/PluginToolbarButtons';
 import { PluginNotifications } from './components/Plugin/PluginNotifications';
 import { PluginManagerDialog } from './components/Plugin/PluginManagerDialog';
 import { parseSRT, parseASS, subtitlesToTrack, trackToSubtitles, exportSRT, exportASS } from './utils/subtitles';
-import { MENU_ACTION } from './menu/menuActions';
+import { MENU_ACTION, type MenuActionId } from './menu/menuActions';
 
 
 function App() {
@@ -178,7 +178,7 @@ function App() {
 
   // OS ネイティブメニューバーからのイベントを受け取り、各ハンドラーへ dispatch する
   useEffect(() => {
-    const unlisten = listen<string>('menu-event', (event) => {
+    const unlisten = listen<MenuActionId>('menu-event', (event) => {
       const id = event.payload;
       switch (id) {
         case MENU_ACTION.FILE_OPEN_PROJECT:
@@ -237,8 +237,16 @@ function App() {
       }
     });
     return () => { unlisten.then((fn) => fn()); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [
+    handleExport,
+    handleImportSubtitle,
+    handleExportSubtitle,
+    handleAddAudioTrack,
+    handleAddTextTrack,
+    i18n,
+    setIsPluginManagerOpen,
+    setHelpVisible,
+  ]);
 
   const togglePlay = () => {
     const newPlayingState = !isPlaying;

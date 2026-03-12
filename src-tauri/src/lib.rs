@@ -195,7 +195,9 @@ pub fn run() {
             }
           }
         }
-        app.emit("menu-event", id).ok();
+        if let Err(e) = app.emit("menu-event", id) {
+          log::warn!("failed to emit 'menu-event' for menu id '{}': {}", id, e);
+        }
       });
 
       Ok(())
