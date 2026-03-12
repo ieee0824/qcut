@@ -27,6 +27,7 @@ import { PluginManagerDialog } from './components/Plugin/PluginManagerDialog';
 import { parseSRT, parseASS, subtitlesToTrack, trackToSubtitles, exportSRT, exportASS } from './utils/subtitles';
 import { MENU_ACTION } from './menu/menuActions';
 
+
 function App() {
   const { t, i18n } = useTranslation();
   const { isPlaying, setIsPlaying } = useTimelineStore();
@@ -95,6 +96,7 @@ function App() {
     invoke('update_language_menu', { lang: i18n.language }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const handleAddTextTrack = useCallback(() => {
     const { addTrack, addClip, tracks } = useTimelineStore.getState();

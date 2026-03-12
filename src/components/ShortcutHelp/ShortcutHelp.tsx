@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutStore, formatBinding, type ShortcutBinding } from '../../store/shortcutStore';
+
 import './ShortcutHelp.css';
 
 export const ShortcutHelp: React.FC = () => {
