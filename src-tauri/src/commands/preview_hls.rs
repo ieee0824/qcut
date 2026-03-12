@@ -127,7 +127,11 @@ pub async fn generate_preview_hls(
                 "-i",
                 &concat_path_str,
                 "-c:v",
-                "copy",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-crf",
+                "23",
                 "-c:a",
                 "aac",
                 "-hls_time",
@@ -150,7 +154,7 @@ pub async fn generate_preview_hls(
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!(
-            "FFmpeg HLS 生成に失敗しました（コーデックが非互換の可能性があります）: {}",
+            "FFmpeg HLS 生成に失敗しました: {}",
             stderr.lines().last().unwrap_or("詳細不明")
         ));
     }
