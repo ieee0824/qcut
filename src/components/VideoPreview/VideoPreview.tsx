@@ -60,6 +60,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const isHlsModeRef = useRef(false);
   const hlsSegmentsRef = useRef<HlsSegment[]>([]);
   const isHlsGenerating = useHlsPreviewStore((s) => s.isGenerating);
+  const hlsPath = useHlsPreviewStore((s) => s.hlsPath);
+  const hlsError = useHlsPreviewStore((s) => s.error);
 
   // 共有 ref（複数フックで使用するため親で作成）
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -471,19 +473,19 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             objectFit: 'contain',
           }}
         />
-        {/* HLS 生成中インジケータ */}
-        {isHlsGenerating && (
+        {/* HLS ステータスインジケータ */}
+        {(isHlsGenerating || hlsPath || hlsError) && (
           <div
             style={{
               position: 'absolute',
               top: 4,
               right: 8,
               fontSize: '11px',
-              color: '#aaa',
+              color: hlsError ? '#f66' : hlsPath ? '#4c4' : '#aaa',
               pointerEvents: 'none',
             }}
           >
-            HLS 生成中...
+            {isHlsGenerating ? 'HLS 生成中...' : hlsError ? 'HLS エラー' : 'HLS ▶'}
           </div>
         )}
         {!hasCurrentClip && (
