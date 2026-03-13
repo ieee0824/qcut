@@ -111,6 +111,7 @@ jobs:
           mkdir -p upload
           OS="${{ matrix.os_name }}"
           ARCH="${{ matrix.arch }}"
+          VERSION="${GITHUB_REF_NAME}"
           find src-tauri/target -path "*/bundle/*" \
             \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" \
                -o -name "*.deb" -o -name "*.AppImage" -o -name "*.AppImage.tar.gz" -o -name "*.AppImage.tar.gz.sig" \
@@ -130,7 +131,7 @@ jobs:
                 *.msi.zip)        ext="msi.zip" ;;
                 *-setup.exe)      ext="setup.exe" ;;
               esac
-              cp "$f" "upload/qcut-${OS}-${ARCH}.${ext}"
+              cp "$f" "upload/qcut-${VERSION}-${OS}-${ARCH}.${ext}"
           done
           echo "Artifacts to upload:"
           ls -la upload/
@@ -141,3 +142,54 @@ jobs:
           draft: ${{ contains(github.ref_name, '-beta') }}
           prerelease: ${{ contains(github.ref_name, '-beta') }}
           files: upload/*
+
+  update-homebrew:
+    name: Update Homebrew Tap
+    needs: release
+    # beta / 正式リリースどちらでも homebrew-tap を更新
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Determine version and cask
+        id: meta
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+          if [[ "$TAG" == *-beta* ]]; then
+            echo "cask=qcut-beta" >> "$GITHUB_OUTPUT"
+          else
+            echo "cask=qcut" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download macOS DMG and compute sha256
+        id: sha
+        run: |
+          curl -sL "https://github.com/ieee0824/qcut/releases/download/v${{ steps.meta.outputs.version }}/qcut-v${{ steps.meta.outputs.version }}-darwin-aarch64.dmg" -o /tmp/qcut.dmg
+          HASH=$(sha256sum /tmp/qcut.dmg | awk '{print $1}')
+          echo "sha256=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Setup SSH for homebrew-tap
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+
+      - name: Clone and update homebrew-tap
+        run: |
+          git clone git@github.com:ieee0824/homebrew-tap.git /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+
+          CASK="${{ steps.meta.outputs.cask }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          SHA256="${{ steps.sha.outputs.sha256 }}"
+          CASK_FILE="Casks/${CASK}.rb"
+
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" "$CASK_FILE"
+          sed -i "s/sha256 \".*\"/sha256 \"${SHA256}\"/" "$CASK_FILE"
+          sed -i "s|/qcut-.*-darwin-aarch64\.dmg|/qcut-v#{version}-darwin-aarch64.dmg|" "$CASK_FILE"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$CASK_FILE"
+          git commit -m "${CASK} cask を v${VERSION} に更新"
+          git push
