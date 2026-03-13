@@ -30,6 +30,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     duration,
     volume,
     videoUrls,
+    prerenderedFrames,
     setIsPlaying,
     setCurrentTime: setVideoPreviewCurrentTime,
     setDuration,
@@ -131,6 +132,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   }, [currentClip, videoUrls]);
 
   const hasCurrentClip = currentClip !== null && currentVideoUrl !== null;
+  const currentPrerenderedFrame = currentClip ? prerenderedFrames[currentClip.id] ?? null : null;
+  const [isVideoReady, setIsVideoReady] = useState(false);
 
   // --- カスタムフック ---
   const { needsCanvas, renderCanvasFrame, pipelineRef } = useCanvasRenderer({
@@ -153,6 +156,15 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       return () => video.removeEventListener('loadeddata', onReady);
     }
   }, [currentVideoUrl, needsCanvas, renderCanvasFrame, videoRef]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!currentVideoUrl || !video) {
+      setIsVideoReady(false);
+      return;
+    }
+    setIsVideoReady(video.readyState >= 2 && video.currentSrc === currentVideoUrl);
+  }, [currentVideoUrl]);
 
   const { captureFrame } = useFrameCapture({
     videoRef,
@@ -316,6 +328,10 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   };
 
+  const handleLoadedData = () => {
+    setIsVideoReady(true);
+  };
+
   const handlePlayPause = () => {
     if (!isPlaying && !findClipAtTime(currentTimeRef.current) && !findNextClipAfter(currentTimeRef.current)) {
       return;
@@ -335,6 +351,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       updateTimeDisplay(timelineTime);
 
       if (videoRef.current) {
+        setIsVideoReady(false);
         videoRef.current.currentTime = sourceTime;
       }
     },
@@ -362,6 +379,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         <video
           ref={videoRef}
           onLoadedMetadata={handleMetadata}
+          onLoadedData={handleLoadedData}
+          onSeeking={() => setIsVideoReady(false)}
+          onSeeked={() => setIsVideoReady(true)}
           style={{
             width: '100%',
             height: '100%',
@@ -407,6 +427,26 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             objectFit: 'contain',
           }}
         />
+        {hasCurrentClip && currentPrerenderedFrame && !isVideoReady && (
+          <img
+            src={currentPrerenderedFrame}
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              borderRadius: '4px',
+              pointerEvents: 'none',
+              visibility: 'visible',
+              filter: needsCanvas ? 'none' : cssFilter,
+              transform: cssTransform,
+              transformOrigin: 'center center',
+            }}
+          />
+        )}
         {!hasCurrentClip && (
           <div
             style={{

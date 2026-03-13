@@ -31,10 +31,11 @@ export const useVideoSwitching = ({
 }: UseVideoSwitchingParams): UseVideoSwitchingReturn => {
   const preloadVideoRef = useRef<HTMLVideoElement>(null);
   const preloadedUrlRef = useRef<string>('');
+  const preloadedClipIdRef = useRef<string | null>(null);
   const loadedVideoUrl = useRef<string | null>(null);
   const isLoadingVideoRef = useRef(false);
 
-  const { setDuration } = useVideoPreviewStore();
+  const { setDuration, setPrerenderedFrame, clearPrerenderedFrame } = useVideoPreviewStore();
 
   const switchVideo = useCallback(
     (url: string, sourceTime: number, autoPlay: boolean) => {
@@ -78,11 +79,52 @@ export const useVideoSwitching = ({
     if (!nextUrl || nextUrl === preloadedUrlRef.current) return;
 
     preloadedUrlRef.current = nextUrl;
+    preloadedClipIdRef.current = nextClip.id;
     if (preloadVideoRef.current) {
-      preloadVideoRef.current.src = nextUrl;
-      preloadVideoRef.current.load();
+      const preloadVideo = preloadVideoRef.current;
+      const capturePrerenderFrame = () => {
+        if (!preloadVideo.videoWidth || !preloadVideo.videoHeight || !preloadedClipIdRef.current) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = preloadVideo.videoWidth;
+        canvas.height = preloadVideo.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(preloadVideo, 0, 0, canvas.width, canvas.height);
+        setPrerenderedFrame(preloadedClipIdRef.current, canvas.toDataURL('image/png'));
+      };
+
+      const handleLoadedMetadata = () => {
+        preloadVideo.currentTime = nextClip.sourceStartTime;
+      };
+      const handleSeeked = () => {
+        capturePrerenderFrame();
+      };
+      const handleLoadedData = () => {
+        if (!preloadVideo.seeking) {
+          capturePrerenderFrame();
+        }
+      };
+
+      clearPrerenderedFrame(nextClip.id);
+      preloadVideo.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+      preloadVideo.addEventListener('seeked', handleSeeked, { once: true });
+      preloadVideo.addEventListener('loadeddata', handleLoadedData, { once: true });
+      preloadVideo.src = nextUrl;
+      preloadVideo.load();
+
+      return () => {
+        preloadVideo.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        preloadVideo.removeEventListener('seeked', handleSeeked);
+        preloadVideo.removeEventListener('loadeddata', handleLoadedData);
+      };
     }
-  }, [currentClip, findNextClipAfter, videoUrls]);
+  }, [
+    clearPrerenderedFrame,
+    currentClip,
+    findNextClipAfter,
+    setPrerenderedFrame,
+    videoUrls,
+  ]);
 
   // 動画ファイルが切り替わったとき src を更新してシーク（停止中のみ）
   useEffect(() => {
