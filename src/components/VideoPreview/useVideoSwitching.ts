@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 import type { Clip as ClipType } from '../../store/timelineStore';
 
@@ -16,6 +16,7 @@ interface UseVideoSwitchingParams {
 interface UseVideoSwitchingReturn {
   preloadVideoRef: React.RefObject<HTMLVideoElement | null>;
   activeVideoRef: React.MutableRefObject<HTMLVideoElement | null>;
+  activeVideoSlot: 'primary' | 'preload';
   loadedVideoUrl: React.MutableRefObject<string | null>;
   isLoadingVideoRef: React.MutableRefObject<boolean>;
   switchVideo: (url: string, sourceTime: number, autoPlay: boolean) => void;
@@ -50,6 +51,9 @@ export function waitForFirstRenderableFrame(
   };
 
   const scheduleFrameWait = () => {
+    if (frameCallbackId !== null || rafId !== null) {
+      return;
+    }
     if (typeof video.requestVideoFrameCallback === 'function') {
       frameCallbackId = video.requestVideoFrameCallback(() => finish());
       return;
@@ -88,8 +92,8 @@ export const useVideoSwitching = ({
 }: UseVideoSwitchingParams): UseVideoSwitchingReturn => {
   const preloadVideoRef = useRef<HTMLVideoElement>(null);
   const activeVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [activeVideoSlot, setActiveVideoSlot] = useState<'primary' | 'preload'>('primary');
   const preloadedUrlRef = useRef<string>('');
-  const preloadedClipIdRef = useRef<string | null>(null);
   const loadedVideoUrl = useRef<string | null>(null);
   const isLoadingVideoRef = useRef(false);
   const preloadReadyRef = useRef(false);
@@ -99,6 +103,7 @@ export const useVideoSwitching = ({
   useEffect(() => {
     if (videoRef.current && !activeVideoRef.current) {
       activeVideoRef.current = videoRef.current;
+      setActiveVideoSlot('primary');
     }
   }, [videoRef]);
 
@@ -122,26 +127,22 @@ export const useVideoSwitching = ({
         const oldActive = active;
         loadedVideoUrl.current = url;
         activeVideoRef.current = inactive;
+        setActiveVideoSlot(inactive === videoRef.current ? 'primary' : 'preload');
         inactive.currentTime = sourceTime;
         setDuration(inactive.duration || oldActive.duration || 0);
 
         if (autoPlay) {
           const cleanupFrameWait = waitForFirstRenderableFrame(inactive, () => {
-            inactive.style.visibility = 'visible';
-            oldActive.style.visibility = 'hidden';
             oldActive.pause();
           });
           void inactive.play();
           inactive.addEventListener('emptied', cleanupFrameWait, { once: true });
         } else {
-          inactive.style.visibility = 'visible';
-          oldActive.style.visibility = 'hidden';
           oldActive.pause();
         }
 
         preloadReadyRef.current = false;
         preloadedUrlRef.current = '';
-        preloadedClipIdRef.current = null;
         isLoadingVideoRef.current = false;
         return;
       }
@@ -161,22 +162,16 @@ export const useVideoSwitching = ({
           if (autoPlay) {
             const cleanupFrameWait = waitForFirstRenderableFrame(loadTarget, () => {
               activeVideoRef.current = loadTarget;
-              loadTarget.style.visibility = 'visible';
-              if (oldActive !== loadTarget) {
-                oldActive.style.visibility = 'hidden';
-                oldActive.pause();
-              }
+              setActiveVideoSlot(loadTarget === videoRef.current ? 'primary' : 'preload');
+              if (oldActive !== loadTarget) oldActive.pause();
               isLoadingVideoRef.current = false;
             });
             void loadTarget.play();
             loadTarget.addEventListener('emptied', cleanupFrameWait, { once: true });
           } else {
             activeVideoRef.current = loadTarget;
-            loadTarget.style.visibility = 'visible';
-            if (oldActive !== loadTarget) {
-              oldActive.style.visibility = 'hidden';
-              oldActive.pause();
-            }
+            setActiveVideoSlot(loadTarget === videoRef.current ? 'primary' : 'preload');
+            if (oldActive !== loadTarget) oldActive.pause();
             isLoadingVideoRef.current = false;
           }
         },
@@ -201,18 +196,22 @@ export const useVideoSwitching = ({
     if (!preloadTarget) return;
 
     preloadedUrlRef.current = nextUrl;
-    preloadedClipIdRef.current = nextClip.id;
     preloadReadyRef.current = false;
+    const clipId = nextClip.id;
     const preloadVideo = preloadTarget;
     const capturePrerenderFrame = () => {
-      if (!preloadVideo.videoWidth || !preloadVideo.videoHeight || !preloadedClipIdRef.current) return;
+      if (!preloadVideo.videoWidth || !preloadVideo.videoHeight) return;
       const canvas = document.createElement('canvas');
       canvas.width = preloadVideo.videoWidth;
       canvas.height = preloadVideo.videoHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.drawImage(preloadVideo, 0, 0, canvas.width, canvas.height);
-      setPrerenderedFrame(preloadedClipIdRef.current, canvas.toDataURL('image/png'));
+      try {
+        setPrerenderedFrame(clipId, canvas.toDataURL('image/png'));
+      } catch {
+        // CORS などで data URL 化できない場合はプリレンダ保存のみスキップする
+      }
     };
 
     const handleLoadedMetadata = () => {
@@ -229,7 +228,7 @@ export const useVideoSwitching = ({
       }
     };
 
-    clearPrerenderedFrame(nextClip.id);
+    clearPrerenderedFrame(clipId);
     preloadVideo.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
     preloadVideo.addEventListener('seeked', handleSeeked, { once: true });
     preloadVideo.addEventListener('loadeddata', handleLoadedData, { once: true });
@@ -258,10 +257,9 @@ export const useVideoSwitching = ({
 
     if (preloadVideoRef.current) {
       preloadVideoRef.current.pause();
-      preloadVideoRef.current.style.visibility = 'hidden';
     }
-    videoRef.current.style.visibility = 'visible';
     activeVideoRef.current = videoRef.current;
+    setActiveVideoSlot('primary');
     loadedVideoUrl.current = currentVideoUrl;
     if (!currentVideoUrl) return;
 
@@ -284,6 +282,7 @@ export const useVideoSwitching = ({
   return {
     preloadVideoRef,
     activeVideoRef,
+    activeVideoSlot,
     loadedVideoUrl,
     isLoadingVideoRef,
     switchVideo,

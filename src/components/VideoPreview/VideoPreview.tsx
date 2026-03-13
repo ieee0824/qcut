@@ -135,7 +135,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const currentPrerenderedFrame = currentClip ? prerenderedFrames[currentClip.id] ?? null : null;
   const [isVideoReady, setIsVideoReady] = useState(false);
 
-  const { preloadVideoRef, activeVideoRef, loadedVideoUrl, isLoadingVideoRef, switchVideo } = useVideoSwitching({
+  const { preloadVideoRef, activeVideoRef, activeVideoSlot, loadedVideoUrl, isLoadingVideoRef, switchVideo } = useVideoSwitching({
     videoRef,
     currentTimeRef,
     currentClip,
@@ -294,9 +294,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   useEffect(() => {
     const currentVideo = activeVideoRef.current ?? videoRef.current;
     if (currentVideo) {
-      if (!audioEngine.hasGraph(VIDEO_AUDIO_ID)) {
-        audioEngine.connect(VIDEO_AUDIO_ID, currentVideo);
-      }
+      audioEngine.connect(VIDEO_AUDIO_ID, currentVideo);
       const clip = findClipAtTime(currentTimeRef.current);
       const clipVolume = clip?.effects?.volume ?? 1.0;
       const allTracks = useTimelineStore.getState().tracks;
@@ -332,9 +330,26 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   };
 
-  const handleLoadedData = () => {
-    setIsVideoReady(true);
-  };
+  const handleVideoLoadedData = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const activeVideo = activeVideoRef.current ?? videoRef.current;
+    if (activeVideo === e.currentTarget) {
+      setIsVideoReady(true);
+    }
+  }, [activeVideoRef, videoRef]);
+
+  const handleVideoSeeking = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const activeVideo = activeVideoRef.current ?? videoRef.current;
+    if (activeVideo === e.currentTarget) {
+      setIsVideoReady(false);
+    }
+  }, [activeVideoRef, videoRef]);
+
+  const handleVideoSeeked = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const activeVideo = activeVideoRef.current ?? videoRef.current;
+    if (activeVideo === e.currentTarget) {
+      setIsVideoReady(true);
+    }
+  }, [activeVideoRef, videoRef]);
 
   const handlePlayPause = () => {
     if (!isPlaying && !findClipAtTime(currentTimeRef.current) && !findNextClipAfter(currentTimeRef.current)) {
@@ -384,15 +399,18 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         <video
           ref={videoRef}
           onLoadedMetadata={handleMetadata}
-          onLoadedData={handleLoadedData}
-          onSeeking={() => setIsVideoReady(false)}
-          onSeeked={() => setIsVideoReady(true)}
+          onLoadedData={handleVideoLoadedData}
+          onSeeking={handleVideoSeeking}
+          onSeeked={handleVideoSeeked}
           style={{
             width: '100%',
             height: '100%',
             backgroundColor: '#000',
             borderRadius: '4px',
-            visibility: hasCurrentClip && !needsCanvas ? 'visible' : 'hidden',
+            visibility:
+              hasCurrentClip && !needsCanvas && activeVideoSlot === 'primary'
+                ? 'visible'
+                : 'hidden',
             filter: needsCanvas ? 'none' : cssFilter,
             transform: cssTransform,
             transformOrigin: 'center center',
@@ -434,9 +452,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         />
         <video
           ref={preloadVideoRef}
-          onLoadedData={handleLoadedData}
-          onSeeking={() => setIsVideoReady(false)}
-          onSeeked={() => setIsVideoReady(true)}
+          onLoadedData={handleVideoLoadedData}
+          onSeeking={handleVideoSeeking}
+          onSeeked={handleVideoSeeked}
           muted={false}
           style={{
             position: 'absolute',
@@ -445,7 +463,10 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             height: '100%',
             backgroundColor: '#000',
             borderRadius: '4px',
-            visibility: 'hidden',
+            visibility:
+              hasCurrentClip && !needsCanvas && activeVideoSlot === 'preload'
+                ? 'visible'
+                : 'hidden',
             objectFit: 'contain',
             filter: needsCanvas ? 'none' : cssFilter,
             transform: cssTransform,
