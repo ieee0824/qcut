@@ -36,3 +36,6 @@ coverage/
 
 # Security audit
 SECURITY_AUDIT.md
+
+# Debug notes
+.debug-notes/
