@@ -40,6 +40,28 @@ interface UsePlaybackLoopReturn {
   stopPlaybackLoop: () => void;
 }
 
+export function getMonotonicPlaybackTime(previousTime: number, nextTime: number): number {
+  return nextTime < previousTime ? previousTime : nextTime;
+}
+
+interface PlaybackTimelineTimeParams {
+  previousTimelineTime: number;
+  clipStartTime: number;
+  clipSourceStartTime: number;
+  videoSourceTime: number;
+}
+
+export function getPlaybackTimelineTime({
+  previousTimelineTime,
+  clipStartTime,
+  clipSourceStartTime,
+  videoSourceTime,
+}: PlaybackTimelineTimeParams): number {
+  const relativeTime = videoSourceTime - clipSourceStartTime;
+  const timelineTime = clipStartTime + relativeTime;
+  return getMonotonicPlaybackTime(previousTimelineTime, timelineTime);
+}
+
 export const usePlaybackLoop = ({
   videoRef,
   currentTimeRef,
@@ -232,11 +254,15 @@ export const usePlaybackLoop = ({
           return;
         }
 
-        const relativeTime = videoSourceTime - clip.sourceStartTime;
-        const timelineTime = clip.startTime + relativeTime;
+        const safeTimelineTime = getPlaybackTimelineTime({
+          previousTimelineTime: currentTimeRef.current,
+          clipStartTime: clip.startTime,
+          clipSourceStartTime: clip.sourceStartTime,
+          videoSourceTime,
+        });
         const clipEndTime = clip.startTime + clip.duration;
 
-        if (timelineTime >= clipEndTime || videoSourceTime >= clip.sourceEndTime) {
+        if (safeTimelineTime >= clipEndTime || videoSourceTime >= clip.sourceEndTime) {
           currentTimeRef.current = clipEndTime;
           useTimelineStore.getState().setCurrentTime(clipEndTime);
           updateTimeDisplay(clipEndTime);
@@ -256,9 +282,9 @@ export const usePlaybackLoop = ({
             videoRef.current.pause();
           }
         } else {
-          currentTimeRef.current = timelineTime;
-          useTimelineStore.getState().setCurrentTime(timelineTime);
-          updateTimeDisplay(timelineTime);
+          currentTimeRef.current = safeTimelineTime;
+          useTimelineStore.getState().setCurrentTime(safeTimelineTime);
+          updateTimeDisplay(safeTimelineTime);
         }
 
         // フェードイン/フェードアウトのopacity適用
