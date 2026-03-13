@@ -1,14 +1,18 @@
 import { useRef, useCallback, useEffect, useMemo } from 'react';
 import type { ClipEffects } from '../../store/timelineStore';
-import { DEFAULT_EFFECTS } from '../../store/timelineStore';
+import { DEFAULT_EFFECTS, DEFAULT_TONE_CURVES } from '../../store/timelineStore';
 import type { WebGLPipeline } from './canvasEffects';
 import { needsCanvasPipeline, initWebGLPipeline, renderFrame, destroyPipeline } from './canvasEffects';
 import type { Clip as ClipType } from '../../store/timelineStore';
+import { getEffectsAtTime, hasActiveKeyframes } from '../../utils/keyframes';
+import { logAction } from '../../store/actionLogger';
+import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 
 interface UseCanvasRendererParams {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   currentClip: ClipType | null;
+  currentTimeRef: React.MutableRefObject<number>;
 }
 
 interface UseCanvasRendererReturn {
@@ -21,18 +25,70 @@ export const useCanvasRenderer = ({
   videoRef,
   canvasRef,
   currentClip,
+  currentTimeRef,
 }: UseCanvasRendererParams): UseCanvasRendererReturn => {
   const pipelineRef = useRef<ReturnType<typeof initWebGLPipeline>>(null);
+  const debugFrameCountRef = useRef(0);
 
-  const effects: ClipEffects = useMemo(
+  // キーフレームマーカードラッグ中の一時的なプレビュー時刻
+  const kfDragPreviewTime = useVideoPreviewStore((s) => s.kfDragPreviewTime);
+  const kfDragPreviewTimeRef = useRef(kfDragPreviewTime);
+  kfDragPreviewTimeRef.current = kfDragPreviewTime;
+
+  // ベースエフェクト（キーフレームなし時）で WebGL の必要性を判定
+  const baseEffects: ClipEffects = useMemo(
     () => ({ ...DEFAULT_EFFECTS, ...currentClip?.effects }),
     [currentClip?.effects],
   );
-  const needsCanvas = needsCanvasPipeline(effects);
+  const baseToneCurves = useMemo(
+    () => currentClip?.toneCurves ?? DEFAULT_TONE_CURVES,
+    [currentClip?.toneCurves],
+  );
+  // キーフレームがある場合は常に canvas を使用（保守的）
+  const needsCanvas = needsCanvasPipeline(baseEffects, baseToneCurves) || (currentClip ? hasActiveKeyframes(currentClip) : false);
+
+  // renderCanvasFrame 内で最新の currentClip / needsCanvas を参照するための ref
+  const currentClipRef = useRef(currentClip);
+  currentClipRef.current = currentClip;
+  const needsCanvasRef = useRef(needsCanvas);
+  needsCanvasRef.current = needsCanvas;
 
   const renderCanvasFrame = useCallback(() => {
+    if (!needsCanvasRef.current) {
+      return;
+    }
     if (!videoRef.current || !canvasRef.current) return;
-    if (!needsCanvas) return;
+
+    const clip = currentClipRef.current;
+    if (!clip) {
+      logAction('renderCanvasFrame', 'SKIP: clip=null');
+      return;
+    }
+
+    // キーフレームがある場合は現在時刻で補間、なければベースエフェクトを使用
+    let effects: ClipEffects;
+    const activeKf = hasActiveKeyframes(clip);
+    if (activeKf) {
+      const timelineTime = kfDragPreviewTimeRef.current ?? currentTimeRef.current;
+      const clipLocalTime = timelineTime - clip.startTime;
+      effects = getEffectsAtTime(clip, clipLocalTime);
+
+      // 60フレームに1回ログ
+      debugFrameCountRef.current = (debugFrameCountRef.current + 1) % 60;
+      if (debugFrameCountRef.current === 0) {
+        const kfKeys = Object.keys(clip.keyframes ?? {}).join(',');
+        const tc = currentClipRef.current?.toneCurves ?? DEFAULT_TONE_CURVES;
+        logAction('renderCanvasFrame', `t=${clipLocalTime.toFixed(2)} kfKeys=${kfKeys} brightness=${effects.brightness?.toFixed(3)} contrast=${effects.contrast?.toFixed(3)} needsCanvasPipeline=${needsCanvasPipeline(effects, tc)}`);
+      }
+    } else {
+      effects = { ...DEFAULT_EFFECTS, ...clip.effects };
+    }
+
+    // キーフレームがアクティブな場合、canvas がビデオを隠しているため
+    // WebGL 専用エフェクトがなくても必ず描画する（早期リターンしない）
+    if (!needsCanvasPipeline(effects, currentClipRef.current?.toneCurves ?? DEFAULT_TONE_CURVES) && !activeKf) {
+      return;
+    }
 
     // Lazy init pipeline
     if (!pipelineRef.current) {
@@ -40,15 +96,28 @@ export const useCanvasRenderer = ({
     }
     if (!pipelineRef.current) return;
 
-    renderFrame(pipelineRef.current, videoRef.current, effects);
-  }, [videoRef, canvasRef, needsCanvas, effects]);
+    const tc = currentClipRef.current?.toneCurves ?? DEFAULT_TONE_CURVES;
+    renderFrame(pipelineRef.current, videoRef.current, effects, tc);
+  }, [videoRef, canvasRef, currentTimeRef]);
 
-  // Re-render when effects change while paused
+  // Re-render when effects change while paused (clip の変更にも追従)
   useEffect(() => {
-    if (needsCanvas) {
-      renderCanvasFrame();
+    if (!needsCanvas || !currentClip) return;
+    renderCanvasFrame();
+    // Video src が切り替わり readyState=0 の場合、loadeddata を待って再描画
+    const video = videoRef.current;
+    if (video && video.readyState < 2) {
+      const retry = () => renderCanvasFrame();
+      video.addEventListener('loadeddata', retry, { once: true });
+      return () => video.removeEventListener('loadeddata', retry);
     }
-  }, [needsCanvas, renderCanvasFrame]);
+  }, [needsCanvas, renderCanvasFrame, currentClip, videoRef]);
+
+  // キーフレームマーカードラッグ中のリアルタイムプレビュー
+  useEffect(() => {
+    if (kfDragPreviewTime === null || !needsCanvas) return;
+    renderCanvasFrame();
+  }, [kfDragPreviewTime, needsCanvas, renderCanvasFrame]);
 
   // Video ready / seek完了時に canvas を再描画
   // WebKit では loadeddata 時点で useVideoSwitching の seek が未完了の場合があり、

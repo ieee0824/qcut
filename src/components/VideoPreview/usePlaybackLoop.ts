@@ -5,6 +5,7 @@ import { useTimelineStore, DEFAULT_EFFECTS } from '../../store/timelineStore';
 import type { Clip as ClipType, TransitionType } from '../../store/timelineStore';
 import type { TransitionInfo } from './useTransitionEffect';
 import { audioEngine } from '../../audio/AudioEngine';
+import { getEffectsAtTime, hasActiveKeyframes } from '../../utils/keyframes';
 
 const VIDEO_AUDIO_ID = '__video_main__';
 
@@ -37,6 +38,28 @@ interface UsePlaybackLoopReturn {
   updateTimeDisplay: (time: number) => void;
   startPlaybackLoop: () => void;
   stopPlaybackLoop: () => void;
+}
+
+export function getMonotonicPlaybackTime(previousTime: number, nextTime: number): number {
+  return nextTime < previousTime ? previousTime : nextTime;
+}
+
+interface PlaybackTimelineTimeParams {
+  previousTimelineTime: number;
+  clipStartTime: number;
+  clipSourceStartTime: number;
+  videoSourceTime: number;
+}
+
+export function getPlaybackTimelineTime({
+  previousTimelineTime,
+  clipStartTime,
+  clipSourceStartTime,
+  videoSourceTime,
+}: PlaybackTimelineTimeParams): number {
+  const relativeTime = videoSourceTime - clipSourceStartTime;
+  const timelineTime = clipStartTime + relativeTime;
+  return getMonotonicPlaybackTime(previousTimelineTime, timelineTime);
 }
 
 export const usePlaybackLoop = ({
@@ -231,11 +254,15 @@ export const usePlaybackLoop = ({
           return;
         }
 
-        const relativeTime = videoSourceTime - clip.sourceStartTime;
-        const timelineTime = clip.startTime + relativeTime;
+        const safeTimelineTime = getPlaybackTimelineTime({
+          previousTimelineTime: currentTimeRef.current,
+          clipStartTime: clip.startTime,
+          clipSourceStartTime: clip.sourceStartTime,
+          videoSourceTime,
+        });
         const clipEndTime = clip.startTime + clip.duration;
 
-        if (timelineTime >= clipEndTime || videoSourceTime >= clip.sourceEndTime) {
+        if (safeTimelineTime >= clipEndTime || videoSourceTime >= clip.sourceEndTime) {
           currentTimeRef.current = clipEndTime;
           useTimelineStore.getState().setCurrentTime(clipEndTime);
           updateTimeDisplay(clipEndTime);
@@ -255,9 +282,9 @@ export const usePlaybackLoop = ({
             videoRef.current.pause();
           }
         } else {
-          currentTimeRef.current = timelineTime;
-          useTimelineStore.getState().setCurrentTime(timelineTime);
-          updateTimeDisplay(timelineTime);
+          currentTimeRef.current = safeTimelineTime;
+          useTimelineStore.getState().setCurrentTime(safeTimelineTime);
+          updateTimeDisplay(safeTimelineTime);
         }
 
         // フェードイン/フェードアウトのopacity適用
@@ -316,7 +343,9 @@ export const usePlaybackLoop = ({
             combinedVolume = Math.max(0, Math.min(1, uiVolume * trackVol * clipVolume * audioFade));
           }
 
-          const effects = { ...DEFAULT_EFFECTS, ...clip.effects };
+          const effects = hasActiveKeyframes(clip)
+            ? getEffectsAtTime(clip, currentTimeRef.current - clip.startTime)
+            : { ...DEFAULT_EFFECTS, ...clip.effects };
           audioEngine.updateEffects(VIDEO_AUDIO_ID, effects, combinedVolume);
         }
 

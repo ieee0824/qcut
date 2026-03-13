@@ -82,7 +82,14 @@
     "reverbOff": "オフ",
     "reverbSmallRoom": "小部屋",
     "reverbHall": "ホール",
-    "reverbChurch": "教会"
+    "reverbChurch": "教会",
+    "filter": "フィルター",
+    "blurAmount": "ブラー",
+    "sharpenAmount": "シャープ",
+    "monochrome": "モノクロ",
+    "toneCurve": "トーンカーブ",
+    "curveReset": "リセット",
+    "curveResetAll": "全チャンネルリセット"
   },
   "transform": {
     "title": "トランスフォーム",
@@ -102,7 +109,10 @@
     "unmute": "ミュート解除",
     "solo": "ソロ",
     "unSolo": "ソロ解除",
-    "volume": "音量"
+    "volume": "音量",
+    "snap": "スナップ",
+    "snapOn": "スナップを有効にする",
+    "snapOff": "スナップを無効にする"
   },
   "text": {
     "title": "テキスト",
@@ -176,7 +186,9 @@
     "showHelp": "ショートカット一覧",
     "save": "プロジェクトを保存",
     "saveAs": "名前を付けて保存",
-    "openProject": "プロジェクトを開く"
+    "openProject": "プロジェクトを開く",
+    "pressKey": "キーを押してください...",
+    "clickToEdit": "クリックして変更"
   },
   "project": {
     "untitled": "無題のプロジェクト",
@@ -200,6 +212,21 @@
     "positionX": "位置X",
     "positionY": "位置Y",
     "reset": "リセット"
+  },
+  "effectPreset": {
+    "title": "エフェクトプリセット",
+    "all": "すべて",
+    "voice": "ボイス",
+    "music": "ミュージック",
+    "scene": "シーン",
+    "custom": "カスタム",
+    "saveAsPreset": "プリセットとして保存",
+    "voiceDialog": "ダイアログ",
+    "voicePodcast": "ポッドキャスト",
+    "musicBGM": "BGM",
+    "musicLive": "ライブ",
+    "sceneCinema": "シネマ",
+    "sceneDocumentary": "ドキュメンタリー"
   },
   "colorPreset": {
     "title": "カラープリセット",
@@ -249,5 +276,31 @@
     "seconds": "秒",
     "minutes": "分",
     "hours": "時間"
+  },
+  "plugin": {
+    "managerTitle": "プラグイン管理",
+    "managerButton": "プラグイン",
+    "addPlugin": "プラグインを追加",
+    "importing": "インポート中...",
+    "close": "閉じる",
+    "delete": "削除",
+    "noPlugins": "インストール済みのプラグインはありません",
+    "selectDirectory": "プラグインディレクトリを選択",
+    "overwriteConfirm": "プラグイン \"{{id}}\" は既にインストールされています。上書きしますか？",
+    "deleteConfirm": "プラグイン \"{{name}}\" を削除しますか？この操作は元に戻せません。",
+    "stateActive": "有効",
+    "stateInactive": "無効",
+    "stateError": "エラー",
+    "toggleEnabled": "{{name}} の有効/無効を切替"
+  },
+  "keyframe": {
+    "addKeyframe": "キーフレームを追加",
+    "linear": "リニア",
+    "easeIn": "イーズイン",
+    "easeOut": "イーズアウト",
+    "easeInOut": "イーズインアウト",
+    "editTime": "時刻を編集",
+    "editValue": "値を編集",
+    "removeKeyframe": "キーフレームを削除"
   }
 }

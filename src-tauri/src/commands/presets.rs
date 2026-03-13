@@ -74,3 +74,40 @@ pub fn write_color_presets(app_handle: tauri::AppHandle, content: String) -> Res
     fs::write(&presets_path, content)
         .map_err(|e| format!("カラープリセットファイルの書き込みに失敗: {}", e))
 }
+
+/// エフェクトプリセットファイルを読み込む
+#[tauri::command]
+pub fn read_effect_presets(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let app_data = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
+
+    let presets_path = app_data.join("effect-presets.json");
+
+    if !presets_path.exists() {
+        return Ok("[]".to_string());
+    }
+
+    fs::read_to_string(&presets_path)
+        .map_err(|e| format!("エフェクトプリセットファイルの読み込みに失敗: {}", e))
+}
+
+/// エフェクトプリセットファイルを書き込む
+#[tauri::command]
+pub fn write_effect_presets(app_handle: tauri::AppHandle, content: String) -> Result<(), String> {
+    let app_data = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
+
+    let presets_path = app_data.join("effect-presets.json");
+
+    if let Some(parent) = presets_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("ディレクトリの作成に失敗: {}", e))?;
+    }
+
+    fs::write(&presets_path, content)
+        .map_err(|e| format!("エフェクトプリセットファイルの書き込みに失敗: {}", e))
+}

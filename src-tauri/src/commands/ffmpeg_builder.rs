@@ -1,4 +1,4 @@
-use super::export::{ExportClip, ExportSettings, ExportTrack};
+use super::export::{CurvePoint, ExportClip, ExportSettings, ExportTrack, ToneCurves};
 use super::hsl_lut::{HslParams, generate_hsl_lut};
 use regex::Regex;
 
@@ -30,7 +30,10 @@ fn validate_export_settings(settings: &ExportSettings) -> Result<(), String> {
 // --- フォーマット定義テーブル ---
 
 pub(crate) struct FormatProfile {
-    key: &'static str,
+    pub(crate) key: &'static str,
+    pub(crate) label: &'static str,
+    pub(crate) ext: &'static str,
+    pub(crate) filter_name: &'static str,
     pub(crate) video_codec: &'static str,
     pub(crate) video_preset: Option<&'static str>,
     pub(crate) audio_codec: &'static str,
@@ -42,6 +45,9 @@ pub(crate) struct FormatProfile {
 const FORMAT_PROFILES: &[FormatProfile] = &[
     FormatProfile {
         key: "mp4",
+        label: "MP4 (H.264)",
+        ext: "mp4",
+        filter_name: "MP4",
         video_codec: "libx264",
         video_preset: Some("medium"),
         audio_codec: "aac",
@@ -51,6 +57,9 @@ const FORMAT_PROFILES: &[FormatProfile] = &[
     },
     FormatProfile {
         key: "mov",
+        label: "MOV (H.264)",
+        ext: "mov",
+        filter_name: "MOV",
         video_codec: "libx264",
         video_preset: Some("medium"),
         audio_codec: "aac",
@@ -60,6 +69,9 @@ const FORMAT_PROFILES: &[FormatProfile] = &[
     },
     FormatProfile {
         key: "avi",
+        label: "AVI (H.264)",
+        ext: "avi",
+        filter_name: "AVI",
         video_codec: "libx264",
         video_preset: Some("medium"),
         audio_codec: "mp3",
@@ -69,6 +81,9 @@ const FORMAT_PROFILES: &[FormatProfile] = &[
     },
     FormatProfile {
         key: "webm",
+        label: "WebM (VP9)",
+        ext: "webm",
+        filter_name: "WebM",
         video_codec: "libvpx-vp9",
         video_preset: None,
         audio_codec: "libopus",
@@ -77,6 +92,61 @@ const FORMAT_PROFILES: &[FormatProfile] = &[
         extra_flags: &[],
     },
 ];
+
+// --- コーデック許可リスト（コマンドインジェクション対策）---
+
+const ALLOWED_VIDEO_CODECS: &[&str] = &[
+    "libx264", "libx265", "libvpx-vp9", "libaom-av1",
+];
+
+const ALLOWED_AUDIO_CODECS: &[&str] = &[
+    "aac", "mp3", "libopus", "flac", "pcm_s16le", "libvorbis",
+];
+
+/// プラグインから受け取ったカスタムフォーマットプロファイルを検証する
+pub(crate) fn validate_custom_format_profile(
+    video_codec: &str,
+    audio_codec: &str,
+    audio_bitrate: &str,
+) -> Result<(), String> {
+    if !ALLOWED_VIDEO_CODECS.contains(&video_codec) {
+        return Err(format!("不正な videoCodec: {} (許可リスト外)", video_codec));
+    }
+    if !ALLOWED_AUDIO_CODECS.contains(&audio_codec) {
+        return Err(format!("不正な audioCodec: {} (許可リスト外)", audio_codec));
+    }
+    if !audio_bitrate.ends_with('k') {
+        return Err(format!("不正な audioBitrate: {} (例: 128k)", audio_bitrate));
+    }
+    let num_part = &audio_bitrate[..audio_bitrate.len() - 1];
+    if num_part.is_empty() || !num_part.chars().all(|c| c.is_ascii_digit()) {
+        return Err(format!("不正な audioBitrate: {} (例: 128k)", audio_bitrate));
+    }
+    Ok(())
+}
+
+/// フロントエンドへ返すフォーマット情報
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FormatInfo {
+    pub key: String,
+    pub label: String,
+    pub ext: String,
+    pub filter_name: String,
+}
+
+/// 利用可能なエクスポートフォーマット一覧を返す
+pub(crate) fn list_format_infos() -> Vec<FormatInfo> {
+    FORMAT_PROFILES
+        .iter()
+        .map(|p| FormatInfo {
+            key: p.key.to_string(),
+            label: p.label.to_string(),
+            ext: p.ext.to_string(),
+            filter_name: p.filter_name.to_string(),
+        })
+        .collect()
+}
 
 pub(crate) fn get_format_profile(key: &str) -> &'static FormatProfile {
     FORMAT_PROFILES
@@ -383,6 +453,39 @@ pub(crate) fn build_ffmpeg_args(
                 ));
             }
 
+            // ブラー
+            if effects.blur_amount > 0.1 {
+                let sigma = effects.blur_amount / 2.0;
+                vfilter.push_str(&format!(",gblur=sigma={:.2}", sigma));
+            }
+
+            // シャープ (unsharp mask: luma 5x5 kernel)
+            // WebGL プレビューではブラーとシャープは排他的なので、
+            // ブラーが有効な場合は unsharp を適用しない
+            if effects.sharpen_amount > 0.01 && effects.blur_amount <= 0.1 {
+                vfilter.push_str(&format!(",unsharp=5:5:{:.2}:5:5:0.0", effects.sharpen_amount));
+            }
+
+            // モノクロ
+            if effects.monochrome > 0.01 {
+                if effects.monochrome >= 0.99 {
+                    vfilter.push_str(",hue=s=0");
+                } else {
+                    let sat = 1.0 - effects.monochrome;
+                    vfilter.push_str(&format!(",hue=s={:.2}", sat));
+                }
+            }
+        }
+
+        // トーンカーブ（effects ブロックの外。tone_curves は clip 直下）
+        if let Some(ref tc) = clip.tone_curves {
+            let curves_str = build_ffmpeg_curves_filter(tc);
+            if !curves_str.is_empty() {
+                vfilter.push_str(&format!(",{}", curves_str));
+            }
+        }
+
+        if let Some(ref effects) = clip.effects {
             // フェードイン/フェードアウト
             let seg_duration = clip.source_end_time - clip.source_start_time;
             if effects.fade_in > 0.01 {
@@ -782,29 +885,141 @@ pub(crate) fn build_ffmpeg_args(
     args.push(format!("[{}]", final_a_label));
 
     // フォーマットプロファイルから出力設定を生成
-    let profile = get_format_profile(&settings.format);
-
-    args.extend(["-c:v".into(), profile.video_codec.into()]);
-    if let Some(preset) = profile.video_preset {
-        args.extend(["-preset".into(), preset.into()]);
-    }
-    args.extend([
-        "-b:v".into(),
-        settings.bitrate.clone(),
-        "-r".into(),
-        settings.fps.to_string(),
-        "-c:a".into(),
-        profile.audio_codec.into(),
-        "-b:a".into(),
-        profile.audio_bitrate.into(),
-    ]);
-    if let Some(container) = profile.container {
-        args.extend(["-f".into(), container.into()]);
-    }
-    for flag in profile.extra_flags {
-        args.push((*flag).into());
+    // カスタムプロファイルが指定されていれば allowlist 検証後に使用し、なければ静的プロファイルにフォールバック
+    if let Some(custom) = &settings.custom_format_profile {
+        validate_custom_format_profile(
+            &custom.video_codec,
+            &custom.audio_codec,
+            &custom.audio_bitrate,
+        )?;
+        args.extend(["-c:v".into(), custom.video_codec.clone()]);
+        if let Some(preset) = &custom.video_preset {
+            args.extend(["-preset".into(), preset.clone()]);
+        }
+        args.extend([
+            "-b:v".into(),
+            settings.bitrate.clone(),
+            "-r".into(),
+            settings.fps.to_string(),
+            "-c:a".into(),
+            custom.audio_codec.clone(),
+            "-b:a".into(),
+            custom.audio_bitrate.clone(),
+        ]);
+        // 出力ファイルの拡張子からコンテナフラグ（-f, extra_flags）を適用する
+        let out_ext = std::path::Path::new(&settings.output_path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("");
+        if let Some(base_profile) = FORMAT_PROFILES.iter().find(|p| p.ext == out_ext) {
+            if let Some(container) = base_profile.container {
+                args.extend(["-f".into(), container.into()]);
+            }
+            for flag in base_profile.extra_flags {
+                args.push((*flag).into());
+            }
+        }
+    } else {
+        let profile = get_format_profile(&settings.format);
+        args.extend(["-c:v".into(), profile.video_codec.into()]);
+        if let Some(preset) = profile.video_preset {
+            args.extend(["-preset".into(), preset.into()]);
+        }
+        args.extend([
+            "-b:v".into(),
+            settings.bitrate.clone(),
+            "-r".into(),
+            settings.fps.to_string(),
+            "-c:a".into(),
+            profile.audio_codec.into(),
+            "-b:a".into(),
+            profile.audio_bitrate.into(),
+        ]);
+        if let Some(container) = profile.container {
+            args.extend(["-f".into(), container.into()]);
+        }
+        for flag in profile.extra_flags {
+            args.push((*flag).into());
+        }
     }
     args.push(settings.output_path.clone());
 
     Ok(FfmpegBuildResult { args, temp_files })
+}
+
+/// トーンカーブが線形（デフォルト）かどうかを判定する
+fn is_default_curve(points: &[CurvePoint]) -> bool {
+    if points.len() != 2 {
+        return false;
+    }
+    (points[0].x.abs() < 1e-6)
+        && (points[0].y.abs() < 1e-6)
+        && ((points[1].x - 1.0).abs() < 1e-6)
+        && ((points[1].y - 1.0).abs() < 1e-6)
+}
+
+/// チャンネルの制御点が2点未満の場合、端点(0,0)と(1,1)を補完する
+fn ensure_min_points(points: &[CurvePoint]) -> Vec<CurvePoint> {
+    if points.len() >= 2 {
+        return points.to_vec();
+    }
+    if points.len() == 1 {
+        // 1点のみの場合、もう片方の端点を追加
+        let p = &points[0];
+        if p.x < 0.5 {
+            return vec![p.clone(), CurvePoint { x: 1.0, y: 1.0 }];
+        } else {
+            return vec![CurvePoint { x: 0.0, y: 0.0 }, p.clone()];
+        }
+    }
+    // 0点の場合はデフォルト線形
+    vec![
+        CurvePoint { x: 0.0, y: 0.0 },
+        CurvePoint { x: 1.0, y: 1.0 },
+    ]
+}
+
+/// FFmpeg の `curves` フィルター文字列を生成する
+/// 例: curves=r='0/0 0.5/0.7 1/1':g='0/0 1/1':b='0/0 1/1':master='0/0 0.3/0.1 1/1'
+fn build_ffmpeg_curves_filter(tc: &ToneCurves) -> String {
+    let rgb = ensure_min_points(&tc.rgb);
+    let r = ensure_min_points(&tc.r);
+    let g = ensure_min_points(&tc.g);
+    let b = ensure_min_points(&tc.b);
+
+    let has_rgb = !is_default_curve(&rgb);
+    let has_r = !is_default_curve(&r);
+    let has_g = !is_default_curve(&g);
+    let has_b = !is_default_curve(&b);
+
+    if !has_rgb && !has_r && !has_g && !has_b {
+        return String::new();
+    }
+
+    let mut parts: Vec<String> = Vec::new();
+
+    if has_rgb {
+        parts.push(format!("master='{}'", curve_points_to_str(&rgb)));
+    }
+    if has_r {
+        parts.push(format!("r='{}'", curve_points_to_str(&r)));
+    }
+    if has_g {
+        parts.push(format!("g='{}'", curve_points_to_str(&g)));
+    }
+    if has_b {
+        parts.push(format!("b='{}'", curve_points_to_str(&b)));
+    }
+
+    format!("curves={}", parts.join(":"))
+}
+
+/// CurvePoint 配列を FFmpeg curves フィルターの制御点文字列に変換する
+/// 例: "0/0 0.25/0.3 0.5/0.7 1/1"
+fn curve_points_to_str(points: &[CurvePoint]) -> String {
+    points
+        .iter()
+        .map(|p| format!("{:.4}/{:.4}", p.x, p.y))
+        .collect::<Vec<_>>()
+        .join(" ")
 }

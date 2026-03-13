@@ -82,7 +82,14 @@
     "reverbOff": "Off",
     "reverbSmallRoom": "Small Room",
     "reverbHall": "Hall",
-    "reverbChurch": "Church"
+    "reverbChurch": "Church",
+    "filter": "Filter",
+    "blurAmount": "Blur",
+    "sharpenAmount": "Sharpen",
+    "monochrome": "Monochrome",
+    "toneCurve": "Tone Curves",
+    "curveReset": "Reset",
+    "curveResetAll": "Reset All"
   },
   "transform": {
     "title": "Transform",
@@ -102,7 +109,10 @@
     "unmute": "Unmute",
     "solo": "Solo",
     "unSolo": "Unsolo",
-    "volume": "Volume"
+    "volume": "Volume",
+    "snap": "Snap",
+    "snapOn": "Enable snap",
+    "snapOff": "Disable snap"
   },
   "text": {
     "title": "Text",
@@ -176,7 +186,9 @@
     "showHelp": "Show Shortcuts",
     "save": "Save Project",
     "saveAs": "Save As",
-    "openProject": "Open Project"
+    "openProject": "Open Project",
+    "pressKey": "Press a key...",
+    "clickToEdit": "Click to change"
   },
   "project": {
     "untitled": "Untitled Project",
@@ -200,6 +212,21 @@
     "positionX": "Position X",
     "positionY": "Position Y",
     "reset": "Reset"
+  },
+  "effectPreset": {
+    "title": "Effect Presets",
+    "all": "All",
+    "voice": "Voice",
+    "music": "Music",
+    "scene": "Scene",
+    "custom": "Custom",
+    "saveAsPreset": "Save as Preset",
+    "voiceDialog": "Dialog",
+    "voicePodcast": "Podcast",
+    "musicBGM": "BGM",
+    "musicLive": "Live",
+    "sceneCinema": "Cinema",
+    "sceneDocumentary": "Documentary"
   },
   "colorPreset": {
     "title": "Color Presets",
@@ -249,5 +276,31 @@
     "seconds": "s remaining",
     "minutes": "min remaining",
     "hours": "h "
+  },
+  "plugin": {
+    "managerTitle": "Plugin Manager",
+    "managerButton": "Plugins",
+    "addPlugin": "Add Plugin",
+    "importing": "Importing...",
+    "close": "Close",
+    "delete": "Delete",
+    "noPlugins": "No plugins installed",
+    "selectDirectory": "Select plugin directory",
+    "overwriteConfirm": "Plugin \"{{id}}\" is already installed. Overwrite it?",
+    "deleteConfirm": "Delete plugin \"{{name}}\"? This cannot be undone.",
+    "stateActive": "Active",
+    "stateInactive": "Inactive",
+    "stateError": "Error",
+    "toggleEnabled": "Toggle {{name}} enabled"
+  },
+  "keyframe": {
+    "addKeyframe": "Add Keyframe",
+    "linear": "Linear",
+    "easeIn": "Ease In",
+    "easeOut": "Ease Out",
+    "easeInOut": "Ease In/Out",
+    "editTime": "Edit time",
+    "editValue": "Edit value",
+    "removeKeyframe": "Remove keyframe"
   }
 }

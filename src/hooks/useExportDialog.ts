@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { save } from '@tauri-apps/plugin-dialog';
-import { useExportStore, ExportFormat } from '../store/exportStore';
+import { useExportStore, DEFAULT_FORMAT_OPTIONS } from '../store/exportStore';
+import type { ExportFormat, FormatOption } from '../store/exportStore';
 import { useTimelineStore } from '../store/timelineStore';
 import { useVideoPreviewStore } from '../store/videoPreviewStore';
 
@@ -29,12 +30,10 @@ const BITRATE_OPTIONS = [
   { label: '20 Mbps', value: '20M' },
 ];
 
-const FORMAT_OPTIONS: { label: string; value: ExportFormat; ext: string; filterName: string }[] = [
-  { label: 'MP4 (H.264)', value: 'mp4', ext: 'mp4', filterName: 'MP4' },
-  { label: 'MOV (H.264)', value: 'mov', ext: 'mov', filterName: 'MOV' },
-  { label: 'AVI (H.264)', value: 'avi', ext: 'avi', filterName: 'AVI' },
-  { label: 'WebM (VP9)', value: 'webm', ext: 'webm', filterName: 'WebM' },
-];
+// DEFAULT_FORMAT_OPTIONS から導出（単一の真実の源を維持）
+// テストは value フィールドを期待するため key -> value にマッピング
+const FORMAT_OPTIONS: { label: string; value: ExportFormat; ext: string; filterName: string }[] =
+  DEFAULT_FORMAT_OPTIONS.map((opt) => ({ ...opt, value: opt.key }));
 
 /**
  * 残り時間をフォーマットして返す純粋関数。
@@ -84,10 +83,20 @@ export function useExportDialog() {
     setOutputPath,
     reset,
     exportStartedAt,
+    formatOptions,
+    setFormatOptions,
+    customFormatProfiles,
   } = useExportStore();
   const tracks = useTimelineStore((s) => s.tracks);
   const duration = useTimelineStore((s) => s.duration);
   const previewContainerHeight = useVideoPreviewStore((s) => s.previewContainerHeight);
+
+  // バックエンドからエクスポートフォーマット一覧を取得
+  useEffect(() => {
+    invoke<FormatOption[]>('get_export_formats')
+      .then((options) => setFormatOptions(options))
+      .catch(() => { /* フォールバックとしてデフォルト値を維持 */ });
+  }, [setFormatOptions]);
 
   // バックエンドからの進捗イベントをリッスン
   useEffect(() => {
@@ -112,13 +121,13 @@ export function useExportDialog() {
   }, [status, setStatus, setProgress, setError]);
 
   const handleSelectOutput = useCallback(async () => {
-    const fmt = FORMAT_OPTIONS.find((f) => f.value === settings.format) ?? FORMAT_OPTIONS[0];
+    const fmt = formatOptions.find((f) => f.key === settings.format) ?? formatOptions[0];
     const path = await save({
       defaultPath: `output.${fmt.ext}`,
       filters: [{ name: fmt.filterName, extensions: [fmt.ext] }],
     });
     if (path) setOutputPath(path);
-  }, [setOutputPath, settings.format]);
+  }, [setOutputPath, settings.format, formatOptions]);
 
   const handleStartExport = useCallback(async () => {
     if (!outputPath) return;
@@ -142,12 +151,13 @@ export function useExportDialog() {
           tracks,
           totalDuration: duration,
           previewHeight: previewContainerHeight > 0 ? previewContainerHeight : settings.height,
+          customFormatProfile: customFormatProfiles[settings.format] ?? null,
         },
       });
     } catch (e) {
       setError(String(e));
     }
-  }, [outputPath, settings, tracks, duration, previewContainerHeight, setStatus, setProgress, setError, t]);
+  }, [outputPath, settings, tracks, duration, previewContainerHeight, customFormatProfiles, setStatus, setProgress, setError, t]);
 
   const handleCancel = useCallback(async () => {
     try {
@@ -194,6 +204,7 @@ export function useExportDialog() {
     setSettings,
     resolutionIndex,
     estimatedRemaining,
+    formatOptions,
     handleSelectOutput,
     handleStartExport,
     handleCancel,

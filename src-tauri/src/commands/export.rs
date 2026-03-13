@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
-use super::ffmpeg_builder::{build_ffmpeg_args, collect_audio_clips, collect_text_clips, collect_video_clips};
+use super::ffmpeg_builder::{build_ffmpeg_args, collect_audio_clips, collect_text_clips, collect_video_clips, list_format_infos, FormatInfo};
 use super::progress_parser::ProgressParser;
 
 // --- データ構造 ---
@@ -78,6 +78,26 @@ pub struct ClipEffects {
     pub echo_decay: f64,
     #[serde(default)]
     pub reverb_amount: f64,
+    #[serde(default)]
+    pub blur_amount: f64,
+    #[serde(default)]
+    pub sharpen_amount: f64,
+    #[serde(default)]
+    pub monochrome: f64,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct CurvePoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ToneCurves {
+    pub rgb: Vec<CurvePoint>,
+    pub r: Vec<CurvePoint>,
+    pub g: Vec<CurvePoint>,
+    pub b: Vec<CurvePoint>,
 }
 
 fn default_echo_decay() -> f64 {
@@ -150,6 +170,7 @@ pub struct ExportClip {
     pub source_start_time: f64,
     pub source_end_time: f64,
     pub effects: Option<ClipEffects>,
+    pub tone_curves: Option<ToneCurves>,
     pub text_properties: Option<TextProperties>,
     pub transition: Option<ExportTransition>,
     pub timecode_overlay: Option<TimecodeOverlay>,
@@ -174,6 +195,15 @@ pub struct ExportTrack {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CustomFormatProfile {
+    pub video_codec: String,
+    pub audio_codec: String,
+    pub audio_bitrate: String,
+    pub video_preset: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportSettings {
     pub format: String,
     pub width: u32,
@@ -184,6 +214,8 @@ pub struct ExportSettings {
     pub tracks: Vec<ExportTrack>,
     pub total_duration: f64,
     pub preview_height: f64,
+    #[serde(default)]
+    pub custom_format_profile: Option<CustomFormatProfile>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -364,4 +396,9 @@ pub async fn export_video(
 pub fn cancel_export(state: tauri::State<'_, ExportState>) -> Result<(), String> {
     state.cancel_flag.store(true, Ordering::SeqCst);
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_export_formats() -> Vec<FormatInfo> {
+    list_format_infos()
 }

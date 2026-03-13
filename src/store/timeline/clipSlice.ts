@@ -1,6 +1,6 @@
 import type { StoreApi } from 'zustand';
 import { logAction } from '../actionLogger';
-import type { TimelineState, Clip, ClipTransition } from './types';
+import type { TimelineState, Clip, ClipTransition, ClipEffects, Keyframe, EasingType } from './types';
 import { withHistory } from './historySlice';
 
 type Set = StoreApi<TimelineState>['setState'];
@@ -152,6 +152,134 @@ export const createClipSlice = (set: Set) => ({
             clips: track.clips.map(clip =>
               clip.id === clipId ? { ...clip, transition: undefined } : clip
             ),
+          }
+        : track
+    );
+    return withHistory(state, newTracks);
+  }),
+
+  addKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, keyframe: Keyframe) => set((state) => {
+    logAction('addKeyframe', `track=${trackId} clip=${clipId} key=${effectKey} time=${keyframe.time.toFixed(2)}`);
+    const newTracks = state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip => {
+              if (clip.id !== clipId) return clip;
+              const existing = clip.keyframes?.[effectKey] ?? [];
+              // 同じ time のキーフレームは上書き
+              const filtered = existing.filter(kf => Math.abs(kf.time - keyframe.time) > 0.001);
+              const updated = [...filtered, keyframe].sort((a, b) => a.time - b.time);
+              return {
+                ...clip,
+                keyframes: { ...clip.keyframes, [effectKey]: updated },
+              };
+            }),
+          }
+        : track
+    );
+    return withHistory(state, newTracks);
+  }),
+
+  removeKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number) => set((state) => {
+    logAction('removeKeyframe', `track=${trackId} clip=${clipId} key=${effectKey} time=${time.toFixed(2)}`);
+    const newTracks = state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip => {
+              if (clip.id !== clipId) return clip;
+              const existing = clip.keyframes?.[effectKey] ?? [];
+              const updated = existing.filter(kf => Math.abs(kf.time - time) > 0.001);
+              const newKeyframes = { ...clip.keyframes, [effectKey]: updated };
+              if (updated.length === 0) delete newKeyframes[effectKey];
+              const hasKeys = Object.keys(newKeyframes).length > 0;
+              return { ...clip, keyframes: hasKeys ? newKeyframes : undefined };
+            }),
+          }
+        : track
+    );
+    return withHistory(state, newTracks);
+  }),
+
+  updateKeyframeEasing: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number, easing: EasingType) => set((state) => {
+    logAction('updateKeyframeEasing', `track=${trackId} clip=${clipId} key=${effectKey} time=${time.toFixed(2)} easing=${easing}`);
+    const newTracks = state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip => {
+              if (clip.id !== clipId) return clip;
+              const existing = clip.keyframes?.[effectKey] ?? [];
+              const updated = existing.map(kf =>
+                Math.abs(kf.time - time) <= 0.001 ? { ...kf, easing } : kf
+              );
+              return { ...clip, keyframes: { ...clip.keyframes, [effectKey]: updated } };
+            }),
+          }
+        : track
+    );
+    return withHistory(state, newTracks);
+  }),
+
+  moveKeyframes: (trackId: string, clipId: string, fromTime: number, toTime: number) => set((state) => {
+    logAction('moveKeyframes', `track=${trackId} clip=${clipId} from=${fromTime.toFixed(2)} to=${toTime.toFixed(2)}`);
+    const newTracks = state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip => {
+              if (clip.id !== clipId || !clip.keyframes) return clip;
+              const newKeyframes = { ...clip.keyframes } as typeof clip.keyframes;
+              for (const key of Object.keys(newKeyframes) as Array<keyof ClipEffects>) {
+                const kfs = newKeyframes[key];
+                if (!kfs) continue;
+                const moved = kfs.map(kf =>
+                  Math.abs(kf.time - fromTime) <= 0.001 ? { ...kf, time: toTime } : kf
+                );
+                const sorted = moved.sort((a, b) => a.time - b.time);
+                // 同時刻のキーフレームを重複排除（後者を優先、addKeyframe の上書きと同じ挙動）
+                const deduped: typeof sorted = [];
+                for (const kf of sorted) {
+                  const last = deduped[deduped.length - 1];
+                  if (last && Math.abs(last.time - kf.time) <= 0.001) {
+                    deduped[deduped.length - 1] = kf;
+                  } else {
+                    deduped.push(kf);
+                  }
+                }
+                newKeyframes[key] = deduped;
+              }
+              return { ...clip, keyframes: newKeyframes };
+            }),
+          }
+        : track
+    );
+    return withHistory(state, newTracks);
+  }),
+
+  deleteKeyframesAtTime: (trackId: string, clipId: string, time: number) => set((state) => {
+    logAction('deleteKeyframesAtTime', `track=${trackId} clip=${clipId} time=${time.toFixed(2)}`);
+    const newTracks = state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip => {
+              if (clip.id !== clipId || !clip.keyframes) return clip;
+              const newKeyframes = { ...clip.keyframes } as typeof clip.keyframes;
+              for (const key of Object.keys(newKeyframes) as Array<keyof ClipEffects>) {
+                const kfs = newKeyframes[key];
+                if (!kfs) continue;
+                const updated = kfs.filter(kf => Math.abs(kf.time - time) > 0.001);
+                if (updated.length === 0) {
+                  delete newKeyframes[key];
+                } else {
+                  newKeyframes[key] = updated;
+                }
+              }
+              const hasKeys = Object.keys(newKeyframes).length > 0;
+              return { ...clip, keyframes: hasKeys ? newKeyframes : undefined };
+            }),
           }
         : track
     );

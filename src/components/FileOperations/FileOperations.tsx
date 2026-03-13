@@ -6,6 +6,62 @@ import { useFileOperationsStore } from '@/store/fileOperationsStore';
 import { useVideoPreviewStore } from '@/store/videoPreviewStore';
 import { useTimelineStore } from '@/store/timelineStore';
 import { useProjectStore } from '@/store/projectStore';
+import {
+  AUDIO_EXTENSIONS,
+  VIDEO_EXTENSIONS,
+  isAudioFile,
+  getNextTrackId,
+  extractFileName,
+  getMediaDuration,
+} from './fileOperationsUtils';
+
+// --- メニューアイテムコンポーネント ---
+
+interface MenuItemProps {
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+  fontSize?: string;
+  color?: string;
+}
+
+const MenuItem: React.FC<MenuItemProps> = ({
+  onClick, disabled = false, children,
+  fontSize = '14px', color = '#fff',
+}) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    style={{
+      display: 'block',
+      width: '100%',
+      padding: '10px 16px',
+      textAlign: 'left',
+      backgroundColor: 'transparent',
+      color,
+      border: 'none',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      fontSize,
+      opacity: disabled ? 0.6 : 1,
+    }}
+    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#3a3a3a')}
+    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+  >
+    {children}
+  </button>
+);
+
+const MenuDivider: React.FC = () => (
+  <div style={{ height: '1px', backgroundColor: '#3a3a3a', margin: '4px 0' }} />
+);
+
+const MenuSectionHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div style={{ padding: '8px 16px', fontSize: '12px', color: '#999', fontWeight: 'bold' }}>
+    {children}
+  </div>
+);
+
+// --- メインコンポーネント ---
 
 export const FileOperations: React.FC = () => {
   const { t } = useTranslation();
@@ -26,28 +82,6 @@ export const FileOperations: React.FC = () => {
   } = useProjectStore();
 
   const [showMenu, setShowMenu] = useState(false);
-
-  const AUDIO_EXTENSIONS = ['mp3', 'wav', 'aac', 'ogg', 'm4a', 'flac', 'wma'];
-
-  const isAudioFile = (filePath: string) => {
-    const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
-    return AUDIO_EXTENSIONS.includes(ext);
-  };
-
-  const getNextTrackId = (existingTracks: typeof tracks, type: 'video' | 'audio') => {
-    const prefix = type === 'video' ? 'video' : 'audio';
-    const pattern = new RegExp(`^${prefix}-(\\d+)$`);
-    const indices = existingTracks
-      .filter((track) => track.type === type)
-      .map((track) => {
-        const match = track.id.match(pattern);
-        return match ? Number(match[1]) : 0;
-      })
-      .filter((value) => Number.isFinite(value));
-
-    const nextIndex = indices.length > 0 ? Math.max(...indices) + 1 : 1;
-    return `${prefix}-${nextIndex}`;
-  };
 
   const getTargetTrack = (type: 'video' | 'audio') => {
     const typeTracks = tracks.filter((track) => track.type === type);
@@ -73,31 +107,19 @@ export const FileOperations: React.FC = () => {
     setShowMenu(false);
     setIsLoading(true);
     try {
-      // Tauriダイアログでフルパスを取得
       const selected = await open({
         multiple: false,
         filters: [
-          {
-            name: t('fileOperations.videoFile'),
-            extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', '3gp'],
-          },
-          {
-            name: t('fileOperations.audioFile'),
-            extensions: AUDIO_EXTENSIONS,
-          },
-          {
-            name: t('fileOperations.allFiles'),
-            extensions: ['*'],
-          },
+          { name: t('fileOperations.videoFile'), extensions: VIDEO_EXTENSIONS },
+          { name: t('fileOperations.audioFile'), extensions: AUDIO_EXTENSIONS },
+          { name: t('fileOperations.allFiles'), extensions: ['*'] },
         ],
       });
 
       if (!selected) return;
 
       const fullPath = selected as string;
-      const fileName = fullPath.split('/').pop() ?? fullPath.split('\\').pop() ?? fullPath;
-
-      // convertFileSrc でWebViewから直接アクセス可能なURLを取得
+      const fileName = extractFileName(fullPath);
       const assetUrl = convertFileSrc(fullPath);
 
       const fileInfo = {
@@ -111,41 +133,25 @@ export const FileOperations: React.FC = () => {
       addRecentFile(fileInfo);
 
       const isAudio = isAudioFile(fullPath);
+      const mediaType = isAudio ? 'audio' : 'video';
 
-      if (isAudio) {
-        // 音声ファイルの場合
-        const audioDuration = await getAudioDurationFromUrl(assetUrl);
-        const clipId = `clip-${Date.now()}`;
-        const target = getTargetTrack('audio');
-
-        addClip(target.trackId, {
-          id: clipId,
-          name: fileName,
-          startTime: target.startTime,
-          duration: audioDuration,
-          filePath: fullPath,
-          sourceStartTime: 0,
-          sourceEndTime: audioDuration,
-          color: '#4caf50',
-        });
-      } else {
-        // 動画ファイルの場合
+      if (!isAudio) {
         registerVideoUrl(fullPath, assetUrl);
-        const videoDuration = await getVideoDurationFromUrl(assetUrl);
-        const clipId = `clip-${Date.now()}`;
-        const target = getTargetTrack('video');
-
-        addClip(target.trackId, {
-          id: clipId,
-          name: fileName,
-          startTime: target.startTime,
-          duration: videoDuration,
-          filePath: fullPath,
-          sourceStartTime: 0,
-          sourceEndTime: videoDuration,
-          color: '#4a9eff',
-        });
       }
+
+      const duration = await getMediaDuration(assetUrl, mediaType);
+      const target = getTargetTrack(mediaType);
+
+      addClip(target.trackId, {
+        id: `clip-${Date.now()}`,
+        name: fileName,
+        startTime: target.startTime,
+        duration,
+        filePath: fullPath,
+        sourceStartTime: 0,
+        sourceEndTime: duration,
+        color: isAudio ? '#4caf50' : '#4a9eff',
+      });
 
       console.log('ファイルを選択しました:', fileInfo);
     } catch (error) {
@@ -153,42 +159,6 @@ export const FileOperations: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // 動画の長さを取得するヘルパー関数
-  const getVideoDurationFromUrl = (url: string): Promise<number> => {
-    return new Promise((resolve, reject) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-
-      video.onloadedmetadata = () => {
-        resolve(video.duration);
-      };
-
-      video.onerror = () => {
-        reject(new Error('動画のメタデータ読み込みに失敗しました'));
-      };
-
-      video.src = url;
-    });
-  };
-
-  // 音声の長さを取得するヘルパー関数
-  const getAudioDurationFromUrl = (url: string): Promise<number> => {
-    return new Promise((resolve, reject) => {
-      const audio = document.createElement('audio');
-      audio.preload = 'metadata';
-
-      audio.onloadedmetadata = () => {
-        resolve(audio.duration);
-      };
-
-      audio.onerror = () => {
-        reject(new Error('音声のメタデータ読み込みに失敗しました'));
-      };
-
-      audio.src = url;
-    });
   };
 
   const handleOpenRecentFile = async (path: string) => {
@@ -214,10 +184,8 @@ export const FileOperations: React.FC = () => {
     await loadProjectFromPath(path);
   };
 
-
   return (
     <div style={{ position: 'relative' }}>
-      {/* メニューボタン */}
       <button
         onClick={() => setShowMenu(!showMenu)}
         disabled={isLoading}
@@ -234,7 +202,6 @@ export const FileOperations: React.FC = () => {
         {t('menu.file')}
       </button>
 
-      {/* ドロップダウンメニュー */}
       {showMenu && (
         <div
           style={{
@@ -250,324 +217,151 @@ export const FileOperations: React.FC = () => {
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
           }}
         >
-          {/* 保存 */}
-          <button
+          <MenuItem
             onClick={() => { saveProject(); setShowMenu(false); }}
             disabled={saveStatus === 'saving'}
-            style={{
-              display: 'block',
-              width: '100%',
-              padding: '10px 16px',
-              textAlign: 'left',
-              backgroundColor: 'transparent',
-              color: '#fff',
-              border: 'none',
-              cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              opacity: saveStatus === 'saving' ? 0.6 : 1,
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = '#3a3a3a')
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = 'transparent')
-            }
           >
             💾 {t('menu.save')}
-          </button>
+          </MenuItem>
 
-          {/* 名前を付けて保存 */}
-          <button
+          <MenuItem
             onClick={() => { saveProjectAs(); setShowMenu(false); }}
             disabled={saveStatus === 'saving'}
-            style={{
-              display: 'block',
-              width: '100%',
-              padding: '10px 16px',
-              textAlign: 'left',
-              backgroundColor: 'transparent',
-              color: '#fff',
-              border: 'none',
-              cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              opacity: saveStatus === 'saving' ? 0.6 : 1,
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = '#3a3a3a')
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = 'transparent')
-            }
           >
             📄 {t('menu.saveAs')}
-          </button>
+          </MenuItem>
 
-          {/* 区切り線 */}
-          <div
-            style={{
-              height: '1px',
-              backgroundColor: '#3a3a3a',
-              margin: '4px 0',
-            }}
-          />
+          <MenuDivider />
 
-          {/* プロジェクトを開く */}
-          <button
+          <MenuItem
             onClick={() => { openProject(); setShowMenu(false); }}
             disabled={loadStatus === 'loading'}
-            style={{
-              display: 'block',
-              width: '100%',
-              padding: '10px 16px',
-              textAlign: 'left',
-              backgroundColor: 'transparent',
-              color: '#fff',
-              border: 'none',
-              cursor: loadStatus === 'loading' ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              opacity: loadStatus === 'loading' ? 0.6 : 1,
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = '#3a3a3a')
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = 'transparent')
-            }
           >
             📁 {t('menu.openProject')}
-          </button>
+          </MenuItem>
 
-          {/* ファイルを開く */}
-          <button
-            onClick={handleOpenFile}
-            disabled={isLoading}
-            style={{
-              display: 'block',
-              width: '100%',
-              padding: '10px 16px',
-              textAlign: 'left',
-              backgroundColor: 'transparent',
-              color: '#fff',
-              border: 'none',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              opacity: isLoading ? 0.6 : 1,
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = '#3a3a3a')
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = 'transparent')
-            }
-          >
+          <MenuItem onClick={handleOpenFile} disabled={isLoading}>
             📂 {t('menu.open')}
-          </button>
-
-          {/* 区切り線 - 最近のプロジェクト */}
-          {recentProjects.length > 0 && (
-            <div
-              style={{
-                height: '1px',
-                backgroundColor: '#3a3a3a',
-                margin: '4px 0',
-              }}
-            />
-          )}
+          </MenuItem>
 
           {/* 最近のプロジェクト */}
           {recentProjects.length > 0 && (
-            <div>
-              <div
-                style={{
-                  padding: '8px 16px',
-                  fontSize: '12px',
-                  color: '#999',
-                  fontWeight: 'bold',
-                }}
-              >
-                {t('menu.recentProjects')}
-              </div>
-              {recentProjects.map((project) => (
-                <button
-                  key={project.path}
-                  onClick={() => {
-                    if (project.exists) {
-                      handleOpenRecentProject(project.path);
-                    }
-                  }}
-                  disabled={!project.exists}
-                  title={project.path}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    width: '100%',
-                    padding: '8px 16px',
-                    textAlign: 'left',
-                    backgroundColor: 'transparent',
-                    color: project.exists ? '#bbb' : '#666',
-                    border: 'none',
-                    cursor: project.exists ? 'pointer' : 'not-allowed',
-                    fontSize: '13px',
-                    opacity: project.exists ? 1 : 0.5,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (project.exists) e.currentTarget.style.backgroundColor = '#3a3a3a';
-                  }}
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor = 'transparent')
-                  }
-                >
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {project.name}
-                  </span>
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeRecentProject(project.path);
+            <>
+              <MenuDivider />
+              <div>
+                <MenuSectionHeader>{t('menu.recentProjects')}</MenuSectionHeader>
+                {recentProjects.map((project) => (
+                  <button
+                    key={project.path}
+                    onClick={() => {
+                      if (project.exists) {
+                        handleOpenRecentProject(project.path);
+                      }
                     }}
+                    disabled={!project.exists}
+                    title={project.path}
                     style={{
-                      marginLeft: '8px',
-                      color: '#666',
-                      cursor: 'pointer',
-                      fontSize: '11px',
-                      flexShrink: 0,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      width: '100%',
+                      padding: '8px 16px',
+                      textAlign: 'left',
+                      backgroundColor: 'transparent',
+                      color: project.exists ? '#bbb' : '#666',
+                      border: 'none',
+                      cursor: project.exists ? 'pointer' : 'not-allowed',
+                      fontSize: '13px',
+                      opacity: project.exists ? 1 : 0.5,
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = '#666')}
+                    onMouseEnter={(e) => {
+                      if (project.exists) e.currentTarget.style.backgroundColor = '#3a3a3a';
+                    }}
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.backgroundColor = 'transparent')
+                    }
                   >
-                    ✕
-                  </span>
-                </button>
-              ))}
-
-              <div
-                style={{
-                  height: '1px',
-                  backgroundColor: '#3a3a3a',
-                  margin: '4px 0',
-                }}
-              />
-
-              <button
-                onClick={() => {
-                  clearRecentProjects();
-                  setShowMenu(false);
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '8px 16px',
-                  textAlign: 'left',
-                  backgroundColor: 'transparent',
-                  color: '#999',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = '#3a3a3a')
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = 'transparent')
-                }
-              >
-                🗑️ {t('menu.clearProjects')}
-              </button>
-            </div>
-          )}
-
-          {/* 区切り線 */}
-          {recentFiles.length > 0 && (
-            <div
-              style={{
-                height: '1px',
-                backgroundColor: '#3a3a3a',
-                margin: '4px 0',
-              }}
-            />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {project.name}
+                    </span>
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeRecentProject(project.path);
+                      }}
+                      style={{
+                        marginLeft: '8px',
+                        color: '#666',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        flexShrink: 0,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = '#666')}
+                    >
+                      ✕
+                    </span>
+                  </button>
+                ))}
+                <MenuDivider />
+                <MenuItem
+                  onClick={() => { clearRecentProjects(); setShowMenu(false); }}
+                  fontSize="12px"
+                  color="#999"
+                >
+                  🗑️ {t('menu.clearProjects')}
+                </MenuItem>
+              </div>
+            </>
           )}
 
           {/* 最近のファイル */}
           {recentFiles.length > 0 && (
-            <div>
-              <div
-                style={{
-                  padding: '8px 16px',
-                  fontSize: '12px',
-                  color: '#999',
-                  fontWeight: 'bold',
-                }}
-              >
-                {t('menu.recent')}
-              </div>
-              {recentFiles.map((file) => (
-                <button
-                  key={file.path}
-                  onClick={() => {
-                    handleOpenRecentFile(file.path);
-                    setShowMenu(false);
-                  }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '8px 16px',
-                    textAlign: 'left',
-                    backgroundColor: 'transparent',
-                    color: '#bbb',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor = '#3a3a3a')
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor = 'transparent')
-                  }
+            <>
+              <MenuDivider />
+              <div>
+                <MenuSectionHeader>{t('menu.recent')}</MenuSectionHeader>
+                {recentFiles.map((file) => (
+                  <button
+                    key={file.path}
+                    onClick={() => {
+                      handleOpenRecentFile(file.path);
+                      setShowMenu(false);
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '8px 16px',
+                      textAlign: 'left',
+                      backgroundColor: 'transparent',
+                      color: '#bbb',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.backgroundColor = '#3a3a3a')
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.backgroundColor = 'transparent')
+                    }
+                  >
+                    {file.name}
+                  </button>
+                ))}
+                <MenuDivider />
+                <MenuItem
+                  onClick={() => { clearRecentFiles(); setShowMenu(false); }}
+                  fontSize="12px"
+                  color="#999"
                 >
-                  {file.name}
-                </button>
-              ))}
-
-              <div
-                style={{
-                  height: '1px',
-                  backgroundColor: '#3a3a3a',
-                  margin: '4px 0',
-                }}
-              />
-
-              {/* 履歴をクリア */}
-              <button
-                onClick={() => {
-                  clearRecentFiles();
-                  setShowMenu(false);
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '8px 16px',
-                  textAlign: 'left',
-                  backgroundColor: 'transparent',
-                  color: '#999',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = '#3a3a3a')
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = 'transparent')
-                }
-              >
-                🗑️ {t('menu.clear')}
-              </button>
-            </div>
+                  🗑️ {t('menu.clear')}
+                </MenuItem>
+              </div>
+            </>
           )}
         </div>
       )}

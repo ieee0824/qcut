@@ -1,0 +1,20 @@
+{
+  "id": "com.qcut.test.hevc",
+  "name": "Sample HEVC Export",
+  "version": "1.0.0",
+  "description": "テスト用: H.265/HEVC エクスポートフォーマットをプラグイン API で登録するサンプル",
+  "author": "qcut-dev",
+  "type": "typescript",
+  "entry": {
+    "js": "index.js"
+  },
+  "permissions": [
+    "export:write",
+    "ui:panel"
+  ],
+  "minAppVersion": "0.2.0",
+  "category": "export",
+  "checksums": {
+    "index.js": "6a40ea884b60e827fe1d87f344503b9e9d0fbb9aa9ed96a7e43e0281139a725b"
+  }
+}

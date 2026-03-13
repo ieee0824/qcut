@@ -80,7 +80,7 @@ export default [
     },
   },
   {
-    ignores: ['dist/', 'node_modules/', 'src-tauri/target/'],
+    ignores: ['dist/', 'node_modules/', 'src-tauri/target/', 'coverage/'],
   },
   {
     files: ['src/test/**/*.{ts,tsx}'],

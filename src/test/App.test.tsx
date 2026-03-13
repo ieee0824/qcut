@@ -8,6 +8,10 @@ vi.mock('@tauri-apps/api/window', () => ({
   }),
 }));
 
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn(() => Promise.resolve(() => {})),
+}));
+
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   ask: vi.fn(),
 }));

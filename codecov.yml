@@ -1,0 +1,21 @@
+coverage:
+  status:
+    project:
+      default:
+        # プロジェクト全体のカバレッジが2%以上下がった場合のみ失敗
+        threshold: 2%
+        target: auto
+    patch:
+      default:
+        # 新規追加コード（パッチ）のカバレッジ閾値
+        # UIコンポーネントなどテストしにくいファイルが多いため緩めに設定
+        threshold: 10%
+        target: 50%
+
+ignore:
+  - "src/locales/**"       # 翻訳JSONファイル
+  - "src/plugin-system/**" # プラグインシステム（統合テスト対象外）
+  - "src/components/**"    # UIコンポーネント（E2Eテスト対象）
+  - "src/main.tsx"
+  - "src/App.tsx"
+  - "src/i18n.ts"

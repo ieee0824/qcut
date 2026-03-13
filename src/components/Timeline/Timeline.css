@@ -434,6 +434,31 @@
   background-color: #3a3a3a;
 }
 
+/* キーフレームマーカー */
+.clip-keyframe-marker {
+  position: absolute;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  background-color: #ffd700;
+  transform: translateX(-50%) rotate(45deg);
+  cursor: grab;
+  z-index: 3;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  pointer-events: all;
+}
+
+.clip-keyframe-marker:hover {
+  background-color: #fff;
+  border-color: #ffd700;
+}
+
+.clip-keyframe-marker.dragging {
+  cursor: grabbing;
+  background-color: #fff;
+  z-index: 10;
+}
+
 /* トランジションインジケーター */
 .transition-indicator {
   position: absolute;
@@ -709,5 +734,38 @@
 
 .confirm-dialog-ok:hover {
   background-color: #b71c1c;
+}
+
+/* スナップガイドライン */
+.snap-guideline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: #ffd700;
+  z-index: 99;
+  pointer-events: none;
+  box-shadow: 0 0 4px rgba(255, 215, 0, 0.6);
+}
+
+/* スナップトグルボタン */
+.snap-toggle-btn {
+  background-color: #3a3a3a;
+  color: #888;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.snap-toggle-btn:hover {
+  background-color: #4a4a4a;
+}
+
+.snap-toggle-btn.active {
+  background-color: #4a9eff;
+  color: #fff;
 }
 

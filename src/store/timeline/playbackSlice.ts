@@ -20,6 +20,16 @@ export const createPlaybackSlice = (set: Set) => ({
     selectedClipId: clipId,
   }),
 
+  snapEnabled: true,
+  snapLineTime: null as number | null,
+
+  setSnapEnabled: (enabled: boolean) => set({ snapEnabled: enabled }),
+  toggleSnap: () => set((state) => ({ snapEnabled: !state.snapEnabled })),
+  setSnapLineTime: (time: number | null) =>
+    set((state) =>
+      state.snapLineTime === time ? state : { snapLineTime: time },
+    ),
+
   zoomIn: () => set((state) => ({
     pixelsPerSecond: Math.min(state.pixelsPerSecond * 1.2, 200),
   })),

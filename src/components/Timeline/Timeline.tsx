@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import Track from './Track';
 import Playhead from './Playhead';
 import './Timeline.css';
+import { normalizeWheelDelta } from '../../utils/wheelDelta';
 
 // タイムコード表示を分離して、currentTime 更新時に Timeline 全体が再レンダーされないようにする
 function TimelineTimecode() {
@@ -46,6 +47,9 @@ function Timeline() {
     updateTrackVolume,
     toggleMute,
     toggleSolo,
+    snapEnabled,
+    toggleSnap,
+    snapLineTime,
   } = useTimelineStore();
 
   const { t } = useTranslation();
@@ -94,7 +98,10 @@ function Timeline() {
 
     // クリップ以外の場所をクリックした場合は選択解除
     // mousedown で処理する（click だと isDragging の再レンダーで e.target がずれるため）
+    // ルーラー・プレイヘッド上のクリックは選択解除しない（シーク操作のため）
     if (!(e.target as HTMLElement).closest('.timeline-clip') &&
+        !(e.target as HTMLElement).closest('.timeline-ruler') &&
+        !(e.target as HTMLElement).closest('.timeline-playhead') &&
         (e.target === e.currentTarget || (e.target as HTMLElement).closest('.timeline-tracks'))) {
       setSelectedClip(null, null);
     }
@@ -120,6 +127,13 @@ function Timeline() {
     }
   };
 
+  const handleHeaderWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const container = timelineContainerRef.current;
+    if (!container) return;
+
+    container.scrollTop += normalizeWheelDelta(e.deltaY, e.deltaMode, container.clientHeight);
+  };
+
   return (
     <div className="timeline">
       <div className="timeline-header">
@@ -127,12 +141,19 @@ function Timeline() {
           <button onClick={zoomOut} className="timeline-btn">-</button>
           <span className="timeline-zoom">{Math.round(pixelsPerSecond)}px/s</span>
           <button onClick={zoomIn} className="timeline-btn">+</button>
+          <button
+            onClick={toggleSnap}
+            className={`snap-toggle-btn${snapEnabled ? ' active' : ''}`}
+            title={snapEnabled ? t('timeline.snapOff') : t('timeline.snapOn')}
+          >
+            {t('timeline.snap')}
+          </button>
         </div>
         <TimelineTimecode />
       </div>
       
       <div className="timeline-content">
-        <div className="timeline-track-headers" ref={trackHeadersRef}>
+        <div className="timeline-track-headers" ref={trackHeadersRef} onWheel={handleHeaderWheel}>
           <div className="timeline-track-header-spacer" />
           {tracks.map((track) => {
             const primaryClipName = track.clips[0]?.name;
@@ -201,6 +222,12 @@ function Timeline() {
             style={{ width: `${timelineWidth}px` }}
           >
             <Playhead />
+            {snapLineTime !== null && (
+              <div
+                className="snap-guideline"
+                style={{ left: `${snapLineTime * pixelsPerSecond}px` }}
+              />
+            )}
             
             <div className="timeline-ruler">
               {Array.from({ length: Math.ceil(timelineWidth / pixelsPerSecond) + 1 }).map((_, i) => (

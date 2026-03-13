@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { ask, message, open, save } from '@tauri-apps/plugin-dialog';
-import type { ProjectFile } from '../types/projectFile';
+import type { ProjectFile, ProjectTrack } from '../types/projectFile';
 import { CURRENT_SCHEMA_VERSION } from '../types/projectFile';
 import { useTimelineStore } from './timelineStore';
 import { useExportStore } from './exportStore';
@@ -76,26 +76,9 @@ function buildProjectFile(projectName: string): ProjectFile {
   const timeline = useTimelineStore.getState();
   const exportSettings = useExportStore.getState().settings;
 
-  const tracks = timeline.tracks.map((track) => ({
-    id: track.id,
-    type: track.type,
-    name: track.name,
-    volume: track.volume,
-    mute: track.mute,
-    solo: track.solo,
-    clips: track.clips.map((clip) => ({
-      id: clip.id,
-      name: clip.name,
-      startTime: clip.startTime,
-      duration: clip.duration,
-      color: clip.color,
-      filePath: clip.filePath,
-      sourceStartTime: clip.sourceStartTime,
-      sourceEndTime: clip.sourceEndTime,
-      effects: clip.effects,
-      textProperties: clip.textProperties,
-      transition: clip.transition,
-    })),
+  const tracks: ProjectTrack[] = timeline.tracks.map((track) => ({
+    ...track,
+    clips: track.clips.map((clip) => ({ ...clip })),
   }));
 
   const now = new Date().toISOString();
@@ -149,38 +132,9 @@ function validateProjectFile(data: unknown): ProjectFile {
 }
 
 function applyProjectToStores(project: ProjectFile): void {
-  // タイムラインをリセットしてトラックを復元
-  useTimelineStore.setState({
-    tracks: project.timeline.tracks.map((track) => ({
-      id: track.id,
-      type: track.type,
-      name: track.name,
-      volume: track.volume,
-      mute: track.mute,
-      solo: track.solo,
-      clips: track.clips.map((clip) => ({
-        id: clip.id,
-        name: clip.name,
-        startTime: clip.startTime,
-        duration: clip.duration,
-        color: clip.color,
-        filePath: clip.filePath,
-        sourceStartTime: clip.sourceStartTime,
-        sourceEndTime: clip.sourceEndTime,
-        effects: clip.effects,
-        textProperties: clip.textProperties,
-        transition: clip.transition,
-      })),
-    })),
-    selectedClipId: null,
-    selectedTrackId: null,
-    currentTime: 0,
-    isPlaying: false,
-    _history: [project.timeline.tracks],
-    _historyIndex: 0,
-  });
-
-  // 動画ファイルの URL を videoPreviewStore に登録
+  // 動画ファイルの URL を videoPreviewStore に先に登録
+  // （tracks 更新より先に登録しないと、最初のレンダーで currentVideoUrl=null になり
+  //  canvas が非表示のまま描画されない）
   const videoPreview = useVideoPreviewStore.getState();
   for (const track of project.timeline.tracks) {
     if (track.type === 'text') continue;
@@ -191,6 +145,20 @@ function applyProjectToStores(project: ProjectFile): void {
       }
     }
   }
+
+  // タイムラインをリセットしてトラックを復元
+  useTimelineStore.setState({
+    tracks: project.timeline.tracks.map((track) => ({
+      ...track,
+      clips: track.clips.map((clip) => ({ ...clip })),
+    })),
+    selectedClipId: null,
+    selectedTrackId: null,
+    currentTime: 0,
+    isPlaying: false,
+    _history: [project.timeline.tracks],
+    _historyIndex: 0,
+  });
 
   // エクスポート設定を復元
   if (project.exportSettings) {

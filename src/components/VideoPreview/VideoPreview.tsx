@@ -30,6 +30,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     duration,
     volume,
     videoUrls,
+    prerenderedFrames,
     setIsPlaying,
     setCurrentTime: setVideoPreviewCurrentTime,
     setDuration,
@@ -131,16 +132,52 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   }, [currentClip, videoUrls]);
 
   const hasCurrentClip = currentClip !== null && currentVideoUrl !== null;
+  const currentPrerenderedFrame = currentClip ? prerenderedFrames[currentClip.id] ?? null : null;
+  const [isVideoReady, setIsVideoReady] = useState(false);
+
+  const { preloadVideoRef, activeVideoRef, activeVideoSlot, loadedVideoUrl, isLoadingVideoRef, switchVideo } = useVideoSwitching({
+    videoRef,
+    currentTimeRef,
+    currentClip,
+    currentVideoUrl,
+    findNextClipAfter,
+    timelineTimeToSourceTime,
+    videoUrls,
+  });
 
   // --- カスタムフック ---
   const { needsCanvas, renderCanvasFrame, pipelineRef } = useCanvasRenderer({
-    videoRef,
+    videoRef: activeVideoRef,
     canvasRef,
     currentClip,
+    currentTimeRef,
   });
 
+  // videoUrls 登録が tracks 更新より遅れるため、currentVideoUrl が確定した時点で再描画
+  useEffect(() => {
+    if (!needsCanvas || !currentVideoUrl) return;
+    const video = activeVideoRef.current ?? videoRef.current;
+    if (!video) return;
+    if (video.readyState >= 2) {
+      renderCanvasFrame();
+    } else {
+      const onReady = () => renderCanvasFrame();
+      video.addEventListener('loadeddata', onReady, { once: true });
+      return () => video.removeEventListener('loadeddata', onReady);
+    }
+  }, [activeVideoRef, currentVideoUrl, needsCanvas, renderCanvasFrame, videoRef]);
+
+  useEffect(() => {
+    const video = activeVideoRef.current ?? videoRef.current;
+    if (!currentVideoUrl || !video) {
+      setIsVideoReady(false);
+      return;
+    }
+    setIsVideoReady(video.readyState >= 2 && video.currentSrc === currentVideoUrl);
+  }, [activeVideoRef, currentVideoUrl, videoRef]);
+
   const { captureFrame } = useFrameCapture({
-    videoRef,
+    videoRef: activeVideoRef,
     pipelineRef,
     needsCanvas,
     effects: currentClip?.effects,
@@ -168,19 +205,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     switchTransitionVideo,
   } = useTransitionEffect({ findClipAtTime });
 
-  const { preloadVideoRef, loadedVideoUrl, isLoadingVideoRef, switchVideo } = useVideoSwitching({
-    videoRef,
-    currentTimeRef,
-    currentClip,
-    currentVideoUrl,
-    findNextClipAfter,
-    timelineTimeToSourceTime,
-    videoUrls,
-  });
-
   const { timeDisplayRef, seekBarRef, formatTime, updateTimeDisplay, startPlaybackLoop, stopPlaybackLoop } =
     usePlaybackLoop({
-      videoRef,
+      videoRef: activeVideoRef,
       currentTimeRef,
       transitionVideoRef,
       loadedVideoUrl,
@@ -242,32 +269,32 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   // --- 再生/停止の同期 ---
   useEffect(() => {
-    if (!videoRef.current) return;
+    const currentVideo = activeVideoRef.current ?? videoRef.current;
+    if (!currentVideo) return;
 
     if (isPlaying) {
       startPlaybackLoop();
     } else {
       stopPlaybackLoop();
-      videoRef.current.pause();
+      currentVideo.pause();
       if (transitionVideoRef.current) {
         transitionVideoRef.current.pause();
         transitionVideoRef.current.style.visibility = 'hidden';
       }
       if (isInTransitionRef.current) {
         isInTransitionRef.current = false;
-        videoRef.current.style.opacity = '1';
-        videoRef.current.style.clipPath = '';
+        currentVideo.style.opacity = '1';
+        currentVideo.style.clipPath = '';
       }
       setVideoPreviewCurrentTime(currentTimeRef.current);
     }
-  }, [isPlaying, startPlaybackLoop, stopPlaybackLoop, setVideoPreviewCurrentTime, transitionVideoRef, isInTransitionRef, currentTimeRef]);
+  }, [activeVideoRef, isPlaying, startPlaybackLoop, stopPlaybackLoop, setVideoPreviewCurrentTime, transitionVideoRef, isInTransitionRef, currentTimeRef, videoRef]);
 
   // --- 音量の同期（Web Audio API 経由） ---
   useEffect(() => {
-    if (videoRef.current) {
-      if (!audioEngine.hasGraph(VIDEO_AUDIO_ID)) {
-        audioEngine.connect(VIDEO_AUDIO_ID, videoRef.current);
-      }
+    const currentVideo = activeVideoRef.current ?? videoRef.current;
+    if (currentVideo) {
+      audioEngine.connect(VIDEO_AUDIO_ID, currentVideo);
       const clip = findClipAtTime(currentTimeRef.current);
       const clipVolume = clip?.effects?.volume ?? 1.0;
       const allTracks = useTimelineStore.getState().tracks;
@@ -279,20 +306,22 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       const effects = { ...DEFAULT_EFFECTS, ...clip?.effects };
       audioEngine.updateEffects(VIDEO_AUDIO_ID, effects, combinedVolume);
     }
-  }, [volume, findClipAtTime, currentTimeRef]);
+  }, [activeVideoRef, volume, findClipAtTime, currentTimeRef, videoRef]);
 
   // --- タイムライン位置が外部から変更されたとき（シーク）に動画ソース位置も更新 ---
   useEffect(() => {
-    if (!videoRef.current || isPlaying) return;
+    const currentVideo = activeVideoRef.current ?? videoRef.current;
+    if (!currentVideo || isPlaying) return;
 
     return useTimelineStore.subscribe((state) => {
-      if (!videoRef.current || useVideoPreviewStore.getState().isPlaying) return;
+      const activeVideo = activeVideoRef.current ?? videoRef.current;
+      if (!activeVideo || useVideoPreviewStore.getState().isPlaying) return;
       const sourceTime = timelineTimeToSourceTime(state.currentTime);
-      if (Math.abs(videoRef.current.currentTime - sourceTime) > 0.1) {
-        videoRef.current.currentTime = sourceTime;
+      if (Math.abs(activeVideo.currentTime - sourceTime) > 0.1) {
+        activeVideo.currentTime = sourceTime;
       }
     });
-  }, [isPlaying, timelineTimeToSourceTime]);
+  }, [activeVideoRef, isPlaying, timelineTimeToSourceTime, videoRef]);
 
   // --- イベントハンドラ ---
   const handleMetadata = () => {
@@ -300,6 +329,27 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       setDuration(videoRef.current.duration);
     }
   };
+
+  const handleVideoLoadedData = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const activeVideo = activeVideoRef.current ?? videoRef.current;
+    if (activeVideo === e.currentTarget) {
+      setIsVideoReady(true);
+    }
+  }, [activeVideoRef, videoRef]);
+
+  const handleVideoSeeking = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const activeVideo = activeVideoRef.current ?? videoRef.current;
+    if (activeVideo === e.currentTarget) {
+      setIsVideoReady(false);
+    }
+  }, [activeVideoRef, videoRef]);
+
+  const handleVideoSeeked = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const activeVideo = activeVideoRef.current ?? videoRef.current;
+    if (activeVideo === e.currentTarget) {
+      setIsVideoReady(true);
+    }
+  }, [activeVideoRef, videoRef]);
 
   const handlePlayPause = () => {
     if (!isPlaying && !findClipAtTime(currentTimeRef.current) && !findNextClipAfter(currentTimeRef.current)) {
@@ -319,11 +369,13 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       useTimelineStore.getState().setCurrentTime(timelineTime);
       updateTimeDisplay(timelineTime);
 
-      if (videoRef.current) {
-        videoRef.current.currentTime = sourceTime;
+      const activeVideo = activeVideoRef.current ?? videoRef.current;
+      if (activeVideo) {
+        setIsVideoReady(false);
+        activeVideo.currentTime = sourceTime;
       }
     },
-    [timelineTimeToSourceTime, setVideoPreviewCurrentTime, updateTimeDisplay],
+    [activeVideoRef, timelineTimeToSourceTime, setVideoPreviewCurrentTime, updateTimeDisplay, videoRef],
   );
 
   // --- レンダリング ---
@@ -347,12 +399,18 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         <video
           ref={videoRef}
           onLoadedMetadata={handleMetadata}
+          onLoadedData={handleVideoLoadedData}
+          onSeeking={handleVideoSeeking}
+          onSeeked={handleVideoSeeked}
           style={{
             width: '100%',
             height: '100%',
             backgroundColor: '#000',
             borderRadius: '4px',
-            visibility: hasCurrentClip && !needsCanvas ? 'visible' : 'hidden',
+            visibility:
+              hasCurrentClip && !needsCanvas && activeVideoSlot === 'primary'
+                ? 'visible'
+                : 'hidden',
             filter: needsCanvas ? 'none' : cssFilter,
             transform: cssTransform,
             transformOrigin: 'center center',
@@ -392,6 +450,49 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             objectFit: 'contain',
           }}
         />
+        <video
+          ref={preloadVideoRef}
+          onLoadedData={handleVideoLoadedData}
+          onSeeking={handleVideoSeeking}
+          onSeeked={handleVideoSeeked}
+          muted={false}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: '#000',
+            borderRadius: '4px',
+            visibility:
+              hasCurrentClip && !needsCanvas && activeVideoSlot === 'preload'
+                ? 'visible'
+                : 'hidden',
+            objectFit: 'contain',
+            filter: needsCanvas ? 'none' : cssFilter,
+            transform: cssTransform,
+            transformOrigin: 'center center',
+          }}
+        />
+        {hasCurrentClip && currentPrerenderedFrame && !isVideoReady && (
+          <img
+            src={currentPrerenderedFrame}
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              borderRadius: '4px',
+              pointerEvents: 'none',
+              visibility: 'visible',
+              filter: needsCanvas ? 'none' : cssFilter,
+              transform: cssTransform,
+              transformOrigin: 'center center',
+            }}
+          />
+        )}
         {!hasCurrentClip && (
           <div
             style={{
@@ -471,10 +572,6 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           </div>
         )}
       </div>
-
-      {/* プリロード用（非表示） */}
-      <video ref={preloadVideoRef} preload="auto" muted style={{ display: 'none' }} />
-
       {/* コントロール */}
       <div
         style={{

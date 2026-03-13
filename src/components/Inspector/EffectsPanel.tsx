@@ -1,10 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTimelineStore, DEFAULT_EFFECTS, DEFAULT_TIMECODE_OVERLAY } from '../../store/timelineStore';
-import type { ClipEffects, TimecodeOverlay } from '../../store/timelineStore';
+import { useTimelineStore, DEFAULT_EFFECTS, DEFAULT_TONE_CURVES, DEFAULT_TIMECODE_OVERLAY } from '../../store/timelineStore';
+import type { ClipEffects, EasingType, Keyframe, ToneCurves, TimecodeOverlay } from '../../store/timelineStore';
 import { ColorWheelPanel } from './ColorWheelPanel';
 import { ColorPresetPanel } from './ColorPresetPanel';
-import { PropertySlider } from './PropertySlider';
+import { CurveEditor } from './CurveEditor';
+import { EffectPresetPanel } from './EffectPresetPanel';
+import { KeyframeRow } from './KeyframeRow';
 import { TimecodePanel } from './TimecodePanel';
 import { ScopesPanel } from '../Scopes/ScopesPanel';
 import {
@@ -17,6 +19,7 @@ import {
   ECHO_SLIDERS,
   REVERB_SLIDERS,
   FADE_SLIDERS,
+  FILTER_SLIDERS,
 } from './effectsSliderDefinitions';
 
 interface EqPreset {
@@ -129,11 +132,21 @@ export const EffectsPanel: React.FC = () => {
     });
   }, []);
 
+  const addKeyframe = useTimelineStore((s) => s.addKeyframe);
+  const removeKeyframe = useTimelineStore((s) => s.removeKeyframe);
+  const updateKeyframeEasingStore = useTimelineStore((s) => s.updateKeyframeEasing);
+  const currentTime = useTimelineStore((s) => s.currentTime);
+
   const selectedClip = useMemo(() => {
     if (!selectedClipId || !selectedTrackId) return null;
     const track = tracks.find((t) => t.id === selectedTrackId);
     return track?.clips.find((c) => c.id === selectedClipId) ?? null;
   }, [selectedClipId, selectedTrackId, tracks]);
+
+  const clipLocalTime = useMemo(() => {
+    if (!selectedClip) return 0;
+    return Math.max(0, Math.min(selectedClip.duration, currentTime - selectedClip.startTime));
+  }, [currentTime, selectedClip]);
 
   const effects: ClipEffects = useMemo(() => {
     return { ...DEFAULT_EFFECTS, ...selectedClip?.effects };
@@ -142,6 +155,10 @@ export const EffectsPanel: React.FC = () => {
   const timecodeOverlay: TimecodeOverlay = useMemo(() => {
     return { ...DEFAULT_TIMECODE_OVERLAY, ...selectedClip?.timecodeOverlay };
   }, [selectedClip?.timecodeOverlay]);
+
+  const toneCurves: ToneCurves = useMemo(() => {
+    return { ...DEFAULT_TONE_CURVES, ...selectedClip?.toneCurves };
+  }, [selectedClip?.toneCurves]);
 
   const handleTimecodeChange = useCallback(
     (overlay: TimecodeOverlay) => {
@@ -152,6 +169,18 @@ export const EffectsPanel: React.FC = () => {
     },
     [selectedTrackId, selectedClipId, updateClip],
   );
+
+  const handleCurveChange = useCallback(
+    (curves: ToneCurves) => {
+      if (!selectedTrackId || !selectedClipId) return;
+      updateClipSilent(selectedTrackId, selectedClipId, { toneCurves: curves });
+    },
+    [selectedTrackId, selectedClipId, updateClipSilent],
+  );
+
+  const handleCurveCommit = useCallback(() => {
+    commitHistory();
+  }, [commitHistory]);
 
   const handleChange = useCallback(
     (key: keyof ClipEffects, value: number) => {
@@ -181,10 +210,36 @@ export const EffectsPanel: React.FC = () => {
     commitHistory();
   }, [commitHistory]);
 
+  const handleAddKeyframe = useCallback(
+    (key: keyof ClipEffects, kf: Keyframe) => {
+      if (!selectedTrackId || !selectedClipId) return;
+      addKeyframe(selectedTrackId, selectedClipId, key, kf);
+    },
+    [selectedTrackId, selectedClipId, addKeyframe],
+  );
+
+  const handleRemoveKeyframe = useCallback(
+    (key: keyof ClipEffects, time: number) => {
+      if (!selectedTrackId || !selectedClipId) return;
+      removeKeyframe(selectedTrackId, selectedClipId, key, time);
+    },
+    [selectedTrackId, selectedClipId, removeKeyframe],
+  );
+
+  const handleUpdateKeyframeEasing = useCallback(
+    (key: keyof ClipEffects, time: number, easing: EasingType) => {
+      if (!selectedTrackId || !selectedClipId) return;
+      updateKeyframeEasingStore(selectedTrackId, selectedClipId, key, time, easing);
+    },
+    [selectedTrackId, selectedClipId, updateKeyframeEasingStore],
+  );
+
   const handleReset = useCallback(() => {
     if (!selectedTrackId || !selectedClipId) return;
     updateClip(selectedTrackId, selectedClipId, {
       effects: { ...DEFAULT_EFFECTS },
+      keyframes: undefined,
+      toneCurves: undefined,
     });
   }, [selectedTrackId, selectedClipId, updateClip]);
 
@@ -212,6 +267,18 @@ export const EffectsPanel: React.FC = () => {
         </p>
       ) : (
         <>
+          <CollapsibleSection id="effectPreset" title={t('effectPreset.title')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <EffectPresetPanel
+              effects={effects}
+              onApply={(updates) => {
+                if (!selectedTrackId || !selectedClipId) return;
+                updateClip(selectedTrackId, selectedClipId, {
+                  effects: { ...effects, ...updates },
+                });
+              }}
+            />
+          </CollapsibleSection>
+
           <CollapsibleSection id="colorPreset" title={t('colorPreset.title')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
             <ColorPresetPanel
               effects={effects}
@@ -224,10 +291,11 @@ export const EffectsPanel: React.FC = () => {
             />
           </CollapsibleSection>
 
-          <CollapsibleSection id="basic" title={t('effects.title')} sections={sections} onToggle={handleToggleSection}>
-            {BASIC_SLIDERS.map((s) => (
-              <PropertySlider
+          <CollapsibleSection id="filter" title={t('effects.filter')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            {FILTER_SLIDERS.map((s) => (
+              <KeyframeRow
                 key={s.key}
+                effectKey={s.key}
                 label={t(s.label)}
                 value={effects[s.key] as number}
                 onChange={(v) => handleChange(s.key, v)}
@@ -235,14 +303,41 @@ export const EffectsPanel: React.FC = () => {
                 min={s.min}
                 max={s.max}
                 step={s.step}
+                keyframes={selectedClip?.keyframes?.[s.key]}
+                onAddKeyframe={(kf) => handleAddKeyframe(s.key, kf)}
+                onRemoveKeyframe={(time) => handleRemoveKeyframe(s.key, time)}
+                onUpdateKeyframeEasing={(time, easing) => handleUpdateKeyframeEasing(s.key, time, easing)}
+                clipLocalTime={clipLocalTime}
+              />
+            ))}
+          </CollapsibleSection>
+
+          <CollapsibleSection id="basic" title={t('effects.title')} sections={sections} onToggle={handleToggleSection}>
+            {BASIC_SLIDERS.map((s) => (
+              <KeyframeRow
+                key={s.key}
+                effectKey={s.key}
+                label={t(s.label)}
+                value={effects[s.key] as number}
+                onChange={(v) => handleChange(s.key, v)}
+                onCommit={handleSliderCommit}
+                min={s.min}
+                max={s.max}
+                step={s.step}
+                keyframes={selectedClip?.keyframes?.[s.key]}
+                onAddKeyframe={(kf) => handleAddKeyframe(s.key, kf)}
+                onRemoveKeyframe={(time) => handleRemoveKeyframe(s.key, time)}
+                onUpdateKeyframeEasing={(time, easing) => handleUpdateKeyframeEasing(s.key, time, easing)}
+                clipLocalTime={clipLocalTime}
               />
             ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="hsl" title={t('effects.hsl')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
             {HSL_SLIDERS.map((s) => (
-              <PropertySlider
+              <KeyframeRow
                 key={s.key}
+                effectKey={s.key}
                 label={t(s.label)}
                 value={effects[s.key] as number}
                 onChange={(v) => handleChange(s.key, v)}
@@ -250,8 +345,17 @@ export const EffectsPanel: React.FC = () => {
                 min={s.min}
                 max={s.max}
                 step={s.step}
+                keyframes={selectedClip?.keyframes?.[s.key]}
+                onAddKeyframe={(kf) => handleAddKeyframe(s.key, kf)}
+                onRemoveKeyframe={(time) => handleRemoveKeyframe(s.key, time)}
+                onUpdateKeyframeEasing={(time, easing) => handleUpdateKeyframeEasing(s.key, time, easing)}
+                clipLocalTime={clipLocalTime}
               />
             ))}
+          </CollapsibleSection>
+
+          <CollapsibleSection id="toneCurve" title={t('effects.toneCurve')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
+            <CurveEditor toneCurves={toneCurves} onChange={handleCurveChange} onCommit={handleCurveCommit} />
           </CollapsibleSection>
 
           <CollapsibleSection id="colorWheel" title={t('effects.colorWheel')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
@@ -268,8 +372,9 @@ export const EffectsPanel: React.FC = () => {
 
           <CollapsibleSection id="transform" title={t('transform.title')} sections={sections} onToggle={handleToggleSection}>
             {TRANSFORM_SLIDERS.map((s) => (
-              <PropertySlider
+              <KeyframeRow
                 key={s.key}
+                effectKey={s.key}
                 label={t(s.label)}
                 value={effects[s.key] as number}
                 onChange={(v) => handleChange(s.key, v)}
@@ -277,14 +382,20 @@ export const EffectsPanel: React.FC = () => {
                 min={s.min}
                 max={s.max}
                 step={s.step}
+                keyframes={selectedClip?.keyframes?.[s.key]}
+                onAddKeyframe={(kf) => handleAddKeyframe(s.key, kf)}
+                onRemoveKeyframe={(time) => handleRemoveKeyframe(s.key, time)}
+                onUpdateKeyframeEasing={(time, easing) => handleUpdateKeyframeEasing(s.key, time, easing)}
+                clipLocalTime={clipLocalTime}
               />
             ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="audio" title={t('effects.audio')} sections={sections} onToggle={handleToggleSection}>
             {VOLUME_SLIDERS.map((s) => (
-              <PropertySlider
+              <KeyframeRow
                 key={s.key}
+                effectKey={s.key}
                 label={t(s.label)}
                 value={effects[s.key] as number}
                 onChange={(v) => handleChange(s.key, v)}
@@ -292,6 +403,11 @@ export const EffectsPanel: React.FC = () => {
                 min={s.min}
                 max={s.max}
                 step={s.step}
+                keyframes={selectedClip?.keyframes?.[s.key]}
+                onAddKeyframe={(kf) => handleAddKeyframe(s.key, kf)}
+                onRemoveKeyframe={(time) => handleRemoveKeyframe(s.key, time)}
+                onUpdateKeyframeEasing={(time, easing) => handleUpdateKeyframeEasing(s.key, time, easing)}
+                clipLocalTime={clipLocalTime}
               />
             ))}
           </CollapsibleSection>
@@ -331,8 +447,9 @@ export const EffectsPanel: React.FC = () => {
               </select>
             </div>
             {EQ_SLIDERS.map((s) => (
-              <PropertySlider
+              <KeyframeRow
                 key={s.key}
+                effectKey={s.key}
                 label={t(s.label)}
                 value={effects[s.key] as number}
                 onChange={(v) => handleChange(s.key, v)}
@@ -340,14 +457,20 @@ export const EffectsPanel: React.FC = () => {
                 min={s.min}
                 max={s.max}
                 step={s.step}
+                keyframes={selectedClip?.keyframes?.[s.key]}
+                onAddKeyframe={(kf) => handleAddKeyframe(s.key, kf)}
+                onRemoveKeyframe={(time) => handleRemoveKeyframe(s.key, time)}
+                onUpdateKeyframeEasing={(time, easing) => handleUpdateKeyframeEasing(s.key, time, easing)}
+                clipLocalTime={clipLocalTime}
               />
             ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="noiseReduction" title={t('effects.noiseReduction')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
             {NOISE_REDUCTION_SLIDERS.map((s) => (
-              <PropertySlider
+              <KeyframeRow
                 key={s.key}
+                effectKey={s.key}
                 label={t(s.label)}
                 value={effects[s.key] as number}
                 onChange={(v) => handleChange(s.key, v)}
@@ -355,14 +478,20 @@ export const EffectsPanel: React.FC = () => {
                 min={s.min}
                 max={s.max}
                 step={s.step}
+                keyframes={selectedClip?.keyframes?.[s.key]}
+                onAddKeyframe={(kf) => handleAddKeyframe(s.key, kf)}
+                onRemoveKeyframe={(time) => handleRemoveKeyframe(s.key, time)}
+                onUpdateKeyframeEasing={(time, easing) => handleUpdateKeyframeEasing(s.key, time, easing)}
+                clipLocalTime={clipLocalTime}
               />
             ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="echoReverb" title={t('effects.echoReverb')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
             {ECHO_SLIDERS.map((s) => (
-              <PropertySlider
+              <KeyframeRow
                 key={s.key}
+                effectKey={s.key}
                 label={t(s.label)}
                 value={effects[s.key] as number}
                 onChange={(v) => handleChange(s.key, v)}
@@ -370,6 +499,11 @@ export const EffectsPanel: React.FC = () => {
                 min={s.min}
                 max={s.max}
                 step={s.step}
+                keyframes={selectedClip?.keyframes?.[s.key]}
+                onAddKeyframe={(kf) => handleAddKeyframe(s.key, kf)}
+                onRemoveKeyframe={(time) => handleRemoveKeyframe(s.key, time)}
+                onUpdateKeyframeEasing={(time, easing) => handleUpdateKeyframeEasing(s.key, time, easing)}
+                clipLocalTime={clipLocalTime}
               />
             ))}
             <div style={{ marginBottom: '8px' }}>
@@ -402,8 +536,9 @@ export const EffectsPanel: React.FC = () => {
               </select>
             </div>
             {REVERB_SLIDERS.map((s) => (
-              <PropertySlider
+              <KeyframeRow
                 key={s.key}
+                effectKey={s.key}
                 label={t(s.label)}
                 value={effects[s.key] as number}
                 onChange={(v) => handleChange(s.key, v)}
@@ -411,14 +546,20 @@ export const EffectsPanel: React.FC = () => {
                 min={s.min}
                 max={s.max}
                 step={s.step}
+                keyframes={selectedClip?.keyframes?.[s.key]}
+                onAddKeyframe={(kf) => handleAddKeyframe(s.key, kf)}
+                onRemoveKeyframe={(time) => handleRemoveKeyframe(s.key, time)}
+                onUpdateKeyframeEasing={(time, easing) => handleUpdateKeyframeEasing(s.key, time, easing)}
+                clipLocalTime={clipLocalTime}
               />
             ))}
           </CollapsibleSection>
 
           <CollapsibleSection id="fade" title={t('effects.fade')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
             {FADE_SLIDERS.map((s) => (
-              <PropertySlider
+              <KeyframeRow
                 key={s.key}
+                effectKey={s.key}
                 label={t(s.label)}
                 value={effects[s.key] as number}
                 onChange={(v) => handleChange(s.key, v)}
@@ -426,6 +567,11 @@ export const EffectsPanel: React.FC = () => {
                 min={s.min}
                 max={s.max}
                 step={s.step}
+                keyframes={selectedClip?.keyframes?.[s.key]}
+                onAddKeyframe={(kf) => handleAddKeyframe(s.key, kf)}
+                onRemoveKeyframe={(time) => handleRemoveKeyframe(s.key, time)}
+                onUpdateKeyframeEasing={(time, easing) => handleUpdateKeyframeEasing(s.key, time, easing)}
+                clipLocalTime={clipLocalTime}
               />
             ))}
           </CollapsibleSection>

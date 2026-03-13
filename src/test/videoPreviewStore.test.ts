@@ -89,4 +89,37 @@ describe('videoPreviewStore', () => {
     expect(result.current.videoFile).toBeNull();
     expect(result.current.videoUrl).toBeNull();
   });
+
+  it('プリレンダ済みフレームを登録して削除できる', () => {
+    const { result } = renderHook(() => useVideoPreviewStore());
+
+    act(() => {
+      result.current.setPrerenderedFrame('clip-1', 'data:image/png;base64,aaa');
+      result.current.setPrerenderedFrame('clip-2', 'data:image/png;base64,bbb');
+    });
+
+    expect(result.current.prerenderedFrames).toEqual({
+      'clip-1': 'data:image/png;base64,aaa',
+      'clip-2': 'data:image/png;base64,bbb',
+    });
+
+    act(() => {
+      result.current.clearPrerenderedFrame('clip-1');
+    });
+
+    expect(result.current.prerenderedFrames).toEqual({
+      'clip-2': 'data:image/png;base64,bbb',
+    });
+  });
+
+  it('リセット時にプリレンダ済みフレームも消える', () => {
+    const { result } = renderHook(() => useVideoPreviewStore());
+
+    act(() => {
+      result.current.setPrerenderedFrame('clip-1', 'data:image/png;base64,aaa');
+      result.current.resetPreview();
+    });
+
+    expect(result.current.prerenderedFrames).toEqual({});
+  });
 });

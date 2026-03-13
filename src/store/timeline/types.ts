@@ -35,6 +35,9 @@ export interface ClipEffects {
   echoDelay: number;      // 0〜1000 ms, default 0 (0=オフ)
   echoDecay: number;      // 0〜0.9, default 0.3
   reverbAmount: number;   // 0〜1, default 0 (0=オフ)
+  blurAmount: number;     // 0〜20, default 0 (0=オフ)
+  sharpenAmount: number;  // 0〜5, default 0 (0=オフ)
+  monochrome: number;     // 0〜1, default 0 (0=オフ, 1=完全モノクロ)
 }
 
 export const DEFAULT_EFFECTS: ClipEffects = {
@@ -74,7 +77,51 @@ export const DEFAULT_EFFECTS: ClipEffects = {
   echoDelay: 0,
   echoDecay: 0.3,
   reverbAmount: 0,
+  blurAmount: 0,
+  sharpenAmount: 0,
+  monochrome: 0,
 };
+
+// --- Tone Curve types ---
+
+export interface CurvePoint {
+  x: number;  // 0〜1 (入力値)
+  y: number;  // 0〜1 (出力値)
+}
+
+/** 各チャンネルのトーンカーブ制御点 */
+export interface ToneCurves {
+  rgb: CurvePoint[];   // RGB統合カーブ
+  r: CurvePoint[];     // Rチャンネル
+  g: CurvePoint[];     // Gチャンネル
+  b: CurvePoint[];     // Bチャンネル
+}
+
+export const DEFAULT_CURVE_POINTS: CurvePoint[] = [
+  { x: 0, y: 0 },
+  { x: 1, y: 1 },
+];
+
+export const DEFAULT_TONE_CURVES: ToneCurves = {
+  rgb: [...DEFAULT_CURVE_POINTS],
+  r: [...DEFAULT_CURVE_POINTS],
+  g: [...DEFAULT_CURVE_POINTS],
+  b: [...DEFAULT_CURVE_POINTS],
+};
+
+// --- Keyframe types ---
+
+export type EasingType = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
+
+export interface Keyframe {
+  time: number;       // クリップ先頭からの秒数 (0 〜 clip.duration)
+  value: number;
+  easing: EasingType; // このキーフレームから次への補間方式
+}
+
+export type ClipKeyframes = Partial<Record<keyof ClipEffects, Keyframe[]>>;
+
+// --- Text types ---
 
 export type TextAnimation = 'none' | 'fadeIn' | 'fadeOut' | 'fadeInOut' | 'slideUp' | 'slideDown';
 
@@ -160,6 +207,12 @@ export interface Clip {
   // エフェクト
   effects?: ClipEffects;
 
+  // キーフレームアニメーション
+  keyframes?: ClipKeyframes;
+
+  // トーンカーブ
+  toneCurves?: ToneCurves;
+
   // テキストオーバーレイ
   textProperties?: TextProperties;
 
@@ -189,10 +242,15 @@ export interface PlaybackSlice {
   isPlaying: boolean;
   selectedClipId: string | null;
   selectedTrackId: string | null;
+  snapEnabled: boolean;
+  snapLineTime: number | null;
   setPixelsPerSecond: (pps: number) => void;
   setCurrentTime: (time: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setSelectedClip: (trackId: string | null, clipId: string | null) => void;
+  setSnapEnabled: (enabled: boolean) => void;
+  toggleSnap: () => void;
+  setSnapLineTime: (time: number | null) => void;
   zoomIn: () => void;
   zoomOut: () => void;
 }
@@ -216,6 +274,11 @@ export interface ClipSlice {
   setTransition: (trackId: string, clipId: string, transition: ClipTransition) => void;
   removeTransition: (trackId: string, clipId: string) => void;
   moveClipToTrack: (fromTrackId: string, clipId: string, toTrackId: string) => void;
+  addKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, keyframe: Keyframe) => void;
+  removeKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number) => void;
+  updateKeyframeEasing: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number, easing: EasingType) => void;
+  moveKeyframes: (trackId: string, clipId: string, fromTime: number, toTime: number) => void;
+  deleteKeyframesAtTime: (trackId: string, clipId: string, time: number) => void;
 }
 
 export interface HistorySlice {
