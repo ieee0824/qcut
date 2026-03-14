@@ -355,11 +355,20 @@ export function initWebGLPipeline(canvas: HTMLCanvasElement): WebGLPipeline | nu
   return { gl, program, texture, curveLUTTexture, uniforms, readBuf: null, readBufSize: 0 };
 }
 
+/** キーフレーム補間で事前計算された LUT（Float32Array, 各256要素） */
+export interface PrecomputedLUTs {
+  rgbLUT: Float32Array;
+  rLUT: Float32Array;
+  gLUT: Float32Array;
+  bLUT: Float32Array;
+}
+
 export function renderFrame(
   pipeline: WebGLPipeline,
   video: HTMLVideoElement,
   effects: ClipEffects,
   toneCurves?: ToneCurves,
+  precomputedLUTs?: PrecomputedLUTs,
 ): void {
   // Skip if video is not ready (HAVE_CURRENT_DATA = 2)
   if (video.readyState < 2) return;
@@ -383,13 +392,17 @@ export function renderFrame(
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
 
   // Upload curve LUT texture
-  const curveActive = hasCurveActive(toneCurves);
-  if (curveActive && toneCurves) {
-    const lutData = buildCurveLUTTexture(toneCurves);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, curveLUTTexture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutData);
-    gl.activeTexture(gl.TEXTURE0);
+  const curveActive = precomputedLUTs ? true : hasCurveActive(toneCurves);
+  if (curveActive) {
+    const lutData = precomputedLUTs
+      ? buildLUTTextureFromFloat32(precomputedLUTs)
+      : toneCurves ? buildCurveLUTTexture(toneCurves) : null;
+    if (lutData) {
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, curveLUTTexture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutData);
+      gl.activeTexture(gl.TEXTURE0);
+    }
   }
   gl.uniform1f(uniforms['u_curveEnabled'], curveActive ? 1.0 : 0.0);
 
@@ -424,6 +437,17 @@ export function renderFrame(
  */
 let _cachedToneCurves: ToneCurves | null = null;
 let _cachedLUTData: Uint8Array | null = null;
+
+function buildLUTTextureFromFloat32(luts: PrecomputedLUTs): Uint8Array {
+  const data = new Uint8Array(256 * 4);
+  for (let i = 0; i < 256; i++) {
+    data[i * 4 + 0] = Math.round(luts.rLUT[i] * 255);
+    data[i * 4 + 1] = Math.round(luts.gLUT[i] * 255);
+    data[i * 4 + 2] = Math.round(luts.bLUT[i] * 255);
+    data[i * 4 + 3] = Math.round(luts.rgbLUT[i] * 255);
+  }
+  return data;
+}
 
 function buildCurveLUTTexture(toneCurves: ToneCurves): Uint8Array {
   if (_cachedToneCurves === toneCurves && _cachedLUTData) {

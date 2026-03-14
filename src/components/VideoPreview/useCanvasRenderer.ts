@@ -5,6 +5,7 @@ import type { WebGLPipeline } from './canvasEffects';
 import { needsCanvasPipeline, initWebGLPipeline, renderFrame, destroyPipeline } from './canvasEffects';
 import type { Clip as ClipType } from '../../store/timelineStore';
 import { getEffectsAtTime, hasActiveKeyframes } from '../../utils/keyframes';
+import { getToneCurvesAtTime, hasActiveToneCurveKeyframes } from '../../utils/toneCurveKeyframes';
 import { logAction } from '../../store/actionLogger';
 import { useVideoPreviewStore } from '../../store/videoPreviewStore';
 
@@ -45,7 +46,9 @@ export const useCanvasRenderer = ({
     [currentClip?.toneCurves],
   );
   // キーフレームがある場合は常に canvas を使用（保守的）
-  const needsCanvas = needsCanvasPipeline(baseEffects, baseToneCurves) || (currentClip ? hasActiveKeyframes(currentClip) : false);
+  const needsCanvas = needsCanvasPipeline(baseEffects, baseToneCurves)
+    || (currentClip ? hasActiveKeyframes(currentClip) : false)
+    || (currentClip ? hasActiveToneCurveKeyframes(currentClip.toneCurveKeyframes) : false);
 
   // renderCanvasFrame 内で最新の currentClip / needsCanvas を参照するための ref
   const currentClipRef = useRef(currentClip);
@@ -86,7 +89,8 @@ export const useCanvasRenderer = ({
 
     // キーフレームがアクティブな場合、canvas がビデオを隠しているため
     // WebGL 専用エフェクトがなくても必ず描画する（早期リターンしない）
-    if (!needsCanvasPipeline(effects, currentClipRef.current?.toneCurves ?? DEFAULT_TONE_CURVES) && !activeKf) {
+    const activeTcKf = hasActiveToneCurveKeyframes(currentClipRef.current?.toneCurveKeyframes);
+    if (!needsCanvasPipeline(effects, currentClipRef.current?.toneCurves ?? DEFAULT_TONE_CURVES) && !activeKf && !activeTcKf) {
       return;
     }
 
@@ -97,7 +101,20 @@ export const useCanvasRenderer = ({
     if (!pipelineRef.current) return;
 
     const tc = currentClipRef.current?.toneCurves ?? DEFAULT_TONE_CURVES;
-    renderFrame(pipelineRef.current, videoRef.current, effects, tc);
+
+    // トーンカーブキーフレームがアクティブなら補間済み LUT を使用
+    const tcKfs = currentClipRef.current?.toneCurveKeyframes;
+    let precomputedLUTs: { rgbLUT: Float32Array; rLUT: Float32Array; gLUT: Float32Array; bLUT: Float32Array } | undefined;
+    if (hasActiveToneCurveKeyframes(tcKfs)) {
+      const timelineTime = kfDragPreviewTimeRef.current ?? currentTimeRef.current;
+      const clipLocalTime = timelineTime - (currentClipRef.current?.startTime ?? 0);
+      const interpolated = getToneCurvesAtTime(tcKfs!, clipLocalTime);
+      if (interpolated) {
+        precomputedLUTs = interpolated;
+      }
+    }
+
+    renderFrame(pipelineRef.current, videoRef.current, effects, precomputedLUTs ? undefined : tc, precomputedLUTs);
   }, [videoRef, canvasRef, currentTimeRef]);
 
   // Re-render when effects change while paused (clip の変更にも追従)

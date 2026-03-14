@@ -89,7 +89,11 @@
     "monochrome": "モノクロ",
     "toneCurve": "トーンカーブ",
     "curveReset": "リセット",
-    "curveResetAll": "全チャンネルリセット"
+    "curveResetAll": "全チャンネルリセット",
+    "keyframe": "キーフレーム",
+    "addKeyframe": "追加",
+    "removeKeyframe": "削除",
+    "keyframeCount": "個"
   },
   "transform": {
     "title": "トランスフォーム",

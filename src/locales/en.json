@@ -89,7 +89,11 @@
     "monochrome": "Monochrome",
     "toneCurve": "Tone Curves",
     "curveReset": "Reset",
-    "curveResetAll": "Reset All"
+    "curveResetAll": "Reset All",
+    "keyframe": "Keyframe",
+    "addKeyframe": "Add",
+    "removeKeyframe": "Remove",
+    "keyframeCount": "keys"
   },
   "transform": {
     "title": "Transform",
