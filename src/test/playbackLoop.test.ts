@@ -3,6 +3,8 @@ import {
   getTransitionPlaybackPlan,
   getMonotonicPlaybackTime,
   getPlaybackTimelineTime,
+  shouldResyncActiveVideo,
+  shouldResyncTransitionVideo,
   shouldCleanupTransitionPlayback,
 } from '../components/VideoPreview/usePlaybackLoop';
 import type { TransitionInfo } from '../components/VideoPreview/useTransitionEffect';
@@ -167,5 +169,51 @@ describe('shouldCleanupTransitionPlayback', () => {
 
     expect(shouldCleanupTransitionPlayback(true, activeTransition)).toBe(false);
     expect(shouldCleanupTransitionPlayback(false, null)).toBe(false);
+  });
+});
+
+describe('shouldResyncTransitionVideo', () => {
+  it('restarts a paused transition video even when the URL is unchanged', () => {
+    expect(
+      shouldResyncTransitionVideo({
+        currentVideoTime: 20.5,
+        expectedSourceTime: 20.5,
+        paused: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('resyncs when the transition video drifts from the expected source time', () => {
+    expect(
+      shouldResyncTransitionVideo({
+        currentVideoTime: 19.9,
+        expectedSourceTime: 20.5,
+        paused: false,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('shouldResyncActiveVideo', () => {
+  it('resyncs the active video after cleanup when the same URL points at a different range', () => {
+    expect(
+      shouldResyncActiveVideo({
+        currentVideoTime: 1.2,
+        expectedSourceTime: 3,
+        loadedUrlMatches: true,
+        isLoading: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not force a resync while the active video is still loading', () => {
+    expect(
+      shouldResyncActiveVideo({
+        currentVideoTime: 1.2,
+        expectedSourceTime: 3,
+        loadedUrlMatches: true,
+        isLoading: true,
+      }),
+    ).toBe(false);
   });
 });
