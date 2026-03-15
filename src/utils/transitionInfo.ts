@@ -33,15 +33,27 @@ export function findTransitionAtTime(
   findClipAtTime: (time: number) => Clip | null = (targetTime) => findVideoClipAtTime(tracks, targetTime),
 ): ResolvedTransitionInfo | null {
   for (const transition of transitions) {
+    if (!Number.isFinite(transition.duration) || transition.duration <= 0) {
+      continue;
+    }
+
     const incomingClip = findClipById(tracks, transition.inTrackId, transition.inClipId);
     if (!incomingClip) continue;
+    const outgoingClip = findClipById(tracks, transition.outTrackId, transition.outClipId);
+    if (!outgoingClip) continue;
 
     const overlapStart = incomingClip.startTime - transition.duration;
     const overlapEnd = incomingClip.startTime;
     if (time < overlapStart || time >= overlapEnd) continue;
 
-    const outgoingClip = findClipAtTime(time);
-    if (!outgoingClip || outgoingClip.id === incomingClip.id) continue;
+    if (time < outgoingClip.startTime || time >= outgoingClip.startTime + outgoingClip.duration) {
+      continue;
+    }
+
+    const activeClip = findClipAtTime(time);
+    if (activeClip && activeClip.id === incomingClip.id && outgoingClip.id === incomingClip.id) {
+      continue;
+    }
 
     return {
       outgoingClip,

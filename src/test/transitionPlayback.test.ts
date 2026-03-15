@@ -134,6 +134,7 @@ describe('transition playback logic', () => {
       const { addTrack, addClip, addTransition, removeTransitionById } = useTimelineStore.getState();
       removeTransitionById('transition-clip-1-clip-2');
       addTrack({ id: 'video-2', type: 'video', name: 'Video 2', clips: [] });
+      addTrack({ id: 'video-3', type: 'video', name: 'Video 3', clips: [] });
       addClip('video-2', {
         id: 'clip-3',
         name: 'Clip 3',
@@ -142,6 +143,15 @@ describe('transition playback logic', () => {
         filePath: 'c.mp4',
         sourceStartTime: 0,
         sourceEndTime: 5,
+      });
+      addClip('video-3', {
+        id: 'clip-4',
+        name: 'Clip 4',
+        startTime: 4,
+        duration: 3,
+        filePath: 'd.mp4',
+        sourceStartTime: 0,
+        sourceEndTime: 3,
       });
       addTransition({
         id: 'transition-cross-track',
@@ -154,14 +164,30 @@ describe('transition playback logic', () => {
       });
 
       const { tracks, transitions } = useTimelineStore.getState();
-      const result = findTransitionAtTime(tracks, transitions, 4.5, () =>
-        tracks.find((track) => track.id === 'video-1')?.clips.find((clip) => clip.id === 'clip-1') ?? null,
-      );
+      const result = findTransitionAtTime(tracks, transitions, 4.5);
 
       expect(result).not.toBeNull();
+      expect(result!.outgoingClip.id).toBe('clip-1');
       expect(result!.outTrackId).toBe('video-1');
       expect(result!.inTrackId).toBe('video-2');
       expect(result!.transitionType).toBe('dissolve');
+    });
+
+    it('should ignore transitions with invalid duration', () => {
+      const { addTransition, removeTransitionById } = useTimelineStore.getState();
+      removeTransitionById('transition-clip-1-clip-2');
+      addTransition({
+        id: 'transition-invalid',
+        type: 'crossfade',
+        duration: 0,
+        outTrackId: 'video-1',
+        outClipId: 'clip-1',
+        inTrackId: 'video-1',
+        inClipId: 'clip-2',
+      });
+
+      const { tracks, transitions } = useTimelineStore.getState();
+      expect(findTransitionAtTime(tracks, transitions, 4.5)).toBeNull();
     });
   });
 
