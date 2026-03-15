@@ -2,14 +2,15 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useTimelineStore } from '../store/timelineStore';
 
 /**
- * トランジション付きクリップのエクスポートデータ構築テスト
- * Rust 側の ExportClip に transition フィールドが正しく含まれることを確認
+ * TimelineTransition のエクスポートデータ構築テスト
+ * Rust 側の ExportSettings.transitions に正しく含まれることを確認
  */
 
 describe('transition export data', () => {
   beforeEach(() => {
     useTimelineStore.setState({
       tracks: [],
+      transitions: [],
       selectedClipId: null,
       selectedTrackId: null,
       currentTime: 0,
@@ -48,47 +49,75 @@ describe('transition export data', () => {
     });
   });
 
-  it('should include transition data in clip when set', () => {
-    const { setTransition } = useTimelineStore.getState();
-    setTransition('video-1', 'clip-2', { type: 'crossfade', duration: 1.0 });
+  it('should include transition data in export settings when set', () => {
+    const { addTransition } = useTimelineStore.getState();
+    addTransition({
+      id: 'transition-clip-1-clip-2',
+      type: 'crossfade',
+      duration: 1.0,
+      outTrackId: 'video-1',
+      outClipId: 'clip-1',
+      inTrackId: 'video-1',
+      inClipId: 'clip-2',
+    });
 
     const state = useTimelineStore.getState();
-    const track = state.tracks.find(t => t.id === 'video-1')!;
-    const clip2 = track.clips.find(c => c.id === 'clip-2')!;
-
-    expect(clip2.transition).toEqual({ type: 'crossfade', duration: 1.0 });
-    // JSON シリアライズ時に transition が含まれることを確認
-    const json = JSON.stringify(clip2);
+    const json = JSON.stringify(state.transitions);
     const parsed = JSON.parse(json);
-    expect(parsed.transition).toEqual({ type: 'crossfade', duration: 1.0 });
+    expect(parsed[0]).toEqual({
+      id: 'transition-clip-1-clip-2',
+      type: 'crossfade',
+      duration: 1.0,
+      outTrackId: 'video-1',
+      outClipId: 'clip-1',
+      inTrackId: 'video-1',
+      inClipId: 'clip-2',
+    });
   });
 
   it('should not include transition data when not set', () => {
-    const state = useTimelineStore.getState();
-    const track = state.tracks.find(t => t.id === 'video-1')!;
-    const clip1 = track.clips.find(c => c.id === 'clip-1')!;
-
-    expect(clip1.transition).toBeUndefined();
+    expect(useTimelineStore.getState().transitions).toEqual([]);
   });
 
-  it('should serialize tracks with mixed transition states', () => {
-    const { setTransition } = useTimelineStore.getState();
-    setTransition('video-1', 'clip-2', { type: 'crossfade', duration: 1.0 });
-    setTransition('video-1', 'clip-3', { type: 'wipe-left', duration: 0.5 });
+  it('should serialize multiple transitions independently from tracks', () => {
+    const { addTransition } = useTimelineStore.getState();
+    addTransition({
+      id: 'transition-clip-1-clip-2',
+      type: 'crossfade',
+      duration: 1.0,
+      outTrackId: 'video-1',
+      outClipId: 'clip-1',
+      inTrackId: 'video-1',
+      inClipId: 'clip-2',
+    });
+    addTransition({
+      id: 'transition-clip-2-clip-3',
+      type: 'wipe-left',
+      duration: 0.5,
+      outTrackId: 'video-1',
+      outClipId: 'clip-2',
+      inTrackId: 'video-1',
+      inClipId: 'clip-3',
+    });
 
     const state = useTimelineStore.getState();
-    const tracks = state.tracks;
-    const serialized = JSON.parse(JSON.stringify(tracks));
-
-    const videoTrack = serialized.find((t: { id: string }) => t.id === 'video-1');
-    expect(videoTrack.clips[0].transition).toBeUndefined();
-    expect(videoTrack.clips[1].transition).toEqual({ type: 'crossfade', duration: 1.0 });
-    expect(videoTrack.clips[2].transition).toEqual({ type: 'wipe-left', duration: 0.5 });
+    const serialized = JSON.parse(JSON.stringify(state.transitions));
+    expect(serialized).toHaveLength(2);
+    expect(serialized[0].type).toBe('crossfade');
+    expect(serialized[1].type).toBe('wipe-left');
   });
 
   it('should build export settings with transition data', () => {
-    const { setTransition } = useTimelineStore.getState();
-    setTransition('video-1', 'clip-2', { type: 'dissolve', duration: 1.5 });
+    const { addTransition } = useTimelineStore.getState();
+    addTransition({
+      id: 'transition-clip-1-clip-2',
+      type: 'dissolve',
+      duration: 1.5,
+      outTrackId: 'video-1',
+      outClipId: 'clip-1',
+      inTrackId: 'video-1',
+      inClipId: 'clip-2',
+    });
 
     const state = useTimelineStore.getState();
     // ExportDialog が構築するのと同じ形式
@@ -100,25 +129,30 @@ describe('transition export data', () => {
       fps: 30,
       outputPath: '/tmp/test.mp4',
       tracks: state.tracks,
+      transitions: state.transitions,
       totalDuration: 15,
     };
 
     const serialized = JSON.parse(JSON.stringify(exportSettings));
-    const videoTrack = serialized.tracks.find((t: { type: string }) => t.type === 'video');
-    const clip2 = videoTrack.clips.find((c: { id: string }) => c.id === 'clip-2');
-    expect(clip2.transition).toEqual({ type: 'dissolve', duration: 1.5 });
+    expect(serialized.transitions[0]).toMatchObject({ type: 'dissolve', duration: 1.5, inClipId: 'clip-2' });
   });
 
   it('should handle all transition types for export', () => {
-    const { setTransition } = useTimelineStore.getState();
+    const { addTransition, removeTransitionById } = useTimelineStore.getState();
     const types = ['crossfade', 'dissolve', 'wipe-left', 'wipe-right', 'wipe-up', 'wipe-down'] as const;
 
     for (const type of types) {
-      setTransition('video-1', 'clip-2', { type, duration: 1.0 });
-      const state = useTimelineStore.getState();
-      const track = state.tracks.find(t => t.id === 'video-1')!;
-      const clip2 = track.clips.find(c => c.id === 'clip-2')!;
-      expect(clip2.transition!.type).toBe(type);
+      addTransition({
+        id: 'transition-clip-1-clip-2',
+        type,
+        duration: 1.0,
+        outTrackId: 'video-1',
+        outClipId: 'clip-1',
+        inTrackId: 'video-1',
+        inClipId: 'clip-2',
+      });
+      expect(useTimelineStore.getState().transitions[0].type).toBe(type);
+      removeTransitionById('transition-clip-1-clip-2');
     }
   });
 });

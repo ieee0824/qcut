@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { TimelineState } from './types';
 import { createPlaybackSlice } from './playbackSlice';
 import { createTrackSlice } from './trackSlice';
+import { createTransitionSlice } from './transitionSlice';
 import { createClipSlice } from './clipSlice';
 import { createHistorySlice } from './historySlice';
 import { createClipboardSlice } from './clipboardSlice';
@@ -9,6 +10,7 @@ import { createClipboardSlice } from './clipboardSlice';
 export const useTimelineStore = create<TimelineState>((set, get) => ({
   ...createPlaybackSlice(set),
   ...createTrackSlice(set),
+  ...createTransitionSlice(set, get),
   ...createClipSlice(set),
   ...createHistorySlice(set, get),
   ...createClipboardSlice(set),
@@ -20,6 +22,7 @@ export type {
   EasingType,
   Keyframe,
   ClipKeyframes,
+  ToneCurveKeyframe,
   CurvePoint,
   ToneCurves,
   TextAnimation,
@@ -28,8 +31,10 @@ export type {
   TimecodeOverlay,
   TransitionType,
   ClipTransition,
+  TimelineTransition,
   Clip,
   Track,
+  TimelineHistoryEntry,
   TimelineState,
 } from './types';
 

@@ -1,28 +1,26 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTimelineStore, type ClipTransition } from '../../store/timelineStore';
+import { useTimelineStore, type Clip, type TimelineTransition } from '../../store/timelineStore';
 import { TransitionPopover } from './TransitionPopover';
 import { TransitionMenu } from './TransitionMenu';
 import { computeIndicatorLayout } from './transitionLayout';
 import { TRANSITION_I18N_KEYS } from './transitionConstants';
 
 interface TransitionIndicatorProps {
-  transition: ClipTransition;
-  clipId: string;
-  trackId: string;
-  clipStartTime: number;
+  transition: TimelineTransition;
+  incomingClip: Pick<Clip, 'id' | 'startTime'>;
 }
 
-function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: TransitionIndicatorProps) {
+function TransitionIndicator({ transition, incomingClip }: TransitionIndicatorProps) {
   const { t } = useTranslation();
-  const { pixelsPerSecond, removeTransition } = useTimelineStore();
+  const { pixelsPerSecond, removeTransitionById } = useTimelineStore();
   const [showPopover, setShowPopover] = useState(false);
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
   const indicatorRef = useRef<HTMLDivElement>(null);
   const [popoverPos, setPopoverPos] = useState({ x: 0, y: 0 });
 
-  const { width, left } = computeIndicatorLayout(transition.duration, pixelsPerSecond, clipStartTime);
+  const { width, left } = computeIndicatorLayout(transition, pixelsPerSecond, incomingClip);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -41,21 +39,23 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
   };
 
   const handleRemove = () => {
-    removeTransition(trackId, clipId);
+    removeTransitionById(transition.id);
     setShowContextMenu(false);
   };
+  const isCrossTrack = transition.outTrackId !== transition.inTrackId;
 
   return (
     <>
       <div
         ref={indicatorRef}
-        className="transition-indicator"
+        className={`transition-indicator${isCrossTrack ? ' transition-indicator-cross-track' : ''}`}
+        data-cross-track={isCrossTrack ? 'true' : 'false'}
         style={{ left: `${left}px`, width: `${width}px` }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         title={t(TRANSITION_I18N_KEYS[transition.type])}
       >
-        <span className="transition-icon">◆</span>
+        <span className="transition-icon">{isCrossTrack ? '↕' : '◆'}</span>
         <span className="transition-label">
           {t(TRANSITION_I18N_KEYS[transition.type])}
         </span>
@@ -64,8 +64,6 @@ function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: Tra
       {showPopover && (
         <TransitionPopover
           transition={transition}
-          clipId={clipId}
-          trackId={trackId}
           popoverPos={popoverPos}
           indicatorRef={indicatorRef}
           onClose={() => setShowPopover(false)}

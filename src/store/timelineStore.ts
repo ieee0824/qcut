@@ -7,6 +7,7 @@ export type {
   EasingType,
   Keyframe,
   ClipKeyframes,
+  ToneCurveKeyframe,
   CurvePoint,
   ToneCurves,
   TextAnimation,
@@ -15,8 +16,10 @@ export type {
   TimecodeOverlay,
   TransitionType,
   ClipTransition,
+  TimelineTransition,
   Clip,
   Track,
+  TimelineHistoryEntry,
   TimelineState,
 } from './timeline';
 

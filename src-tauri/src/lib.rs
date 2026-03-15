@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager};
-use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{AboutMetadata, CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 
 /// カスタマイズ可能なメニューアイテムへの直接参照を保持する State
 struct CustomMenuItems(Mutex<HashMap<String, MenuItem<tauri::Wry>>>);
@@ -81,7 +81,7 @@ pub fn run() {
 
       if let Ok(sqlite_logger) = sqlite_logger::SqliteLogger::new(&db_path) {
         log_builder = log_builder.target(tauri_plugin_log::Target::new(
-          tauri_plugin_log::TargetKind::Dispatch(sqlite_logger.to_fern_dispatch(app_version)),
+          tauri_plugin_log::TargetKind::Dispatch(sqlite_logger.to_fern_dispatch(app_version.clone())),
         ));
       }
 
@@ -177,9 +177,30 @@ pub fn run() {
           &MenuItem::with_id(app, "help.shortcuts", "Keyboard Shortcuts", true, None::<&str>)?,
         ],
       )?;
+      let product_name = app.config().product_name.clone().unwrap_or_else(|| "qcut".to_string());
+      let app_menu = Submenu::with_items(
+        app,
+        &product_name,
+        true,
+        &[
+          &PredefinedMenuItem::about(app, None, Some(AboutMetadata {
+            name: Some(product_name.clone()),
+            version: Some(format!("{} ({})", app_version, env!("GIT_DESCRIBE"))),
+            ..Default::default()
+          }))?,
+          &PredefinedMenuItem::separator(app)?,
+          &PredefinedMenuItem::services(app, None)?,
+          &PredefinedMenuItem::separator(app)?,
+          &PredefinedMenuItem::hide(app, None)?,
+          &PredefinedMenuItem::hide_others(app, None)?,
+          &PredefinedMenuItem::show_all(app, None)?,
+          &PredefinedMenuItem::separator(app)?,
+          &PredefinedMenuItem::quit(app, None)?,
+        ],
+      )?;
       let menu = Menu::with_items(
         app,
-        &[&file_menu, &edit_menu, &timeline_menu, &view_menu, &plugins_menu, &help_menu],
+        &[&app_menu, &file_menu, &edit_menu, &timeline_menu, &view_menu, &plugins_menu, &help_menu],
       )?;
       app.set_menu(menu)?;
       app.on_menu_event(|app, event| {

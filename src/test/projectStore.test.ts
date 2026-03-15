@@ -86,10 +86,11 @@ describe('projectStore', () => {
     const call = vi.mocked(invoke).mock.calls[0];
     const args = call[1] as { content: string };
     const parsed = JSON.parse(args.content);
-    expect(parsed.schemaVersion).toBe(2);
+    expect(parsed.schemaVersion).toBe(3);
     expect(parsed.appVersion).toBe('0.1.0');
     expect(parsed.metadata.name).toBe('無題のプロジェクト');
     expect(parsed.timeline).toBeDefined();
+    expect(parsed.timeline.transitions).toEqual([]);
     expect(parsed.exportSettings).toBeDefined();
   });
 
@@ -166,7 +167,7 @@ describe('projectStore', () => {
   // --- loadProject ---
 
   const validProjectJson: ProjectFile = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     appVersion: '0.1.0',
     createdAt: '2026-03-08T12:00:00.000Z',
     updatedAt: '2026-03-08T12:00:00.000Z',
@@ -193,8 +194,36 @@ describe('projectStore', () => {
           ],
         },
       ],
+      transitions: [],
     },
     exportSettings: { format: 'mp4', width: 1920, height: 1080, bitrate: '8M', fps: 30 },
+  };
+
+  const validProjectJsonV2 = {
+    ...validProjectJson,
+    schemaVersion: 2,
+    timeline: {
+      tracks: [
+        {
+          ...validProjectJson.timeline.tracks[0],
+          clips: [
+            {
+              ...validProjectJson.timeline.tracks[0].clips[0],
+            },
+            {
+              id: 'clip-2',
+              name: 'next.mp4',
+              startTime: 10,
+              duration: 5,
+              filePath: '/videos/next.mp4',
+              sourceStartTime: 0,
+              sourceEndTime: 5,
+              transition: { type: 'crossfade' as const, duration: 1 },
+            },
+          ],
+        },
+      ],
+    },
   };
 
   it('loadProjectFromPath でタイムラインが復元される', async () => {
@@ -215,9 +244,75 @@ describe('projectStore', () => {
 
     const timeline = useTimelineStore.getState();
     expect(timeline.tracks).toHaveLength(1);
+    expect(timeline.transitions).toEqual([]);
     expect(timeline.tracks[0].id).toBe('video-1');
     expect(timeline.tracks[0].clips).toHaveLength(1);
     expect(timeline.tracks[0].clips[0].name).toBe('sample.mp4');
+  });
+
+  it('loadProjectFromPath で v2 プロジェクトを読み込むと transitions が生成される', async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: string, args?: unknown) => {
+      if (cmd === 'read_project') return JSON.stringify(validProjectJsonV2);
+      if (cmd === 'get_file_info') {
+        const path = (args as { path: string } | undefined)?.path as string;
+        return { name: path.split('/').pop(), path, size: 1000, last_modified: 0 };
+      }
+      return undefined;
+    });
+
+    await useProjectStore.getState().loadProjectFromPath('/tmp/v2.qcut');
+
+    const timeline = useTimelineStore.getState();
+    expect(timeline.transitions).toEqual([
+      {
+        id: 'transition-clip-1-clip-2',
+        type: 'crossfade',
+        duration: 1,
+        outTrackId: 'video-1',
+        outClipId: 'clip-1',
+        inTrackId: 'video-1',
+        inClipId: 'clip-2',
+      },
+    ]);
+  });
+
+  it('saveProject が transitions を含む v3 形式で保存する', async () => {
+    useTimelineStore.setState({
+      tracks: validProjectJson.timeline.tracks,
+      transitions: [
+        {
+          id: 'transition-clip-1-clip-2',
+          type: 'crossfade',
+          duration: 1,
+          outTrackId: 'video-1',
+          outClipId: 'clip-1',
+          inTrackId: 'video-1',
+          inClipId: 'clip-2',
+        },
+      ],
+    });
+
+    vi.mocked(invoke).mockResolvedValue(undefined);
+    useProjectStore.setState({ projectFilePath: '/tmp/test.qcut' });
+
+    await useProjectStore.getState().saveProject();
+
+    const saveCall = vi.mocked(invoke).mock.calls.find((c) => c[0] === 'save_project');
+    const args = saveCall![1] as { content: string };
+    const parsed = JSON.parse(args.content);
+
+    expect(parsed.schemaVersion).toBe(3);
+    expect(parsed.timeline.transitions).toEqual([
+      {
+        id: 'transition-clip-1-clip-2',
+        type: 'crossfade',
+        duration: 1,
+        outTrackId: 'video-1',
+        outClipId: 'clip-1',
+        inTrackId: 'video-1',
+        inClipId: 'clip-2',
+      },
+    ]);
   });
 
   it('loadProjectFromPath で動画URLがvideoPreviewStoreに登録される', async () => {
@@ -419,6 +514,7 @@ describe('projectStore', () => {
             filePath: 'assets/sample.mp4',
           }],
         }],
+        transitions: [],
       },
     };
 
@@ -584,7 +680,7 @@ describe('projectStore', () => {
       { name: 'Project1', path: '/tmp/project1.qcut', lastOpened: 1000 },
       { name: 'Project2', path: '/tmp/project2.qcut', lastOpened: 2000 },
     ];
-    vi.mocked(invoke).mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+    vi.mocked(invoke).mockImplementation(async (cmd: string, args?: unknown) => {
       if (cmd === 'read_recent_projects') return JSON.stringify(recentData);
       if (cmd === 'get_file_info') {
         if ((args as { path: string }).path === '/tmp/project2.qcut') throw new Error('not found');
@@ -716,6 +812,7 @@ describe('projectStore', () => {
         solo: false,
         clips: [clipWithAllProperties],
       }],
+      transitions: [],
     },
   };
 

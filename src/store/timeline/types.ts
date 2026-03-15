@@ -121,6 +121,13 @@ export interface Keyframe {
 
 export type ClipKeyframes = Partial<Record<keyof ClipEffects, Keyframe[]>>;
 
+/** トーンカーブ用キーフレーム（LUT ベースで補間） */
+export interface ToneCurveKeyframe {
+  time: number;         // クリップ先頭からの秒数 (0 〜 clip.duration)
+  toneCurves: ToneCurves;
+  easing: EasingType;   // このキーフレームから次への補間方式
+}
+
 // --- Text types ---
 
 export type TextAnimation = 'none' | 'fadeIn' | 'fadeOut' | 'fadeInOut' | 'slideUp' | 'slideDown';
@@ -192,6 +199,16 @@ export interface ClipTransition {
   duration: number; // オーバーラップ秒数（前クリップの末尾と当クリップの先頭が重なる）
 }
 
+export interface TimelineTransition {
+  id: string;
+  type: TransitionType;
+  duration: number;
+  outTrackId: string;
+  outClipId: string;
+  inTrackId: string;
+  inClipId: string;
+}
+
 export interface Clip {
   id: string;
   name: string;
@@ -213,11 +230,11 @@ export interface Clip {
   // トーンカーブ
   toneCurves?: ToneCurves;
 
+  // トーンカーブキーフレーム（LUT ベース補間）
+  toneCurveKeyframes?: ToneCurveKeyframe[];
+
   // テキストオーバーレイ
   textProperties?: TextProperties;
-
-  // トランジション（前のクリップとの境界に適用）
-  transition?: ClipTransition;
 
   // タイムコードオーバーレイ
   timecodeOverlay?: TimecodeOverlay;
@@ -264,6 +281,17 @@ export interface TrackSlice {
   toggleSolo: (trackId: string) => void;
 }
 
+export interface TransitionSlice {
+  transitions: TimelineTransition[];
+  addTransition: (transition: TimelineTransition) => void;
+  removeTransitionById: (transitionId: string) => void;
+  updateTransition: (
+    transitionId: string,
+    updates: Partial<Pick<TimelineTransition, 'type' | 'duration'>>,
+  ) => void;
+  findTransitionByClipId: (clipId: string) => TimelineTransition | undefined;
+}
+
 export interface ClipSlice {
   addClip: (trackId: string, clip: Clip) => void;
   removeClip: (trackId: string, clipId: string) => void;
@@ -271,18 +299,24 @@ export interface ClipSlice {
   updateClipSilent: (trackId: string, clipId: string, updates: Partial<Clip>) => void;
   splitClipAtTime: (trackId: string, clipId: string, splitTime: number) => void;
   deleteSelectedClip: () => void;
-  setTransition: (trackId: string, clipId: string, transition: ClipTransition) => void;
-  removeTransition: (trackId: string, clipId: string) => void;
   moveClipToTrack: (fromTrackId: string, clipId: string, toTrackId: string) => void;
   addKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, keyframe: Keyframe) => void;
   removeKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number) => void;
   updateKeyframeEasing: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number, easing: EasingType) => void;
   moveKeyframes: (trackId: string, clipId: string, fromTime: number, toTime: number) => void;
   deleteKeyframesAtTime: (trackId: string, clipId: string, time: number) => void;
+  addToneCurveKeyframe: (trackId: string, clipId: string, keyframe: ToneCurveKeyframe) => void;
+  removeToneCurveKeyframe: (trackId: string, clipId: string, time: number) => void;
+  updateToneCurveKeyframeEasing: (trackId: string, clipId: string, time: number, easing: EasingType) => void;
+}
+
+export interface TimelineHistoryEntry {
+  tracks: Track[];
+  transitions: TimelineTransition[];
 }
 
 export interface HistorySlice {
-  _history: Track[][];
+  _history: TimelineHistoryEntry[];
   _historyIndex: number;
   undo: () => void;
   redo: () => void;
@@ -297,4 +331,4 @@ export interface ClipboardSlice {
   pasteClip: () => void;
 }
 
-export type TimelineState = PlaybackSlice & TrackSlice & ClipSlice & HistorySlice & ClipboardSlice;
+export type TimelineState = PlaybackSlice & TrackSlice & TransitionSlice & ClipSlice & HistorySlice & ClipboardSlice;

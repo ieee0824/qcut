@@ -1,12 +1,14 @@
+import type { Clip, TimelineTransition } from '../../store/timelineStore';
+
 /**
  * トランジションインジケーターの位置とサイズを計算する純粋関数。
  */
 export function computeIndicatorLayout(
-  transitionDuration: number,
+  transition: Pick<TimelineTransition, 'duration'>,
   pixelsPerSecond: number,
-  clipStartTime: number,
+  incomingClip: Pick<Clip, 'startTime'>,
 ): { width: number; left: number } {
-  const width = transitionDuration * pixelsPerSecond;
-  const left = clipStartTime * pixelsPerSecond - width / 2;
+  const width = transition.duration * pixelsPerSecond;
+  const left = incomingClip.startTime * pixelsPerSecond - width / 2;
   return { width, left };
 }

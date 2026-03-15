@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useTimelineStore, type ClipTransition } from '../store/timelineStore';
+import { useTimelineStore, type TimelineTransition } from '../store/timelineStore';
 
 describe('timelineStore', () => {
   beforeEach(() => {
     // Reset store before each test
     useTimelineStore.setState({
       tracks: [],
+      transitions: [],
       selectedClipId: null,
       selectedTrackId: null,
       currentTime: 0,
@@ -44,6 +45,7 @@ describe('timelineStore', () => {
 
     const state = useTimelineStore.getState();
     const track = state.tracks.find(t => t.id === 'video-1');
+    expect(track).toBeDefined();
     expect(track.clips).toHaveLength(1);
     expect(track.clips[0].id).toBe('test-clip');
   });
@@ -114,7 +116,15 @@ describe('timelineStore', () => {
   });
 
   describe('transition', () => {
-    const transition: ClipTransition = { type: 'crossfade', duration: 1.0 };
+    const transition: TimelineTransition = {
+      id: 'transition-clip-1-clip-2',
+      type: 'crossfade',
+      duration: 1.0,
+      outTrackId: 'video-1',
+      outClipId: 'clip-1',
+      inTrackId: 'video-1',
+      inClipId: 'clip-2',
+    };
 
     beforeEach(() => {
       const { addTrack, addClip } = useTimelineStore.getState();
@@ -139,45 +149,40 @@ describe('timelineStore', () => {
       });
     });
 
-    it('should set transition on a clip', () => {
-      const { setTransition } = useTimelineStore.getState();
-      setTransition('video-1', 'clip-2', transition);
+    it('should add transition entity', () => {
+      const { addTransition } = useTimelineStore.getState();
+      addTransition(transition);
 
       const state = useTimelineStore.getState();
-      const track = state.tracks.find(t => t.id === 'video-1');
-      const clip = track!.clips.find(c => c.id === 'clip-2');
-      expect(clip!.transition).toEqual(transition);
+      expect(state.transitions).toEqual([transition]);
     });
 
-    it('should remove transition from a clip', () => {
-      const { setTransition, removeTransition } = useTimelineStore.getState();
-      setTransition('video-1', 'clip-2', transition);
-      removeTransition('video-1', 'clip-2');
+    it('should remove transition by id', () => {
+      const { addTransition, removeTransitionById } = useTimelineStore.getState();
+      addTransition(transition);
+      removeTransitionById(transition.id);
 
       const state = useTimelineStore.getState();
-      const track = state.tracks.find(t => t.id === 'video-1');
-      const clip = track!.clips.find(c => c.id === 'clip-2');
-      expect(clip!.transition).toBeUndefined();
+      expect(state.transitions).toEqual([]);
     });
 
-    it('should not affect other clips when setting transition', () => {
-      const { setTransition } = useTimelineStore.getState();
-      setTransition('video-1', 'clip-2', transition);
+    it('should not add duplicate transitions', () => {
+      const { addTransition } = useTimelineStore.getState();
+      addTransition(transition);
+      addTransition({ ...transition, id: 'transition-duplicate' });
 
-      const state = useTimelineStore.getState();
-      const track = state.tracks.find(t => t.id === 'video-1');
-      const clip1 = track!.clips.find(c => c.id === 'clip-1');
-      expect(clip1!.transition).toBeUndefined();
+      expect(useTimelineStore.getState().transitions).toHaveLength(1);
     });
 
-    it('should handle setting transition on non-existent clip gracefully', () => {
-      const { setTransition } = useTimelineStore.getState();
-      setTransition('video-1', 'non-existent', transition);
+    it('should update transition type and duration', () => {
+      const { addTransition, updateTransition } = useTimelineStore.getState();
+      addTransition(transition);
+      updateTransition(transition.id, { type: 'dissolve', duration: 2.5 });
 
-      const state = useTimelineStore.getState();
-      const track = state.tracks.find(t => t.id === 'video-1');
-      expect(track!.clips).toHaveLength(2);
-      expect(track!.clips.every(c => c.transition === undefined)).toBe(true);
+      expect(useTimelineStore.getState().transitions[0]).toMatchObject({
+        type: 'dissolve',
+        duration: 2.5,
+      });
     });
   });
 });

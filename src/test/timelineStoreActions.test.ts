@@ -1,16 +1,18 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useTimelineStore } from '../store/timelineStore';
-import type { Clip, Track } from '../store/timelineStore';
+import type { Clip, Track, ToneCurveKeyframe } from '../store/timelineStore';
+import { DEFAULT_EFFECTS } from '../store/timelineStore';
 
 function resetStore() {
   useTimelineStore.setState({
     tracks: [],
+    transitions: [],
     selectedClipId: null,
     selectedTrackId: null,
     currentTime: 0,
     isPlaying: false,
     pixelsPerSecond: 50,
-    _history: [[]],
+    _history: [{ tracks: [], transitions: [] }],
     _historyIndex: 0,
     _clipboard: null,
   });
@@ -429,5 +431,93 @@ describe('undo/redo clears selection', () => {
     const state = useTimelineStore.getState();
     expect(state.selectedClipId).toBeNull();
     expect(state.selectedTrackId).toBeNull();
+  });
+});
+
+describe('toneCurveKeyframes store operations', () => {
+  beforeEach(resetStore);
+
+  const makeTcKf = (time: number): ToneCurveKeyframe => ({
+    time,
+    toneCurves: {
+      rgb: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+      r: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+      g: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+      b: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+    },
+    easing: 'linear',
+  });
+
+  it('addToneCurveKeyframe should add a keyframe to the clip', () => {
+    addVideoTrackWithClip();
+    useTimelineStore.getState().addToneCurveKeyframe('v1', 'clip-1', makeTcKf(0));
+    useTimelineStore.getState().addToneCurveKeyframe('v1', 'clip-1', makeTcKf(4));
+    const clip = getClip('v1', 'clip-1');
+    expect(clip?.toneCurveKeyframes).toHaveLength(2);
+    expect(clip?.toneCurveKeyframes![0].time).toBe(0);
+    expect(clip?.toneCurveKeyframes![1].time).toBe(4);
+  });
+
+  it('addToneCurveKeyframe should overwrite keyframe at same time', () => {
+    addVideoTrackWithClip();
+    const kf1 = makeTcKf(2);
+    const kf2: ToneCurveKeyframe = {
+      ...makeTcKf(2),
+      toneCurves: {
+        rgb: [{ x: 0, y: 0.5 }, { x: 1, y: 0.5 }],
+        r: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+        g: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+        b: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+      },
+    };
+    useTimelineStore.getState().addToneCurveKeyframe('v1', 'clip-1', kf1);
+    useTimelineStore.getState().addToneCurveKeyframe('v1', 'clip-1', kf2);
+    const clip = getClip('v1', 'clip-1');
+    expect(clip?.toneCurveKeyframes).toHaveLength(1);
+    expect(clip?.toneCurveKeyframes![0].toneCurves.rgb[0].y).toBe(0.5);
+  });
+
+  it('removeToneCurveKeyframe should remove the keyframe at given time', () => {
+    addVideoTrackWithClip();
+    useTimelineStore.getState().addToneCurveKeyframe('v1', 'clip-1', makeTcKf(0));
+    useTimelineStore.getState().addToneCurveKeyframe('v1', 'clip-1', makeTcKf(4));
+    useTimelineStore.getState().removeToneCurveKeyframe('v1', 'clip-1', 0);
+    const clip = getClip('v1', 'clip-1');
+    expect(clip?.toneCurveKeyframes).toHaveLength(1);
+    expect(clip?.toneCurveKeyframes![0].time).toBe(4);
+  });
+
+  it('removeToneCurveKeyframe should set undefined when all keyframes removed', () => {
+    addVideoTrackWithClip();
+    useTimelineStore.getState().addToneCurveKeyframe('v1', 'clip-1', makeTcKf(2));
+    useTimelineStore.getState().removeToneCurveKeyframe('v1', 'clip-1', 2);
+    const clip = getClip('v1', 'clip-1');
+    expect(clip?.toneCurveKeyframes).toBeUndefined();
+  });
+
+  it('updateToneCurveKeyframeEasing should update easing type', () => {
+    addVideoTrackWithClip();
+    useTimelineStore.getState().addToneCurveKeyframe('v1', 'clip-1', makeTcKf(1));
+    useTimelineStore.getState().updateToneCurveKeyframeEasing('v1', 'clip-1', 1, 'easeIn');
+    const clip = getClip('v1', 'clip-1');
+    expect(clip?.toneCurveKeyframes![0].easing).toBe('easeIn');
+  });
+
+  // Bug fix #3: リセットで toneCurveKeyframes が消えることを検証
+  it('updateClip with toneCurveKeyframes: undefined should clear keyframes (reset scenario)', () => {
+    addVideoTrackWithClip();
+    useTimelineStore.getState().addToneCurveKeyframe('v1', 'clip-1', makeTcKf(0));
+    useTimelineStore.getState().addToneCurveKeyframe('v1', 'clip-1', makeTcKf(4));
+    // リセット相当の操作
+    useTimelineStore.getState().updateClip('v1', 'clip-1', {
+      effects: { ...DEFAULT_EFFECTS },
+      keyframes: undefined,
+      toneCurves: undefined,
+      toneCurveKeyframes: undefined,
+    });
+    const clip = getClip('v1', 'clip-1');
+    expect(clip?.toneCurveKeyframes).toBeUndefined();
+    expect(clip?.toneCurves).toBeUndefined();
+    expect(clip?.keyframes).toBeUndefined();
   });
 });

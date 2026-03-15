@@ -100,6 +100,24 @@ export const useVideoSwitching = ({
 
   const { setDuration, setPrerenderedFrame, clearPrerenderedFrame } = useVideoPreviewStore();
 
+  const captureVideoFrame = useCallback(
+    (video: HTMLVideoElement, clipId: string) => {
+      if (!video.videoWidth || !video.videoHeight) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      try {
+        setPrerenderedFrame(clipId, canvas.toDataURL('image/png'));
+      } catch {
+        // CORS などで data URL 化できない場合はプリレンダ保存のみスキップする
+      }
+    },
+    [setPrerenderedFrame],
+  );
+
   useEffect(() => {
     if (videoRef.current && !activeVideoRef.current) {
       activeVideoRef.current = videoRef.current;
@@ -200,18 +218,7 @@ export const useVideoSwitching = ({
     const clipId = nextClip.id;
     const preloadVideo = preloadTarget;
     const capturePrerenderFrame = () => {
-      if (!preloadVideo.videoWidth || !preloadVideo.videoHeight) return;
-      const canvas = document.createElement('canvas');
-      canvas.width = preloadVideo.videoWidth;
-      canvas.height = preloadVideo.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.drawImage(preloadVideo, 0, 0, canvas.width, canvas.height);
-      try {
-        setPrerenderedFrame(clipId, canvas.toDataURL('image/png'));
-      } catch {
-        // CORS などで data URL 化できない場合はプリレンダ保存のみスキップする
-      }
+      captureVideoFrame(preloadVideo, clipId);
     };
 
     const handleLoadedMetadata = () => {
@@ -241,11 +248,11 @@ export const useVideoSwitching = ({
       preloadVideo.removeEventListener('loadeddata', handleLoadedData);
     };
   }, [
+    captureVideoFrame,
     clearPrerenderedFrame,
     currentClip,
     findNextClipAfter,
     videoRef,
-    setPrerenderedFrame,
     videoUrls,
   ]);
 
@@ -265,19 +272,60 @@ export const useVideoSwitching = ({
 
     const targetSourceTime = timelineTimeToSourceTime(currentTimeRef.current);
     const video = videoRef.current;
+    const clipId = currentClip?.id ?? null;
+    const needsInitialFrameNudge = Math.abs(targetSourceTime) < 0.001;
+    let nudgedAwayFromStart = false;
+
+    const handleLoadedMetadata = () => {
+      if (!videoRef.current) return;
+      if (needsInitialFrameNudge && videoRef.current.duration > 0.001) {
+        videoRef.current.currentTime = Math.min(videoRef.current.duration, 0.001);
+        nudgedAwayFromStart = true;
+      } else if (Math.abs(videoRef.current.currentTime - targetSourceTime) > 0.001) {
+        videoRef.current.currentTime = targetSourceTime;
+      }
+      setDuration(videoRef.current.duration);
+    };
+
+    const handleLoadedData = () => {
+      if (!videoRef.current) return;
+      if (videoRef.current.seeking) return;
+      if (Math.abs(videoRef.current.currentTime - targetSourceTime) > 0.001) {
+        videoRef.current.currentTime = targetSourceTime;
+        return;
+      }
+      if (clipId) {
+        captureVideoFrame(videoRef.current, clipId);
+      }
+    };
+
+    const handleSeeked = () => {
+      if (!videoRef.current) return;
+      if (nudgedAwayFromStart) {
+        nudgedAwayFromStart = false;
+        if (Math.abs(videoRef.current.currentTime - targetSourceTime) > 0.0001) {
+          videoRef.current.currentTime = targetSourceTime;
+          return;
+        }
+      }
+      if (clipId) {
+        captureVideoFrame(videoRef.current, clipId);
+      }
+      videoRef.current.removeEventListener('seeked', handleSeeked);
+    };
+
     video.src = currentVideoUrl;
     video.load();
+    video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+    video.addEventListener('loadeddata', handleLoadedData, { once: true });
+    video.addEventListener('seeked', handleSeeked);
 
-    video.addEventListener(
-      'loadedmetadata',
-      () => {
-        if (!videoRef.current) return;
-        videoRef.current.currentTime = targetSourceTime;
-        setDuration(videoRef.current.duration);
-      },
-      { once: true },
-    );
-  }, [videoRef, currentTimeRef, currentVideoUrl, timelineTimeToSourceTime, setDuration]);
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('seeked', handleSeeked);
+    };
+  }, [videoRef, currentClip?.id, currentTimeRef, currentVideoUrl, timelineTimeToSourceTime, setDuration, captureVideoFrame]);
 
   return {
     preloadVideoRef,

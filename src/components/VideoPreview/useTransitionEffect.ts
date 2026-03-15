@@ -2,13 +2,9 @@ import type React from 'react';
 import { useCallback, useRef } from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import type { Clip as ClipType, TransitionType } from '../../store/timelineStore';
+import { findTransitionAtTime as resolveTransitionAtTime, type ResolvedTransitionInfo } from '../../utils/transitionInfo';
 
-export interface TransitionInfo {
-  outgoingClip: ClipType;
-  incomingClip: ClipType;
-  progress: number; // 0→1 (0=outgoing only, 1=incoming only)
-  transitionType: TransitionType;
-}
+export interface TransitionInfo extends ResolvedTransitionInfo {}
 
 interface UseTransitionEffectParams {
   findClipAtTime: (time: number) => ClipType | null;
@@ -37,27 +33,8 @@ export const useTransitionEffect = ({
 
   const findTransitionAtTime = useCallback(
     (time: number): TransitionInfo | null => {
-      const currentTracks = useTimelineStore.getState().tracks;
-      for (const track of currentTracks) {
-        if (track.type !== 'video') continue;
-        for (const clip of track.clips) {
-          if (!clip.transition) continue;
-          const overlapStart = clip.startTime - clip.transition.duration;
-          const overlapEnd = clip.startTime;
-          if (time >= overlapStart && time < overlapEnd) {
-            const outgoing = findClipAtTime(time);
-            if (!outgoing || outgoing.id === clip.id) continue;
-            const progress = (time - overlapStart) / clip.transition.duration;
-            return {
-              outgoingClip: outgoing,
-              incomingClip: clip,
-              progress,
-              transitionType: clip.transition.type,
-            };
-          }
-        }
-      }
-      return null;
+      const { tracks, transitions } = useTimelineStore.getState();
+      return resolveTransitionAtTime(tracks, transitions, time, findClipAtTime);
     },
     [findClipAtTime],
   );

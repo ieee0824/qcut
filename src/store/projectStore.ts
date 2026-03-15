@@ -8,6 +8,7 @@ import { useExportStore } from './exportStore';
 import { useVideoPreviewStore } from './videoPreviewStore';
 import i18n from '../i18n';
 import { toRelativePath, resolveRelativePath, getDirectoryPath } from '../utils/pathUtils';
+import { migrateClipTransitionsToTimeline } from '../utils/transitionMigration';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
@@ -92,6 +93,7 @@ function buildProjectFile(projectName: string): ProjectFile {
     },
     timeline: {
       tracks,
+      transitions: timeline.transitions.map((transition) => ({ ...transition })),
     },
     exportSettings,
   };
@@ -128,7 +130,20 @@ function validateProjectFile(data: unknown): ProjectFile {
   if (!obj.timeline || typeof obj.timeline !== 'object') {
     throw new Error(i18n.t('project.timelineNotFound'));
   }
-  return data as ProjectFile;
+
+  const project = data as ProjectFile;
+  const transitions = project.schemaVersion >= 3
+    ? project.timeline.transitions ?? []
+    : migrateClipTransitionsToTimeline(project.timeline.tracks);
+
+  return {
+    ...project,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    timeline: {
+      tracks: project.timeline.tracks,
+      transitions,
+    },
+  };
 }
 
 function applyProjectToStores(project: ProjectFile): void {
@@ -147,16 +162,19 @@ function applyProjectToStores(project: ProjectFile): void {
   }
 
   // タイムラインをリセットしてトラックを復元
+  const tracks = project.timeline.tracks.map((track) => ({
+    ...track,
+    clips: track.clips.map((clip) => ({ ...clip })),
+  }));
+  const transitions = project.timeline.transitions.map((transition) => ({ ...transition }));
   useTimelineStore.setState({
-    tracks: project.timeline.tracks.map((track) => ({
-      ...track,
-      clips: track.clips.map((clip) => ({ ...clip })),
-    })),
+    tracks,
+    transitions,
     selectedClipId: null,
     selectedTrackId: null,
     currentTime: 0,
     isPlaying: false,
-    _history: [project.timeline.tracks],
+    _history: [{ tracks, transitions }],
     _historyIndex: 0,
   });
 
@@ -531,7 +549,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 // タイムラインの変更を監視して isDirty を自動更新し、自動保存をスケジュール
 useTimelineStore.subscribe(
   (state, prevState) => {
-    if (state.tracks !== prevState.tracks) {
+    if (state.tracks !== prevState.tracks || state.transitions !== prevState.transitions) {
       const { loadStatus } = useProjectStore.getState();
       // プロジェクト読み込み中の変更は無視
       if (loadStatus !== 'loading') {

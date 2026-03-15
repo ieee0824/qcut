@@ -1,33 +1,49 @@
 import type { StoreApi } from 'zustand';
 import { logAction } from '../actionLogger';
-import type { TimelineState, Track } from './types';
+import type { TimelineHistoryEntry, TimelineState, TimelineTransition, Track } from './types';
 
 const MAX_HISTORY = 50;
 
-/** Record new tracks into history (call with the NEW tracks state) */
+function cloneHistoryEntry(entry: TimelineHistoryEntry): TimelineHistoryEntry {
+  return JSON.parse(JSON.stringify(entry));
+}
+
+function buildHistoryEntry(tracks: Track[], transitions: TimelineTransition[]): TimelineHistoryEntry {
+  return cloneHistoryEntry({ tracks, transitions });
+}
+
+/** Record new timeline state into history (call with the NEW state) */
 export function withHistory(
-  state: Pick<TimelineState, '_history' | '_historyIndex'>,
+  state: Pick<TimelineState, '_history' | '_historyIndex' | 'transitions'>,
   newTracks: Track[],
-): Pick<TimelineState, 'tracks' | '_history' | '_historyIndex'> {
+  newTransitions: TimelineTransition[] = state.transitions,
+): Pick<TimelineState, 'tracks' | 'transitions' | '_history' | '_historyIndex'> {
   const history = state._history.slice(0, state._historyIndex + 1);
-  history.push(JSON.parse(JSON.stringify(newTracks)));
+  history.push(buildHistoryEntry(newTracks, newTransitions));
   if (history.length > MAX_HISTORY) history.shift();
-  return { tracks: newTracks, _history: history, _historyIndex: history.length - 1 };
+  return {
+    tracks: newTracks,
+    transitions: newTransitions,
+    _history: history,
+    _historyIndex: history.length - 1,
+  };
 }
 
 type Set = StoreApi<TimelineState>['setState'];
 type Get = StoreApi<TimelineState>['getState'];
 
 export const createHistorySlice = (set: Set, get: Get) => ({
-  _history: [[]] as Track[][],
+  _history: [{ tracks: [], transitions: [] }] as TimelineHistoryEntry[],
   _historyIndex: 0,
 
   undo: () => set((state) => {
     if (state._historyIndex <= 0) return state;
     logAction('undo', `index=${state._historyIndex - 1}`);
     const newIndex = state._historyIndex - 1;
+    const entry = cloneHistoryEntry(state._history[newIndex]);
     return {
-      tracks: JSON.parse(JSON.stringify(state._history[newIndex])),
+      tracks: entry.tracks,
+      transitions: entry.transitions,
       _historyIndex: newIndex,
       selectedClipId: null,
       selectedTrackId: null,
@@ -38,8 +54,10 @@ export const createHistorySlice = (set: Set, get: Get) => ({
     if (state._historyIndex >= state._history.length - 1) return state;
     logAction('redo', `index=${state._historyIndex + 1}`);
     const newIndex = state._historyIndex + 1;
+    const entry = cloneHistoryEntry(state._history[newIndex]);
     return {
-      tracks: JSON.parse(JSON.stringify(state._history[newIndex])),
+      tracks: entry.tracks,
+      transitions: entry.transitions,
       _historyIndex: newIndex,
       selectedClipId: null,
       selectedTrackId: null,
@@ -54,7 +72,7 @@ export const createHistorySlice = (set: Set, get: Get) => ({
 
   commitHistory: () => set((state) => {
     const history = state._history.slice(0, state._historyIndex + 1);
-    history.push(JSON.parse(JSON.stringify(state.tracks)));
+    history.push(buildHistoryEntry(state.tracks, state.transitions));
     if (history.length > MAX_HISTORY) history.shift();
     return { _history: history, _historyIndex: history.length - 1 };
   }),

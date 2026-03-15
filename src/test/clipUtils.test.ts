@@ -3,10 +3,12 @@ import {
   calculateDragNewStartTime,
   calculateClipPosition,
   calculateContextMenuTime,
+  collectToneCurveMarkerTimes,
   clampMenuPosition,
   collectSnapTargets,
   applySnap,
 } from '../components/Timeline/clipUtils';
+import type { ToneCurveKeyframe } from '../store/timelineStore';
 
 describe('calculateDragNewStartTime', () => {
   it('正の方向へのドラッグで開始時間が増加する', () => {
@@ -82,6 +84,23 @@ describe('calculateContextMenuTime', () => {
     // relX=600 → relTime=12 → min(12, 10) = 10 → 5+10=15
     const result = calculateContextMenuTime(5, 10, 600, 50);
     expect(result).toBe(15);
+  });
+});
+
+describe('collectToneCurveMarkerTimes', () => {
+  it('トーンカーブキーフレーム時刻を昇順で返す', () => {
+    const keyframes: ToneCurveKeyframe[] = [
+      { time: 4, toneCurves: { rgb: [], r: [], g: [], b: [] }, easing: 'linear' },
+      { time: 1.5, toneCurves: { rgb: [], r: [], g: [], b: [] }, easing: 'linear' },
+      { time: 2, toneCurves: { rgb: [], r: [], g: [], b: [] }, easing: 'linear' },
+    ];
+
+    expect(collectToneCurveMarkerTimes(keyframes)).toEqual([1.5, 2, 4]);
+  });
+
+  it('キーフレームがない場合は空配列を返す', () => {
+    expect(collectToneCurveMarkerTimes(undefined)).toEqual([]);
+    expect(collectToneCurveMarkerTimes([])).toEqual([]);
   });
 });
 

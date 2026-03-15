@@ -186,7 +186,7 @@ jobs:
 
           sed -i "s/version \".*\"/version \"${VERSION}\"/" "$CASK_FILE"
           sed -i "s/sha256 \".*\"/sha256 \"${SHA256}\"/" "$CASK_FILE"
-          sed -i 's|/qcut[^"]*\.dmg|/qcut-v#{version}-darwin-aarch64.dmg|' "$CASK_FILE"
+          sed -i 's|https://github.com/ieee0824/qcut[^"]*\.dmg|https://github.com/ieee0824/qcut/releases/download/v#{version}/qcut-v#{version}-darwin-aarch64.dmg|' "$CASK_FILE"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
