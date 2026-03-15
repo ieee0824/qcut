@@ -51,6 +51,38 @@ interface PlaybackTimelineTimeParams {
   videoSourceTime: number;
 }
 
+interface TransitionPlaybackPlanParams {
+  transition: TransitionInfo;
+  currentTime: number;
+  videoUrls: Record<string, string>;
+  loadedOutgoingUrl: string | null;
+  loadedIncomingUrl: string | null;
+  isLoadingOutgoing: boolean;
+  isLoadingIncoming: boolean;
+}
+
+interface TransitionPlaybackPlan {
+  outgoingUrl: string | null;
+  incomingUrl: string | null;
+  outgoingSourceTime: number;
+  incomingSourceTime: number;
+  shouldSwitchOutgoing: boolean;
+  shouldSwitchIncoming: boolean;
+}
+
+interface ShouldResyncTransitionVideoParams {
+  currentVideoTime: number;
+  expectedSourceTime: number;
+  paused: boolean;
+}
+
+interface ShouldResyncActiveVideoParams {
+  currentVideoTime: number;
+  expectedSourceTime: number;
+  loadedUrlMatches: boolean;
+  isLoading: boolean;
+}
+
 export function getPlaybackTimelineTime({
   previousTimelineTime,
   clipStartTime,
@@ -60,6 +92,68 @@ export function getPlaybackTimelineTime({
   const relativeTime = videoSourceTime - clipSourceStartTime;
   const timelineTime = clipStartTime + relativeTime;
   return getMonotonicPlaybackTime(previousTimelineTime, timelineTime);
+}
+
+export function getTransitionPlaybackPlan({
+  transition,
+  currentTime,
+  videoUrls,
+  loadedOutgoingUrl,
+  loadedIncomingUrl,
+  isLoadingOutgoing,
+  isLoadingIncoming,
+}: TransitionPlaybackPlanParams): TransitionPlaybackPlan {
+  const { outgoingClip, incomingClip, duration } = transition;
+  const outgoingUrl = videoUrls[outgoingClip.filePath] ?? null;
+  const incomingUrl = videoUrls[incomingClip.filePath] ?? null;
+  const overlapStartTime = incomingClip.startTime - duration;
+
+  const outgoingSourceTime =
+    outgoingClip.sourceStartTime + (currentTime - outgoingClip.startTime);
+  const incomingSourceTime =
+    incomingClip.sourceStartTime + (currentTime - overlapStartTime);
+
+  return {
+    outgoingUrl,
+    incomingUrl,
+    outgoingSourceTime,
+    incomingSourceTime,
+    shouldSwitchOutgoing:
+      Boolean(outgoingUrl) &&
+      outgoingUrl !== loadedOutgoingUrl &&
+      !isLoadingOutgoing,
+    shouldSwitchIncoming:
+      Boolean(incomingUrl) &&
+      incomingUrl !== loadedIncomingUrl &&
+      !isLoadingIncoming,
+  };
+}
+
+export function shouldCleanupTransitionPlayback(
+  wasInTransition: boolean,
+  transition: TransitionInfo | null,
+): boolean {
+  return wasInTransition && transition === null;
+}
+
+export function shouldResyncTransitionVideo({
+  currentVideoTime,
+  expectedSourceTime,
+  paused,
+}: ShouldResyncTransitionVideoParams): boolean {
+  return paused || Math.abs(currentVideoTime - expectedSourceTime) > 0.1;
+}
+
+export function shouldResyncActiveVideo({
+  currentVideoTime,
+  expectedSourceTime,
+  loadedUrlMatches,
+  isLoading,
+}: ShouldResyncActiveVideoParams): boolean {
+  if (isLoading || !loadedUrlMatches) {
+    return false;
+  }
+  return Math.abs(currentVideoTime - expectedSourceTime) > 0.1;
 }
 
 export const usePlaybackLoop = ({
@@ -142,28 +236,36 @@ export const usePlaybackLoop = ({
       const transition = findTransitionAtTime(currentTimeRef.current);
       if (transition && transitionVideoRef.current) {
         isInTransitionRef.current = true;
-        const { outgoingClip, incomingClip, progress, transitionType } = transition;
+        const { progress, transitionType } = transition;
         const urls = useVideoPreviewStore.getState().videoUrls;
+        const playbackPlan = getTransitionPlaybackPlan({
+          transition,
+          currentTime: currentTimeRef.current,
+          videoUrls: urls,
+          loadedOutgoingUrl: loadedVideoUrl.current,
+          loadedIncomingUrl: loadedTransitionVideoUrl.current,
+          isLoadingOutgoing: isLoadingVideoRef.current,
+          isLoadingIncoming: isLoadingTransitionVideoRef.current,
+        });
 
         // outgoing clip → videoRef
-        const outUrl = urls[outgoingClip.filePath];
-        if (outUrl && outUrl !== loadedVideoUrl.current && !isLoadingVideoRef.current) {
-          const srcTime =
-            outgoingClip.sourceStartTime + (currentTimeRef.current - outgoingClip.startTime);
-          switchVideo(outUrl, srcTime, true);
+        if (playbackPlan.shouldSwitchOutgoing && playbackPlan.outgoingUrl) {
+          switchVideo(playbackPlan.outgoingUrl, playbackPlan.outgoingSourceTime, true);
         }
 
         // incoming clip → transitionVideoRef
-        const inUrl = urls[incomingClip.filePath];
-        const incomingSourceTime =
-          incomingClip.sourceStartTime +
-          (currentTimeRef.current - (incomingClip.startTime - transition.duration));
         if (
-          inUrl &&
-          inUrl !== loadedTransitionVideoUrl.current &&
-          !isLoadingTransitionVideoRef.current
+          playbackPlan.incomingUrl &&
+          (
+            playbackPlan.shouldSwitchIncoming ||
+            shouldResyncTransitionVideo({
+              currentVideoTime: transitionVideoRef.current.currentTime,
+              expectedSourceTime: playbackPlan.incomingSourceTime,
+              paused: transitionVideoRef.current.paused,
+            })
+          )
         ) {
-          switchTransitionVideo(inUrl, incomingSourceTime);
+          switchTransitionVideo(playbackPlan.incomingUrl, playbackPlan.incomingSourceTime);
         }
 
         // CSS スタイルを直接更新（レンダー不要）
@@ -189,7 +291,7 @@ export const usePlaybackLoop = ({
       }
 
       // トランジション終了時のクリーンアップ
-      if (isInTransitionRef.current) {
+      if (shouldCleanupTransitionPlayback(isInTransitionRef.current, transition)) {
         isInTransitionRef.current = false;
         if (videoRef.current) {
           videoRef.current.style.opacity = '1';
@@ -204,8 +306,19 @@ export const usePlaybackLoop = ({
         // incoming clip に videoRef を切り替え
         if (clip) {
           const url = useVideoPreviewStore.getState().videoUrls[clip.filePath];
-          if (url && url !== loadedVideoUrl.current) {
-            const sourceTime = clip.sourceStartTime + (currentTimeRef.current - clip.startTime);
+          const sourceTime = clip.sourceStartTime + (currentTimeRef.current - clip.startTime);
+          if (
+            url &&
+            (
+              url !== loadedVideoUrl.current ||
+              shouldResyncActiveVideo({
+                currentVideoTime: videoRef.current?.currentTime ?? 0,
+                expectedSourceTime: sourceTime,
+                loadedUrlMatches: url === loadedVideoUrl.current,
+                isLoading: isLoadingVideoRef.current,
+              })
+            )
+          ) {
             switchVideo(url, sourceTime, true);
           }
         }
