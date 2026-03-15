@@ -288,7 +288,10 @@ export interface TransitionSlice {
   transitions: TimelineTransition[];
   addTransition: (transition: TimelineTransition) => void;
   removeTransitionById: (transitionId: string) => void;
-  updateTransition: (transitionId: string, updates: Partial<Omit<TimelineTransition, 'id'>>) => void;
+  updateTransition: (
+    transitionId: string,
+    updates: Partial<Pick<TimelineTransition, 'type' | 'duration'>>,
+  ) => void;
   findTransitionByClipId: (clipId: string) => TimelineTransition | undefined;
 }
 

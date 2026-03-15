@@ -44,7 +44,10 @@ export const createTransitionSlice = (set: Set, get: Get) => ({
     return withHistory(state, state.tracks, newTransitions);
   }),
 
-  updateTransition: (transitionId: string, updates: Partial<Omit<TimelineTransition, 'id'>>) => set((state) => {
+  updateTransition: (
+    transitionId: string,
+    updates: Partial<Pick<TimelineTransition, 'type' | 'duration'>>,
+  ) => set((state) => {
     let changed = false;
     const newTransitions = state.transitions.map((transition) => {
       if (transition.id !== transitionId) {
