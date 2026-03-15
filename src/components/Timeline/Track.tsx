@@ -63,7 +63,7 @@ function Track({ track }: TrackProps) {
             <TransitionIndicator
               key={`transition-${transition.id}`}
               transition={transition}
-              clipStartTime={incomingClip.startTime}
+              incomingClip={incomingClip}
             />
             );
           })}
