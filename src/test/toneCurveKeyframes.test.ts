@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   interpolateToneCurveLUTs,
   getToneCurvesAtTime,
+  getEditableToneCurvesAtTime,
   hasActiveToneCurveKeyframes,
 } from '../utils/toneCurveKeyframes';
 import type { ToneCurves, ToneCurveKeyframe, CurvePoint } from '../store/timeline/types';
@@ -176,6 +177,39 @@ describe('getToneCurvesAtTime — トーンカーブKFのみのクリップ', ()
     const result2 = getToneCurvesAtTime(kfs, 4);
     expect(result2).not.toBeNull();
     expect(result2!.rgb).toEqual(darkCurve);
+  });
+});
+
+describe('getEditableToneCurvesAtTime', () => {
+  it('should return base tone curves when there are no tone-curve keyframes', () => {
+    const baseToneCurves = makeToneCurves(linearCurve);
+    expect(getEditableToneCurvesAtTime(undefined, baseToneCurves, 2.0)).toBe(baseToneCurves);
+  });
+
+  it('should return exact keyframe tone curves when time matches a keyframe', () => {
+    const baseToneCurves = makeToneCurves(linearCurve);
+    const keyframeToneCurves = makeToneCurves(brightCurve);
+    const kfs: ToneCurveKeyframe[] = [
+      { time: 2.0, toneCurves: keyframeToneCurves, easing: 'linear' },
+    ];
+    expect(getEditableToneCurvesAtTime(kfs, baseToneCurves, 2.0)).toBe(keyframeToneCurves);
+  });
+
+  it('should prefer keyframe-derived curves over base tone curves inside an active keyframe range', () => {
+    const baseToneCurves = makeToneCurves(linearCurve);
+    const curvesA = makeToneCurves(brightCurve);
+    const curvesB = makeToneCurves(darkCurve);
+    const kfs: ToneCurveKeyframe[] = [
+      { time: 0, toneCurves: curvesA, easing: 'linear' },
+      { time: 4, toneCurves: curvesB, easing: 'linear' },
+    ];
+
+    const editable = getEditableToneCurvesAtTime(kfs, baseToneCurves, 2.0);
+
+    expect(editable).not.toBe(baseToneCurves);
+    expect(editable.rgb).toHaveLength(5);
+    expect(editable.rgb[0].y).toBeCloseTo(0.1, 1);
+    expect(editable.rgb[editable.rgb.length - 1].y).toBeCloseTo(0.9, 1);
   });
 });
 

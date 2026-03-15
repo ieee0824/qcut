@@ -9,6 +9,8 @@ interface CachedChannelLUTs {
   bLUT: Float32Array;
 }
 
+const DISPLAY_POINT_COUNT = 5;
+
 const _lutCache = new WeakMap<CurvePoint[], Float32Array>();
 
 function getCachedLUT(points: CurvePoint[]): Float32Array {
@@ -26,6 +28,31 @@ function buildCachedChannelLUTs(tc: ToneCurves): CachedChannelLUTs {
     rLUT: getCachedLUT(tc.r),
     gLUT: getCachedLUT(tc.g),
     bLUT: getCachedLUT(tc.b),
+  };
+}
+
+function lutIndexAt(x: number, size: number): number {
+  return Math.max(0, Math.min(size - 1, Math.round(x * (size - 1))));
+}
+
+function curvePointsFromLUT(lut: Float32Array, pointCount: number = DISPLAY_POINT_COUNT): CurvePoint[] {
+  const points: CurvePoint[] = [];
+  for (let i = 0; i < pointCount; i++) {
+    const x = i / (pointCount - 1);
+    points.push({
+      x,
+      y: lut[lutIndexAt(x, lut.length)],
+    });
+  }
+  return points;
+}
+
+function toneCurvesFromInterpolatedLUTs(luts: CachedChannelLUTs): ToneCurves {
+  return {
+    rgb: curvePointsFromLUT(luts.rgbLUT),
+    r: curvePointsFromLUT(luts.rLUT),
+    g: curvePointsFromLUT(luts.gLUT),
+    b: curvePointsFromLUT(luts.bLUT),
   };
 }
 
@@ -141,4 +168,35 @@ export function hasActiveToneCurveKeyframes(
   keyframes: ToneCurveKeyframe[] | undefined,
 ): boolean {
   return !!keyframes && keyframes.length >= 2;
+}
+
+/**
+ * エディタ表示用のトーンカーブを返す。
+ * 既存KFがあればその値を優先し、KF区間中は補間結果に紐づく制御点を返す。
+ */
+export function getEditableToneCurvesAtTime(
+  keyframes: ToneCurveKeyframe[] | undefined,
+  baseToneCurves: ToneCurves,
+  time: number,
+): ToneCurves {
+  if (!keyframes || keyframes.length === 0) {
+    return baseToneCurves;
+  }
+
+  const exact = keyframes.find((kf) => Math.abs(kf.time - time) <= 0.001);
+  if (exact) {
+    return exact.toneCurves;
+  }
+
+  const interpolated = getToneCurvesAtTime(keyframes, time);
+  if (interpolated) {
+    return toneCurvesFromInterpolatedLUTs({
+      rgbLUT: interpolated.rgbLUT,
+      rLUT: interpolated.rLUT,
+      gLUT: interpolated.gLUT,
+      bLUT: interpolated.bLUT,
+    });
+  }
+
+  return baseToneCurves;
 }

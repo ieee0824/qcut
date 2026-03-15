@@ -459,6 +459,25 @@
   z-index: 10;
 }
 
+.clip-tonecurve-marker {
+  position: absolute;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  background-color: #ff6b6b;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 999px;
+  transform: translateX(-50%);
+  cursor: pointer;
+  z-index: 3;
+}
+
+.clip-tonecurve-marker:hover {
+  background-color: #ffc0c0;
+  border-color: #ff6b6b;
+}
+
 /* トランジションインジケーター */
 .transition-indicator {
   position: absolute;
@@ -768,4 +787,3 @@
   background-color: #4a9eff;
   color: #fff;
 }
-

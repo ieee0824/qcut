@@ -9,6 +9,7 @@ import { EffectPresetPanel } from './EffectPresetPanel';
 import { KeyframeRow } from './KeyframeRow';
 import { TimecodePanel } from './TimecodePanel';
 import { ScopesPanel } from '../Scopes/ScopesPanel';
+import { getEditableToneCurvesAtTime, hasActiveToneCurveKeyframes } from '../../utils/toneCurveKeyframes';
 import {
   BASIC_SLIDERS,
   HSL_SLIDERS,
@@ -168,12 +169,16 @@ export const EffectsPanel: React.FC = () => {
   }, [toneCurveKeyframes, snappedClipLocalTime]);
 
   const hasTcKfAtCurrentTime = currentTcKf !== null;
+  const hasActiveTcKfs = hasActiveToneCurveKeyframes(toneCurveKeyframes);
 
-  // 現在時刻にKFがある場合はそのKFの値を表示、なければベースカーブ
-  const toneCurves: ToneCurves = useMemo(() => {
-    if (currentTcKf) return { ...currentTcKf.toneCurves };
+  const baseToneCurves: ToneCurves = useMemo(() => {
     return { ...DEFAULT_TONE_CURVES, ...selectedClip?.toneCurves };
-  }, [currentTcKf, selectedClip?.toneCurves]);
+  }, [selectedClip?.toneCurves]);
+
+  // 現在時刻に見えているトーンカーブをエディタ表示に使う
+  const toneCurves: ToneCurves = useMemo(() => {
+    return getEditableToneCurvesAtTime(toneCurveKeyframes, baseToneCurves, snappedClipLocalTime);
+  }, [toneCurveKeyframes, baseToneCurves, snappedClipLocalTime]);
 
   const handleTimecodeChange = useCallback(
     (overlay: TimecodeOverlay) => {
@@ -200,11 +205,21 @@ export const EffectsPanel: React.FC = () => {
             : kf,
         );
         updateClipSilent(selectedTrackId, selectedClipId, { toneCurveKeyframes: updated });
+      } else if (hasActiveTcKfs) {
+        const updated = [
+          ...toneCurveKeyframes,
+          {
+            time: snappedClipLocalTime,
+            toneCurves: { ...curves },
+            easing: 'linear',
+          },
+        ].sort((a, b) => a.time - b.time);
+        updateClipSilent(selectedTrackId, selectedClipId, { toneCurveKeyframes: updated });
       } else {
         updateClipSilent(selectedTrackId, selectedClipId, { toneCurves: curves });
       }
     },
-    [selectedTrackId, selectedClipId, updateClipSilent, currentTcKf, toneCurveKeyframes],
+    [selectedTrackId, selectedClipId, updateClipSilent, currentTcKf, hasActiveTcKfs, toneCurveKeyframes, snappedClipLocalTime],
   );
 
   const handleAddToneCurveKeyframe = useCallback(() => {
