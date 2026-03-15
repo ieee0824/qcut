@@ -11,6 +11,8 @@ import { useAudioTrackPlayback } from './useAudioTrackPlayback';
 import { useCanvasRenderer } from './useCanvasRenderer';
 import { useFrameCapture } from './useFrameCapture';
 import { audioEngine } from '../../audio/AudioEngine';
+import { scaleOverlayFontSize, scaleOverlayPixels } from '../../utils/overlayScale';
+import { calculateContainedRect } from '../../utils/videoDisplayRect';
 
 const VIDEO_AUDIO_ID = '__video_main__';
 
@@ -31,6 +33,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     volume,
     videoUrls,
     prerenderedFrames,
+    previewContainerHeight,
     setIsPlaying,
     setCurrentTime: setVideoPreviewCurrentTime,
     setDuration,
@@ -38,14 +41,17 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   } = useVideoPreviewStore();
 
   const tracks = useTimelineStore((s) => s.tracks);
+  const [previewContainerWidth, setPreviewContainerWidth] = useState(0);
 
   // プレビューコンテナの高さを監視
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const overlayFrameRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = previewContainerRef.current;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
+        setPreviewContainerWidth(entry.contentRect.width);
         setPreviewContainerHeight(entry.contentRect.height);
       }
     });
@@ -168,13 +174,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   }, [activeVideoRef, currentVideoUrl, needsCanvas, renderCanvasFrame, videoRef]);
 
   useEffect(() => {
-    const video = activeVideoRef.current ?? videoRef.current;
-    if (!currentVideoUrl || !video) {
-      setIsVideoReady(false);
-      return;
-    }
-    setIsVideoReady(video.readyState >= 2 && video.currentSrc === currentVideoUrl);
-  }, [activeVideoRef, currentVideoUrl, videoRef]);
+    setIsVideoReady(false);
+  }, [currentVideoUrl, currentClipId]);
 
   // 停止中にタイムライン上で時刻を変更した場合も canvas preview を再描画する
   useEffect(() => {
@@ -203,7 +204,27 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   }, []);
 
   const { textOverlays, textCurrentTime, calcTextOpacity, calcTextTranslateY } = useTextOverlays();
-  const { timecodeDisplay, isDragging, handlePointerDown, handlePointerMove, handlePointerUp } = useTimecodeOverlay(previewContainerRef);
+  const { timecodeDisplay, isDragging, handlePointerDown, handlePointerMove, handlePointerUp } = useTimecodeOverlay(overlayFrameRef);
+
+  const activeOverlayVideo = activeVideoRef.current ?? videoRef.current ?? preloadVideoRef.current;
+  const hasMeasuredVideo =
+    (activeOverlayVideo?.videoWidth ?? 0) > 0
+    && (activeOverlayVideo?.videoHeight ?? 0) > 0;
+  const overlayFrameRect = hasMeasuredVideo
+    ? calculateContainedRect(
+      { width: previewContainerWidth, height: previewContainerHeight },
+      {
+        width: activeOverlayVideo?.videoWidth ?? 0,
+        height: activeOverlayVideo?.videoHeight ?? 0,
+      },
+    )
+    : { left: 0, top: 0, width: 0, height: 0 };
+  const hasRenderablePreview = hasCurrentClip && (isVideoReady || Boolean(currentPrerenderedFrame));
+  const hasVisibleVideoFrame =
+    hasRenderablePreview
+    && hasMeasuredVideo
+    && overlayFrameRect.width > 0
+    && overlayFrameRect.height > 0;
 
   const {
     transitionVideoRef,
@@ -342,7 +363,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   const handleVideoLoadedData = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
     const activeVideo = activeVideoRef.current ?? videoRef.current;
-    if (activeVideo === e.currentTarget) {
+    if (
+      activeVideo === e.currentTarget
+      && e.currentTarget.readyState >= 2
+      && e.currentTarget.videoWidth > 0
+      && !e.currentTarget.seeking
+    ) {
       setIsVideoReady(true);
     }
   }, [activeVideoRef, videoRef]);
@@ -356,7 +382,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   const handleVideoSeeked = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
     const activeVideo = activeVideoRef.current ?? videoRef.current;
-    if (activeVideo === e.currentTarget) {
+    if (
+      activeVideo === e.currentTarget
+      && e.currentTarget.readyState >= 2
+      && e.currentTarget.videoWidth > 0
+    ) {
       setIsVideoReady(true);
     }
   }, [activeVideoRef, videoRef]);
@@ -417,6 +447,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             height: '100%',
             backgroundColor: '#000',
             borderRadius: '4px',
+            objectFit: 'contain',
             visibility:
               hasCurrentClip && !needsCanvas && activeVideoSlot === 'primary'
                 ? 'visible'
@@ -523,62 +554,81 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             {!Object.keys(videoUrls).length && t('fileOperations.noFile')}
           </div>
         )}
-        {/* テキストオーバーレイ */}
-        {textOverlays.map((clip) => {
-          const tp = clip.textProperties!;
-          const elapsed = textCurrentTime - clip.startTime;
-          const opacity = calcTextOpacity(tp, elapsed, clip.duration);
-          const translateY = calcTextTranslateY(tp, elapsed, clip.duration);
-          return (
-            <div
-              key={clip.id}
-              style={{
-                position: 'absolute',
-                left: `${tp.positionX}%`,
-                top: `${tp.positionY}%`,
-                transform: `translate(-50%, -50%) translateY(${translateY}px)`,
-                fontSize: `${tp.fontSize}px`,
-                fontFamily: tp.fontFamily,
-                fontWeight: tp.bold ? 'bold' : 'normal',
-                fontStyle: tp.italic ? 'italic' : 'normal',
-                textAlign: tp.textAlign,
-                color: tp.fontColor,
-                opacity,
-                backgroundColor: tp.backgroundColor === 'transparent' ? undefined : tp.backgroundColor,
-                padding: tp.backgroundColor !== 'transparent' ? '4px 8px' : undefined,
-                borderRadius: tp.backgroundColor !== 'transparent' ? '4px' : undefined,
-                textShadow: '1px 1px 3px rgba(0,0,0,0.8), -1px -1px 3px rgba(0,0,0,0.8)',
-                whiteSpace: 'pre-wrap',
-                pointerEvents: 'none',
-                zIndex: 10,
-              }}
-            >
-              {tp.text}
-            </div>
-          );
-        })}
-        {/* タイムコードオーバーレイ（ドラッグ移動可能） */}
-        {timecodeDisplay && (
+        {hasVisibleVideoFrame && (
           <div
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
+            ref={overlayFrameRef}
             style={{
               position: 'absolute',
-              left: `${timecodeDisplay.overlay.positionX}%`,
-              top: `${timecodeDisplay.overlay.positionY}%`,
-              transform: 'translate(-50%, -50%)',
-              fontSize: `${timecodeDisplay.overlay.fontSize}px`,
-              fontFamily: 'monospace',
-              color: timecodeDisplay.overlay.fontColor,
-              textShadow: '1px 1px 3px rgba(0,0,0,0.8), -1px -1px 3px rgba(0,0,0,0.8)',
-              cursor: isDragging ? 'grabbing' : 'grab',
-              userSelect: 'none',
-              zIndex: 11,
-              whiteSpace: 'nowrap',
+              left: `${overlayFrameRect.left}px`,
+              top: `${overlayFrameRect.top}px`,
+              width: `${overlayFrameRect.width}px`,
+              height: `${overlayFrameRect.height}px`,
+              pointerEvents: 'none',
             }}
           >
-            {timecodeDisplay.text}
+          {/* テキストオーバーレイ */}
+          {textOverlays.map((clip) => {
+            const tp = clip.textProperties!;
+            const elapsed = textCurrentTime - clip.startTime;
+            const opacity = calcTextOpacity(tp, elapsed, clip.duration);
+            const translateY = calcTextTranslateY(tp, elapsed, clip.duration);
+            const scaledFontSize = scaleOverlayFontSize(tp.fontSize, overlayFrameRect.height);
+            const scaledTranslateY = scaleOverlayPixels(translateY, overlayFrameRect.height);
+            const scaledPaddingY = scaleOverlayPixels(4, overlayFrameRect.height);
+            const scaledPaddingX = scaleOverlayPixels(8, overlayFrameRect.height);
+            return (
+              <div
+                key={clip.id}
+                style={{
+                  position: 'absolute',
+                  left: `${tp.positionX}%`,
+                  top: `${tp.positionY}%`,
+                  transform: `translate(-50%, -50%) translateY(${scaledTranslateY}px)`,
+                  fontSize: `${scaledFontSize}px`,
+                  fontFamily: tp.fontFamily,
+                  fontWeight: tp.bold ? 'bold' : 'normal',
+                  fontStyle: tp.italic ? 'italic' : 'normal',
+                  textAlign: tp.textAlign,
+                  color: tp.fontColor,
+                  opacity,
+                  backgroundColor: tp.backgroundColor === 'transparent' ? undefined : tp.backgroundColor,
+                  padding: tp.backgroundColor !== 'transparent' ? `${scaledPaddingY}px ${scaledPaddingX}px` : undefined,
+                  borderRadius: tp.backgroundColor !== 'transparent' ? `${scaleOverlayPixels(4, overlayFrameRect.height)}px` : undefined,
+                  textShadow: '1px 1px 3px rgba(0,0,0,0.8), -1px -1px 3px rgba(0,0,0,0.8)',
+                  whiteSpace: 'pre-wrap',
+                  pointerEvents: 'none',
+                  zIndex: 10,
+                }}
+              >
+                {tp.text}
+              </div>
+            );
+          })}
+          {/* タイムコードオーバーレイ（ドラッグ移動可能） */}
+          {timecodeDisplay && (
+            <div
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              style={{
+                position: 'absolute',
+                left: `${timecodeDisplay.overlay.positionX}%`,
+                top: `${timecodeDisplay.overlay.positionY}%`,
+                transform: 'translate(-50%, -50%)',
+                fontSize: `${scaleOverlayFontSize(timecodeDisplay.overlay.fontSize, overlayFrameRect.height)}px`,
+                fontFamily: 'monospace',
+                color: timecodeDisplay.overlay.fontColor,
+                textShadow: '1px 1px 3px rgba(0,0,0,0.8), -1px -1px 3px rgba(0,0,0,0.8)',
+                cursor: isDragging ? 'grabbing' : 'grab',
+                userSelect: 'none',
+                zIndex: 11,
+                whiteSpace: 'nowrap',
+                pointerEvents: 'auto',
+              }}
+            >
+              {timecodeDisplay.text}
+            </div>
+          )}
           </div>
         )}
       </div>

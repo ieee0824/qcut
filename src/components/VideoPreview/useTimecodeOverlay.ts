@@ -20,7 +20,7 @@ interface UseTimecodeOverlayReturn {
 }
 
 export const useTimecodeOverlay = (
-  containerRef: React.RefObject<HTMLDivElement | null>,
+  overlayFrameRef: React.RefObject<HTMLDivElement | null>,
 ): UseTimecodeOverlayReturn => {
   const tracks = useTimelineStore((s) => s.tracks);
   const [timecodeDisplay, setTimecodeDisplay] = useState<TimecodeDisplay | null>(null);
@@ -67,13 +67,13 @@ export const useTimecodeOverlay = (
   }, [tracks, findVideoClipAtTime]);
 
   const calcPosition = useCallback((e: React.PointerEvent): { x: number; y: number } | null => {
-    const container = containerRef.current;
-    if (!container) return null;
-    const rect = container.getBoundingClientRect();
+    const overlayFrame = overlayFrameRef.current;
+    if (!overlayFrame) return null;
+    const rect = overlayFrame.getBoundingClientRect();
     const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
     const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
     return { x, y };
-  }, [containerRef]);
+  }, [overlayFrameRef]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
