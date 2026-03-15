@@ -1,42 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useTimelineStore, type TransitionType } from '../store/timelineStore';
+import { findTransitionAtTime } from '../utils/transitionInfo';
 
 /**
  * トランジション再生ロジックのユニットテスト
  * VideoPreview内のヘルパー関数のロジックを再現してテスト
  */
-
-// findTransitionAtTime のロジックを再現
-function findTransitionAtTime(time: number) {
-  const { tracks, transitions } = useTimelineStore.getState();
-  for (const transition of transitions) {
-    const incomingClip = tracks.find((track) => track.id === transition.inTrackId)?.clips.find((clip) => clip.id === transition.inClipId);
-    if (!incomingClip) continue;
-    const overlapStart = incomingClip.startTime - transition.duration;
-    const overlapEnd = incomingClip.startTime;
-    if (time >= overlapStart && time < overlapEnd) {
-      let outgoing = null;
-      for (const t of tracks) {
-        if (t.type !== 'video') continue;
-        for (const c of t.clips) {
-          if (time >= c.startTime && time < c.startTime + c.duration) {
-            outgoing = c;
-            break;
-          }
-        }
-      }
-      if (!outgoing || outgoing.id === incomingClip.id) continue;
-      const progress = (time - overlapStart) / transition.duration;
-      return {
-        outgoingClip: outgoing,
-        incomingClip,
-        progress,
-        transitionType: transition.type,
-      };
-    }
-  }
-  return null;
-}
 
 // getTransitionStyles のロジックを再現
 function getTransitionStyles(progress: number, type: TransitionType) {
@@ -120,37 +89,79 @@ describe('transition playback logic', () => {
 
   describe('findTransitionAtTime', () => {
     it('should return null before transition zone', () => {
-      expect(findTransitionAtTime(3.0)).toBeNull();
+      const { tracks, transitions } = useTimelineStore.getState();
+      expect(findTransitionAtTime(tracks, transitions, 3.0)).toBeNull();
     });
 
     it('should detect transition at overlap start', () => {
-      const result = findTransitionAtTime(4.0);
+      const { tracks, transitions } = useTimelineStore.getState();
+      const result = findTransitionAtTime(tracks, transitions, 4.0);
       expect(result).not.toBeNull();
       expect(result!.outgoingClip.id).toBe('clip-1');
       expect(result!.incomingClip.id).toBe('clip-2');
+      expect(result!.outTrackId).toBe('video-1');
+      expect(result!.inTrackId).toBe('video-1');
       expect(result!.progress).toBeCloseTo(0);
     });
 
     it('should detect transition at midpoint', () => {
-      const result = findTransitionAtTime(4.5);
+      const { tracks, transitions } = useTimelineStore.getState();
+      const result = findTransitionAtTime(tracks, transitions, 4.5);
       expect(result).not.toBeNull();
       expect(result!.progress).toBeCloseTo(0.5);
     });
 
     it('should detect transition near end', () => {
-      const result = findTransitionAtTime(4.9);
+      const { tracks, transitions } = useTimelineStore.getState();
+      const result = findTransitionAtTime(tracks, transitions, 4.9);
       expect(result).not.toBeNull();
       expect(result!.progress).toBeCloseTo(0.9);
     });
 
     it('should return null after transition zone', () => {
-      expect(findTransitionAtTime(5.0)).toBeNull();
+      const { tracks, transitions } = useTimelineStore.getState();
+      expect(findTransitionAtTime(tracks, transitions, 5.0)).toBeNull();
     });
 
     it('should return null when no transition is set', () => {
       const { removeTransitionById } = useTimelineStore.getState();
       removeTransitionById('transition-clip-1-clip-2');
-      expect(findTransitionAtTime(4.5)).toBeNull();
+      const { tracks, transitions } = useTimelineStore.getState();
+      expect(findTransitionAtTime(tracks, transitions, 4.5)).toBeNull();
+    });
+
+    it('should detect cross-track transition and include track ids', () => {
+      const { addTrack, addClip, addTransition, removeTransitionById } = useTimelineStore.getState();
+      removeTransitionById('transition-clip-1-clip-2');
+      addTrack({ id: 'video-2', type: 'video', name: 'Video 2', clips: [] });
+      addClip('video-2', {
+        id: 'clip-3',
+        name: 'Clip 3',
+        startTime: 5,
+        duration: 5,
+        filePath: 'c.mp4',
+        sourceStartTime: 0,
+        sourceEndTime: 5,
+      });
+      addTransition({
+        id: 'transition-cross-track',
+        type: 'dissolve',
+        duration: 1.0,
+        outTrackId: 'video-1',
+        outClipId: 'clip-1',
+        inTrackId: 'video-2',
+        inClipId: 'clip-3',
+      });
+
+      const { tracks, transitions } = useTimelineStore.getState();
+      const result = findTransitionAtTime(tracks, transitions, 4.5, () =>
+        tracks.find((track) => track.id === 'video-1')?.clips.find((clip) => clip.id === 'clip-1') ?? null,
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.outTrackId).toBe('video-1');
+      expect(result!.inTrackId).toBe('video-2');
+      expect(result!.transitionType).toBe('dissolve');
     });
   });
 
