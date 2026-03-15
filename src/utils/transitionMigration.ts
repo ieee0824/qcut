@@ -1,4 +1,7 @@
-import type { Clip, Track, TimelineTransition } from '../store/timelineStore';
+import type { ClipTransition, Track, TimelineTransition } from '../store/timelineStore';
+
+type LegacyClip = Track['clips'][number] & { transition?: ClipTransition };
+type LegacyTrack = Omit<Track, 'clips'> & { clips: LegacyClip[] };
 
 function cloneTracks(tracks: Track[]): Track[] {
   return tracks.map((track) => ({
@@ -11,14 +14,14 @@ function createTransitionId(outClipId: string, inClipId: string): string {
   return `transition-${outClipId}-${inClipId}`;
 }
 
-function sortClipsByStartTime(clips: Clip[]): Clip[] {
+function sortClipsByStartTime(clips: LegacyClip[]): LegacyClip[] {
   return [...clips].sort((a, b) => a.startTime - b.startTime);
 }
 
 export function migrateClipTransitionsToTimeline(tracks: Track[]): TimelineTransition[] {
   const transitions: TimelineTransition[] = [];
 
-  for (const track of tracks) {
+  for (const track of tracks as LegacyTrack[]) {
     const sortedClips = sortClipsByStartTime(track.clips);
 
     for (let i = 0; i < sortedClips.length; i += 1) {
@@ -47,7 +50,7 @@ export function timelineTransitionsToClipTransitions(
   transitions: TimelineTransition[],
   tracks: Track[],
 ): Track[] {
-  const clonedTracks = cloneTracks(tracks);
+  const clonedTracks = cloneTracks(tracks) as LegacyTrack[];
 
   for (const transition of transitions) {
     if (transition.outTrackId !== transition.inTrackId) {
@@ -64,10 +67,7 @@ export function timelineTransitionsToClipTransitions(
       continue;
     }
 
-    incomingClip.transition = {
-      type: transition.type,
-      duration: transition.duration,
-    };
+    incomingClip.transition = { type: transition.type, duration: transition.duration };
   }
 
   return clonedTracks;

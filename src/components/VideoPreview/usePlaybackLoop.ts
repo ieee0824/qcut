@@ -157,7 +157,7 @@ export const usePlaybackLoop = ({
         const inUrl = urls[incomingClip.filePath];
         const incomingSourceTime =
           incomingClip.sourceStartTime +
-          (currentTimeRef.current - (incomingClip.startTime - incomingClip.transition!.duration));
+          (currentTimeRef.current - (incomingClip.startTime - transition.duration));
         if (
           inUrl &&
           inUrl !== loadedTransitionVideoUrl.current &&

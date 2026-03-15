@@ -8,6 +8,7 @@ export interface TransitionInfo {
   incomingClip: ClipType;
   progress: number; // 0→1 (0=outgoing only, 1=incoming only)
   transitionType: TransitionType;
+  duration: number;
 }
 
 interface UseTransitionEffectParams {
@@ -37,24 +38,26 @@ export const useTransitionEffect = ({
 
   const findTransitionAtTime = useCallback(
     (time: number): TransitionInfo | null => {
-      const currentTracks = useTimelineStore.getState().tracks;
-      for (const track of currentTracks) {
-        if (track.type !== 'video') continue;
-        for (const clip of track.clips) {
-          if (!clip.transition) continue;
-          const overlapStart = clip.startTime - clip.transition.duration;
-          const overlapEnd = clip.startTime;
-          if (time >= overlapStart && time < overlapEnd) {
-            const outgoing = findClipAtTime(time);
-            if (!outgoing || outgoing.id === clip.id) continue;
-            const progress = (time - overlapStart) / clip.transition.duration;
-            return {
-              outgoingClip: outgoing,
-              incomingClip: clip,
-              progress,
-              transitionType: clip.transition.type,
-            };
-          }
+      const { tracks, transitions } = useTimelineStore.getState();
+      for (const transition of transitions) {
+        const incomingClip = tracks
+          .find((track) => track.id === transition.inTrackId)
+          ?.clips.find((clip) => clip.id === transition.inClipId);
+        if (!incomingClip) continue;
+
+        const overlapStart = incomingClip.startTime - transition.duration;
+        const overlapEnd = incomingClip.startTime;
+        if (time >= overlapStart && time < overlapEnd) {
+          const outgoing = findClipAtTime(time);
+          if (!outgoing || outgoing.id === incomingClip.id) continue;
+          const progress = (time - overlapStart) / transition.duration;
+          return {
+            outgoingClip: outgoing,
+            incomingClip,
+            progress,
+            transitionType: transition.type,
+            duration: transition.duration,
+          };
         }
       }
       return null;
