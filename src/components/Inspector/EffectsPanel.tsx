@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, DEFAULT_EFFECTS, DEFAULT_TONE_CURVES, DEFAULT_TIMECODE_OVERLAY } from '../../store/timelineStore';
-import type { ClipEffects, EasingType, Keyframe, ToneCurves, TimecodeOverlay } from '../../store/timelineStore';
+import type { ClipEffects, EasingType, Keyframe, ToneCurves, ToneCurveKeyframe, TimecodeOverlay } from '../../store/timelineStore';
 import { ColorWheelPanel } from './ColorWheelPanel';
 import { ColorPresetPanel } from './ColorPresetPanel';
 import { CurveEditor } from './CurveEditor';
@@ -9,6 +9,7 @@ import { EffectPresetPanel } from './EffectPresetPanel';
 import { KeyframeRow } from './KeyframeRow';
 import { TimecodePanel } from './TimecodePanel';
 import { ScopesPanel } from '../Scopes/ScopesPanel';
+import { getEditableToneCurvesAtTime, hasActiveToneCurveKeyframes } from '../../utils/toneCurveKeyframes';
 import {
   BASIC_SLIDERS,
   HSL_SLIDERS,
@@ -135,6 +136,8 @@ export const EffectsPanel: React.FC = () => {
   const addKeyframe = useTimelineStore((s) => s.addKeyframe);
   const removeKeyframe = useTimelineStore((s) => s.removeKeyframe);
   const updateKeyframeEasingStore = useTimelineStore((s) => s.updateKeyframeEasing);
+  const addToneCurveKeyframe = useTimelineStore((s) => s.addToneCurveKeyframe);
+  const removeToneCurveKeyframe = useTimelineStore((s) => s.removeToneCurveKeyframe);
   const currentTime = useTimelineStore((s) => s.currentTime);
 
   const selectedClip = useMemo(() => {
@@ -156,9 +159,26 @@ export const EffectsPanel: React.FC = () => {
     return { ...DEFAULT_TIMECODE_OVERLAY, ...selectedClip?.timecodeOverlay };
   }, [selectedClip?.timecodeOverlay]);
 
-  const toneCurves: ToneCurves = useMemo(() => {
+  const toneCurveKeyframes = useMemo(() => selectedClip?.toneCurveKeyframes ?? [], [selectedClip?.toneCurveKeyframes]);
+
+  // KF追加時と同じ丸めを適用して一致判定の基準を統一
+  const snappedClipLocalTime = Math.round(clipLocalTime * 100) / 100;
+
+  const currentTcKf = useMemo(() => {
+    return toneCurveKeyframes.find((kf) => Math.abs(kf.time - snappedClipLocalTime) <= 0.001) ?? null;
+  }, [toneCurveKeyframes, snappedClipLocalTime]);
+
+  const hasTcKfAtCurrentTime = currentTcKf !== null;
+  const hasActiveTcKfs = hasActiveToneCurveKeyframes(toneCurveKeyframes);
+
+  const baseToneCurves: ToneCurves = useMemo(() => {
     return { ...DEFAULT_TONE_CURVES, ...selectedClip?.toneCurves };
   }, [selectedClip?.toneCurves]);
+
+  // 現在時刻に見えているトーンカーブをエディタ表示に使う
+  const toneCurves: ToneCurves = useMemo(() => {
+    return getEditableToneCurvesAtTime(toneCurveKeyframes, baseToneCurves, snappedClipLocalTime);
+  }, [toneCurveKeyframes, baseToneCurves, snappedClipLocalTime]);
 
   const handleTimecodeChange = useCallback(
     (overlay: TimecodeOverlay) => {
@@ -170,17 +190,52 @@ export const EffectsPanel: React.FC = () => {
     [selectedTrackId, selectedClipId, updateClip],
   );
 
-  const handleCurveChange = useCallback(
-    (curves: ToneCurves) => {
-      if (!selectedTrackId || !selectedClipId) return;
-      updateClipSilent(selectedTrackId, selectedClipId, { toneCurves: curves });
-    },
-    [selectedTrackId, selectedClipId, updateClipSilent],
-  );
-
   const handleCurveCommit = useCallback(() => {
     commitHistory();
   }, [commitHistory]);
+
+  const handleCurveChange = useCallback(
+    (curves: ToneCurves) => {
+      if (!selectedTrackId || !selectedClipId) return;
+      // 現在時刻にトーンカーブKFが存在する場合はKF配列を直接更新（履歴に積まない）
+      if (currentTcKf) {
+        const updated = toneCurveKeyframes.map((kf) =>
+          Math.abs(kf.time - currentTcKf.time) <= 0.001
+            ? { ...kf, toneCurves: { ...curves } }
+            : kf,
+        );
+        updateClipSilent(selectedTrackId, selectedClipId, { toneCurveKeyframes: updated });
+      } else if (hasActiveTcKfs) {
+        const updated = [
+          ...toneCurveKeyframes,
+          {
+            time: snappedClipLocalTime,
+            toneCurves: { ...curves },
+            easing: 'linear',
+          },
+        ].sort((a, b) => a.time - b.time);
+        updateClipSilent(selectedTrackId, selectedClipId, { toneCurveKeyframes: updated });
+      } else {
+        updateClipSilent(selectedTrackId, selectedClipId, { toneCurves: curves });
+      }
+    },
+    [selectedTrackId, selectedClipId, updateClipSilent, currentTcKf, hasActiveTcKfs, toneCurveKeyframes, snappedClipLocalTime],
+  );
+
+  const handleAddToneCurveKeyframe = useCallback(() => {
+    if (!selectedTrackId || !selectedClipId) return;
+    const kf: ToneCurveKeyframe = {
+      time: snappedClipLocalTime,
+      toneCurves: { ...toneCurves },
+      easing: 'linear',
+    };
+    addToneCurveKeyframe(selectedTrackId, selectedClipId, kf);
+  }, [selectedTrackId, selectedClipId, snappedClipLocalTime, toneCurves, addToneCurveKeyframe]);
+
+  const handleRemoveToneCurveKeyframe = useCallback(() => {
+    if (!selectedTrackId || !selectedClipId) return;
+    removeToneCurveKeyframe(selectedTrackId, selectedClipId, snappedClipLocalTime);
+  }, [selectedTrackId, selectedClipId, snappedClipLocalTime, removeToneCurveKeyframe]);
 
   const handleChange = useCallback(
     (key: keyof ClipEffects, value: number) => {
@@ -240,6 +295,7 @@ export const EffectsPanel: React.FC = () => {
       effects: { ...DEFAULT_EFFECTS },
       keyframes: undefined,
       toneCurves: undefined,
+      toneCurveKeyframes: undefined,
     });
   }, [selectedTrackId, selectedClipId, updateClip]);
 
@@ -356,6 +412,27 @@ export const EffectsPanel: React.FC = () => {
 
           <CollapsibleSection id="toneCurve" title={t('effects.toneCurve')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>
             <CurveEditor toneCurves={toneCurves} onChange={handleCurveChange} onCommit={handleCurveCommit} />
+            <div style={{ display: 'flex', gap: '4px', marginTop: '6px', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', color: '#999' }}>{t('effects.keyframe')}</span>
+              {hasTcKfAtCurrentTime ? (
+                <button
+                  onClick={handleRemoveToneCurveKeyframe}
+                  style={{ fontSize: '11px', padding: '2px 6px', background: '#c9302c', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                >
+                  {t('effects.removeKeyframe')}
+                </button>
+              ) : (
+                <button
+                  onClick={handleAddToneCurveKeyframe}
+                  style={{ fontSize: '11px', padding: '2px 6px', background: '#444', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                >
+                  {t('effects.addKeyframe')}
+                </button>
+              )}
+              <span style={{ fontSize: '10px', color: '#666' }}>
+                ({toneCurveKeyframes.length} {t('effects.keyframeCount')})
+              </span>
+            </div>
           </CollapsibleSection>
 
           <CollapsibleSection id="colorWheel" title={t('effects.colorWheel')} defaultOpen={false} sections={sections} onToggle={handleToggleSection}>

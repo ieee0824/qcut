@@ -121,6 +121,13 @@ export interface Keyframe {
 
 export type ClipKeyframes = Partial<Record<keyof ClipEffects, Keyframe[]>>;
 
+/** トーンカーブ用キーフレーム（LUT ベースで補間） */
+export interface ToneCurveKeyframe {
+  time: number;         // クリップ先頭からの秒数 (0 〜 clip.duration)
+  toneCurves: ToneCurves;
+  easing: EasingType;   // このキーフレームから次への補間方式
+}
+
 // --- Text types ---
 
 export type TextAnimation = 'none' | 'fadeIn' | 'fadeOut' | 'fadeInOut' | 'slideUp' | 'slideDown';
@@ -213,6 +220,9 @@ export interface Clip {
   // トーンカーブ
   toneCurves?: ToneCurves;
 
+  // トーンカーブキーフレーム（LUT ベース補間）
+  toneCurveKeyframes?: ToneCurveKeyframe[];
+
   // テキストオーバーレイ
   textProperties?: TextProperties;
 
@@ -279,6 +289,9 @@ export interface ClipSlice {
   updateKeyframeEasing: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number, easing: EasingType) => void;
   moveKeyframes: (trackId: string, clipId: string, fromTime: number, toTime: number) => void;
   deleteKeyframesAtTime: (trackId: string, clipId: string, time: number) => void;
+  addToneCurveKeyframe: (trackId: string, clipId: string, keyframe: ToneCurveKeyframe) => void;
+  removeToneCurveKeyframe: (trackId: string, clipId: string, time: number) => void;
+  updateToneCurveKeyframeEasing: (trackId: string, clipId: string, time: number, easing: EasingType) => void;
 }
 
 export interface HistorySlice {

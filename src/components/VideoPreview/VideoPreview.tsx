@@ -176,6 +176,16 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     setIsVideoReady(video.readyState >= 2 && video.currentSrc === currentVideoUrl);
   }, [activeVideoRef, currentVideoUrl, videoRef]);
 
+  // 停止中にタイムライン上で時刻を変更した場合も canvas preview を再描画する
+  useEffect(() => {
+    return useTimelineStore.subscribe((state, prevState) => {
+      if (state.currentTime === prevState.currentTime) return;
+      currentTimeRef.current = state.currentTime;
+      if (state.isPlaying || !needsCanvas) return;
+      renderCanvasFrame();
+    });
+  }, [needsCanvas, renderCanvasFrame]);
+
   const { captureFrame } = useFrameCapture({
     videoRef: activeVideoRef,
     pipelineRef,

@@ -7,6 +7,7 @@ export type {
   EasingType,
   Keyframe,
   ClipKeyframes,
+  ToneCurveKeyframe,
   CurvePoint,
   ToneCurves,
   TextAnimation,

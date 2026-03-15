@@ -2,6 +2,8 @@
  * Clip コンポーネントおよび関連フック内で使われる純粋な計算ロジック
  */
 
+import type { ToneCurveKeyframe } from '../../store/timelineStore';
+
 // --- Snap types ---
 
 export interface SnapResult {
@@ -49,6 +51,18 @@ export function calculateContextMenuTime(
 ): number {
   const relTime = relativeX / pixelsPerSecond;
   return clipStartTime + Math.max(0, Math.min(relTime, clipDuration));
+}
+
+/**
+ * トーンカーブキーフレーム時刻を昇順に返す。
+ */
+export function collectToneCurveMarkerTimes(
+  toneCurveKeyframes?: ToneCurveKeyframe[],
+): number[] {
+  if (!toneCurveKeyframes || toneCurveKeyframes.length === 0) return [];
+  return toneCurveKeyframes
+    .map((kf) => kf.time)
+    .sort((a, b) => a - b);
 }
 
 // --- Snap functions ---

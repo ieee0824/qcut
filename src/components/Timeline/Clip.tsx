@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { WaveformCanvas } from './WaveformCanvas';
 import { useDragClip } from './useDragClip';
 import { ClipContextMenu } from './ClipContextMenu';
-import { calculateClipPosition, calculateContextMenuTime } from './clipUtils';
+import { calculateClipPosition, calculateContextMenuTime, collectToneCurveMarkerTimes } from './clipUtils';
 
 interface ClipProps {
   clip: ClipType;
@@ -52,6 +52,11 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     }
     return Array.from(times).sort((a, b) => a - b);
   }, [clip.keyframes]);
+
+  const toneCurveMarkerTimes = useMemo(
+    () => collectToneCurveMarkerTimes(clip.toneCurveKeyframes),
+    [clip.toneCurveKeyframes],
+  );
 
   const kfDragRef = useRef<KfDragState | null>(null);
   const [kfDragPreview, setKfDragPreview] = useState<{ original: number; current: number } | null>(null);
@@ -111,13 +116,25 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
     e.preventDefault();
     useTimelineStore.getState().deleteKeyframesAtTime(trackId, clip.id, time);
   };
+
+  const handleToneCurveMarkerClick = (e: React.MouseEvent, time: number) => {
+    e.stopPropagation();
+    const absoluteTime = clip.startTime + time;
+    useTimelineStore.getState().setSelectedClip(trackId, clip.id);
+    useTimelineStore.getState().setCurrentTime(absoluteTime);
+    useVideoPreviewStore.getState().setCurrentTime(absoluteTime);
+  };
   // --- end keyframe markers ---
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (e.button === 0) {
       // 削除ボタン・キーフレームマーカーはドラッグ対象外
-      if (target.classList.contains('clip-delete') || target.classList.contains('clip-keyframe-marker')) {
+      if (
+        target.classList.contains('clip-delete')
+        || target.classList.contains('clip-keyframe-marker')
+        || target.classList.contains('clip-tonecurve-marker')
+      ) {
         setSelectedClip(trackId, clip.id);
         return;
       }
@@ -205,6 +222,17 @@ function Clip({ clip, trackId, trackType }: ClipProps) {
             />
           );
         })}
+
+        {toneCurveMarkerTimes.map(time => (
+          <button
+            key={`tonecurve-${time}`}
+            type="button"
+            className="clip-tonecurve-marker"
+            style={{ left: `${time * pixelsPerSecond}px` }}
+            onClick={(e) => handleToneCurveMarkerClick(e, time)}
+            title={`Tone Curve ${time.toFixed(2)}s`}
+          />
+        ))}
       </div>
 
       {showContextMenu && (
