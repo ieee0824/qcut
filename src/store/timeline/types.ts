@@ -199,6 +199,16 @@ export interface ClipTransition {
   duration: number; // オーバーラップ秒数（前クリップの末尾と当クリップの先頭が重なる）
 }
 
+export interface TimelineTransition {
+  id: string;
+  type: TransitionType;
+  duration: number;
+  outTrackId: string;
+  outClipId: string;
+  inTrackId: string;
+  inClipId: string;
+}
+
 export interface Clip {
   id: string;
   name: string;
@@ -274,6 +284,14 @@ export interface TrackSlice {
   toggleSolo: (trackId: string) => void;
 }
 
+export interface TransitionSlice {
+  transitions: TimelineTransition[];
+  addTransition: (transition: TimelineTransition) => void;
+  removeTransitionById: (transitionId: string) => void;
+  updateTransition: (transitionId: string, updates: Partial<Omit<TimelineTransition, 'id'>>) => void;
+  findTransitionByClipId: (clipId: string) => TimelineTransition | undefined;
+}
+
 export interface ClipSlice {
   addClip: (trackId: string, clip: Clip) => void;
   removeClip: (trackId: string, clipId: string) => void;
@@ -294,8 +312,13 @@ export interface ClipSlice {
   updateToneCurveKeyframeEasing: (trackId: string, clipId: string, time: number, easing: EasingType) => void;
 }
 
+export interface TimelineHistoryEntry {
+  tracks: Track[];
+  transitions: TimelineTransition[];
+}
+
 export interface HistorySlice {
-  _history: Track[][];
+  _history: TimelineHistoryEntry[];
   _historyIndex: number;
   undo: () => void;
   redo: () => void;
@@ -310,4 +333,4 @@ export interface ClipboardSlice {
   pasteClip: () => void;
 }
 
-export type TimelineState = PlaybackSlice & TrackSlice & ClipSlice & HistorySlice & ClipboardSlice;
+export type TimelineState = PlaybackSlice & TrackSlice & TransitionSlice & ClipSlice & HistorySlice & ClipboardSlice;

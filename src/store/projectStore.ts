@@ -152,11 +152,12 @@ function applyProjectToStores(project: ProjectFile): void {
       ...track,
       clips: track.clips.map((clip) => ({ ...clip })),
     })),
+    transitions: [],
     selectedClipId: null,
     selectedTrackId: null,
     currentTime: 0,
     isPlaying: false,
-    _history: [project.timeline.tracks],
+    _history: [{ tracks: project.timeline.tracks, transitions: [] }],
     _historyIndex: 0,
   });
 

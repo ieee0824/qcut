@@ -5,12 +5,13 @@ describe('undo/redo', () => {
   beforeEach(() => {
     useTimelineStore.setState({
       tracks: [],
+      transitions: [],
       selectedClipId: null,
       selectedTrackId: null,
       currentTime: 0,
       isPlaying: false,
       pixelsPerSecond: 50,
-      _history: [[]],
+      _history: [{ tracks: [], transitions: [] }],
       _historyIndex: 0,
       _clipboard: null,
     });
@@ -120,12 +121,13 @@ describe('copy/paste', () => {
   beforeEach(() => {
     useTimelineStore.setState({
       tracks: [],
+      transitions: [],
       selectedClipId: null,
       selectedTrackId: null,
       currentTime: 0,
       isPlaying: false,
       pixelsPerSecond: 50,
-      _history: [[]],
+      _history: [{ tracks: [], transitions: [] }],
       _historyIndex: 0,
       _clipboard: null,
     });

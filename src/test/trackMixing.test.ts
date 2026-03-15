@@ -5,9 +5,10 @@ describe('Track Mixing (volume / mute / solo)', () => {
   beforeEach(() => {
     useTimelineStore.setState({
       tracks: [],
+      transitions: [],
       selectedClipId: null,
       selectedTrackId: null,
-      _history: [[]],
+      _history: [{ tracks: [], transitions: [] }],
       _historyIndex: 0,
     });
   });
