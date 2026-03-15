@@ -275,39 +275,29 @@ export const useVideoSwitching = ({
     const clipId = currentClip?.id ?? null;
     const needsInitialFrameNudge = Math.abs(targetSourceTime) < 0.001;
     let nudgedAwayFromStart = false;
-    video.src = currentVideoUrl;
-    video.load();
 
-    video.addEventListener(
-      'loadedmetadata',
-      () => {
-        if (!videoRef.current) return;
-        if (needsInitialFrameNudge && videoRef.current.duration > 0.001) {
-          videoRef.current.currentTime = Math.min(videoRef.current.duration, 0.001);
-          nudgedAwayFromStart = true;
-        } else if (Math.abs(videoRef.current.currentTime - targetSourceTime) > 0.001) {
-          videoRef.current.currentTime = targetSourceTime;
-        }
-        setDuration(videoRef.current.duration);
-      },
-      { once: true },
-    );
+    const handleLoadedMetadata = () => {
+      if (!videoRef.current) return;
+      if (needsInitialFrameNudge && videoRef.current.duration > 0.001) {
+        videoRef.current.currentTime = Math.min(videoRef.current.duration, 0.001);
+        nudgedAwayFromStart = true;
+      } else if (Math.abs(videoRef.current.currentTime - targetSourceTime) > 0.001) {
+        videoRef.current.currentTime = targetSourceTime;
+      }
+      setDuration(videoRef.current.duration);
+    };
 
-    video.addEventListener(
-      'loadeddata',
-      () => {
-        if (!videoRef.current) return;
-        if (videoRef.current.seeking) return;
-        if (Math.abs(videoRef.current.currentTime - targetSourceTime) > 0.001) {
-          videoRef.current.currentTime = targetSourceTime;
-          return;
-        }
-        if (clipId) {
-          captureVideoFrame(videoRef.current, clipId);
-        }
-      },
-      { once: true },
-    );
+    const handleLoadedData = () => {
+      if (!videoRef.current) return;
+      if (videoRef.current.seeking) return;
+      if (Math.abs(videoRef.current.currentTime - targetSourceTime) > 0.001) {
+        videoRef.current.currentTime = targetSourceTime;
+        return;
+      }
+      if (clipId) {
+        captureVideoFrame(videoRef.current, clipId);
+      }
+    };
 
     const handleSeeked = () => {
       if (!videoRef.current) return;
@@ -323,7 +313,18 @@ export const useVideoSwitching = ({
       }
       videoRef.current.removeEventListener('seeked', handleSeeked);
     };
+
+    video.src = currentVideoUrl;
+    video.load();
+    video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+    video.addEventListener('loadeddata', handleLoadedData, { once: true });
     video.addEventListener('seeked', handleSeeked);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('seeked', handleSeeked);
+    };
   }, [videoRef, currentClip?.id, currentTimeRef, currentVideoUrl, timelineTimeToSourceTime, setDuration, captureVideoFrame]);
 
   return {

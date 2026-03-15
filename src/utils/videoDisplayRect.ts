@@ -8,6 +8,10 @@ export interface Rect2D extends Size2D {
   top: number;
 }
 
+function normalizeFiniteNonNegative(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
 export function calculateContainedRect(container: Size2D, media: Size2D): Rect2D {
   if (
     !Number.isFinite(container.width)
@@ -19,7 +23,12 @@ export function calculateContainedRect(container: Size2D, media: Size2D): Rect2D
     || media.width <= 0
     || media.height <= 0
   ) {
-    return { left: 0, top: 0, width: container.width || 0, height: container.height || 0 };
+    return {
+      left: 0,
+      top: 0,
+      width: normalizeFiniteNonNegative(container.width),
+      height: normalizeFiniteNonNegative(container.height),
+    };
   }
 
   const containerAspect = container.width / container.height;

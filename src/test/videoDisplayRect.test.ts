@@ -34,4 +34,13 @@ describe('calculateContainedRect', () => {
 
     expect(rect).toEqual({ left: 0, top: 0, width: 1280, height: 720 });
   });
+
+  it('clamps invalid container dimensions to zero in the fallback path', () => {
+    expect(
+      calculateContainedRect(
+        { width: Number.POSITIVE_INFINITY, height: -10 },
+        { width: 1920, height: 1080 },
+      ),
+    ).toEqual({ left: 0, top: 0, width: 0, height: 0 });
+  });
 });
