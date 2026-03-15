@@ -160,9 +160,12 @@ export const EffectsPanel: React.FC = () => {
 
   const toneCurveKeyframes = useMemo(() => selectedClip?.toneCurveKeyframes ?? [], [selectedClip?.toneCurveKeyframes]);
 
+  // KF追加時と同じ丸めを適用して一致判定の基準を統一
+  const snappedClipLocalTime = Math.round(clipLocalTime * 100) / 100;
+
   const currentTcKf = useMemo(() => {
-    return toneCurveKeyframes.find((kf) => Math.abs(kf.time - clipLocalTime) <= 0.001) ?? null;
-  }, [toneCurveKeyframes, clipLocalTime]);
+    return toneCurveKeyframes.find((kf) => Math.abs(kf.time - snappedClipLocalTime) <= 0.001) ?? null;
+  }, [toneCurveKeyframes, snappedClipLocalTime]);
 
   const hasTcKfAtCurrentTime = currentTcKf !== null;
 
@@ -189,34 +192,35 @@ export const EffectsPanel: React.FC = () => {
   const handleCurveChange = useCallback(
     (curves: ToneCurves) => {
       if (!selectedTrackId || !selectedClipId) return;
-      // 現在時刻にトーンカーブKFが存在する場合はKF側を更新
+      // 現在時刻にトーンカーブKFが存在する場合はKF配列を直接更新（履歴に積まない）
       if (currentTcKf) {
-        addToneCurveKeyframe(selectedTrackId, selectedClipId, {
-          time: currentTcKf.time,
-          toneCurves: { ...curves },
-          easing: currentTcKf.easing,
-        });
+        const updated = toneCurveKeyframes.map((kf) =>
+          Math.abs(kf.time - currentTcKf.time) <= 0.001
+            ? { ...kf, toneCurves: { ...curves } }
+            : kf,
+        );
+        updateClipSilent(selectedTrackId, selectedClipId, { toneCurveKeyframes: updated });
       } else {
         updateClipSilent(selectedTrackId, selectedClipId, { toneCurves: curves });
       }
     },
-    [selectedTrackId, selectedClipId, updateClipSilent, currentTcKf, addToneCurveKeyframe],
+    [selectedTrackId, selectedClipId, updateClipSilent, currentTcKf, toneCurveKeyframes],
   );
 
   const handleAddToneCurveKeyframe = useCallback(() => {
     if (!selectedTrackId || !selectedClipId) return;
     const kf: ToneCurveKeyframe = {
-      time: Math.round(clipLocalTime * 100) / 100,
+      time: snappedClipLocalTime,
       toneCurves: { ...toneCurves },
       easing: 'linear',
     };
     addToneCurveKeyframe(selectedTrackId, selectedClipId, kf);
-  }, [selectedTrackId, selectedClipId, clipLocalTime, toneCurves, addToneCurveKeyframe]);
+  }, [selectedTrackId, selectedClipId, snappedClipLocalTime, toneCurves, addToneCurveKeyframe]);
 
   const handleRemoveToneCurveKeyframe = useCallback(() => {
     if (!selectedTrackId || !selectedClipId) return;
-    removeToneCurveKeyframe(selectedTrackId, selectedClipId, clipLocalTime);
-  }, [selectedTrackId, selectedClipId, clipLocalTime, removeToneCurveKeyframe]);
+    removeToneCurveKeyframe(selectedTrackId, selectedClipId, snappedClipLocalTime);
+  }, [selectedTrackId, selectedClipId, snappedClipLocalTime, removeToneCurveKeyframe]);
 
   const handleChange = useCallback(
     (key: keyof ClipEffects, value: number) => {

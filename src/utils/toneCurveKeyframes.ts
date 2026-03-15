@@ -1,5 +1,33 @@
-import type { ToneCurves, ToneCurveKeyframe, EasingType } from '../store/timeline/types';
+import type { ToneCurves, ToneCurveKeyframe, CurvePoint, EasingType } from '../store/timeline/types';
 import { buildCurveLUT } from './curveSpline';
+
+/** ToneCurves → LUT キャッシュ（同じ制御点配列参照なら再計算しない） */
+interface CachedChannelLUTs {
+  rgbLUT: Float32Array;
+  rLUT: Float32Array;
+  gLUT: Float32Array;
+  bLUT: Float32Array;
+}
+
+const _lutCache = new WeakMap<CurvePoint[], Float32Array>();
+
+function getCachedLUT(points: CurvePoint[]): Float32Array {
+  let lut = _lutCache.get(points);
+  if (!lut) {
+    lut = buildCurveLUT(points);
+    _lutCache.set(points, lut);
+  }
+  return lut;
+}
+
+function buildCachedChannelLUTs(tc: ToneCurves): CachedChannelLUTs {
+  return {
+    rgbLUT: getCachedLUT(tc.rgb),
+    rLUT: getCachedLUT(tc.r),
+    gLUT: getCachedLUT(tc.g),
+    bLUT: getCachedLUT(tc.b),
+  };
+}
 
 /** 補間結果: 各チャンネルの LUT を直接保持 */
 export interface InterpolatedToneCurves {
@@ -55,25 +83,13 @@ export function getToneCurvesAtTime(
   // 範囲外: 最初のキーフレーム以前
   if (time <= keyframes[0].time) {
     const tc = keyframes[0].toneCurves;
-    return {
-      ...tc,
-      rgbLUT: buildCurveLUT(tc.rgb),
-      rLUT: buildCurveLUT(tc.r),
-      gLUT: buildCurveLUT(tc.g),
-      bLUT: buildCurveLUT(tc.b),
-    };
+    return { ...tc, ...buildCachedChannelLUTs(tc) };
   }
 
   // 範囲外: 最後のキーフレーム以降
   if (time >= keyframes[keyframes.length - 1].time) {
     const tc = keyframes[keyframes.length - 1].toneCurves;
-    return {
-      ...tc,
-      rgbLUT: buildCurveLUT(tc.rgb),
-      rLUT: buildCurveLUT(tc.r),
-      gLUT: buildCurveLUT(tc.g),
-      bLUT: buildCurveLUT(tc.b),
-    };
+    return { ...tc, ...buildCachedChannelLUTs(tc) };
   }
 
   // 区間を特定
@@ -90,33 +106,27 @@ export function getToneCurvesAtTime(
   const range = next.time - prev.time;
   if (range === 0) {
     const tc = prev.toneCurves;
-    return {
-      ...tc,
-      rgbLUT: buildCurveLUT(tc.rgb),
-      rLUT: buildCurveLUT(tc.r),
-      gLUT: buildCurveLUT(tc.g),
-      bLUT: buildCurveLUT(tc.b),
-    };
+    return { ...tc, ...buildCachedChannelLUTs(tc) };
   }
 
   const rawT = (time - prev.time) / range;
   const t = applyEasing(rawT, prev.easing);
 
-  // 各チャンネルの LUT を生成して補間
-  const prevTC = prev.toneCurves;
-  const nextTC = next.toneCurves;
+  // キャッシュ済み LUT を取得して補間
+  const prevLUTs = buildCachedChannelLUTs(prev.toneCurves);
+  const nextLUTs = buildCachedChannelLUTs(next.toneCurves);
 
-  const rgbLUT = interpolateToneCurveLUTs(buildCurveLUT(prevTC.rgb), buildCurveLUT(nextTC.rgb), t);
-  const rLUT = interpolateToneCurveLUTs(buildCurveLUT(prevTC.r), buildCurveLUT(nextTC.r), t);
-  const gLUT = interpolateToneCurveLUTs(buildCurveLUT(prevTC.g), buildCurveLUT(nextTC.g), t);
-  const bLUT = interpolateToneCurveLUTs(buildCurveLUT(prevTC.b), buildCurveLUT(nextTC.b), t);
+  const rgbLUT = interpolateToneCurveLUTs(prevLUTs.rgbLUT, nextLUTs.rgbLUT, t);
+  const rLUT = interpolateToneCurveLUTs(prevLUTs.rLUT, nextLUTs.rLUT, t);
+  const gLUT = interpolateToneCurveLUTs(prevLUTs.gLUT, nextLUTs.gLUT, t);
+  const bLUT = interpolateToneCurveLUTs(prevLUTs.bLUT, nextLUTs.bLUT, t);
 
   // 補間結果の制御点は prev のものを保持（UI 表示用）
   return {
-    rgb: prevTC.rgb,
-    r: prevTC.r,
-    g: prevTC.g,
-    b: prevTC.b,
+    rgb: prev.toneCurves.rgb,
+    r: prev.toneCurves.r,
+    g: prev.toneCurves.g,
+    b: prev.toneCurves.b,
     rgbLUT,
     rLUT,
     gLUT,

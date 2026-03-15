@@ -438,15 +438,16 @@ export function renderFrame(
 let _cachedToneCurves: ToneCurves | null = null;
 let _cachedLUTData: Uint8Array | null = null;
 
+const _precomputedLUTBuffer = new Uint8Array(256 * 4);
+
 function buildLUTTextureFromFloat32(luts: PrecomputedLUTs): Uint8Array {
-  const data = new Uint8Array(256 * 4);
   for (let i = 0; i < 256; i++) {
-    data[i * 4 + 0] = Math.round(luts.rLUT[i] * 255);
-    data[i * 4 + 1] = Math.round(luts.gLUT[i] * 255);
-    data[i * 4 + 2] = Math.round(luts.bLUT[i] * 255);
-    data[i * 4 + 3] = Math.round(luts.rgbLUT[i] * 255);
+    _precomputedLUTBuffer[i * 4 + 0] = Math.round(luts.rLUT[i] * 255);
+    _precomputedLUTBuffer[i * 4 + 1] = Math.round(luts.gLUT[i] * 255);
+    _precomputedLUTBuffer[i * 4 + 2] = Math.round(luts.bLUT[i] * 255);
+    _precomputedLUTBuffer[i * 4 + 3] = Math.round(luts.rgbLUT[i] * 255);
   }
-  return data;
+  return _precomputedLUTBuffer;
 }
 
 function buildCurveLUTTexture(toneCurves: ToneCurves): Uint8Array {
