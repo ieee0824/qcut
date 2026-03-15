@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useTimelineStore } from '../store/timelineStore';
 
 /**
- * トランジション付きクリップのエクスポートデータ構築テスト
- * Rust 側の ExportClip に transition フィールドが正しく含まれることを確認
+ * TimelineTransition のエクスポートデータ構築テスト
+ * Rust 側の ExportSettings.transitions に正しく含まれることを確認
  */
 
 describe('transition export data', () => {
