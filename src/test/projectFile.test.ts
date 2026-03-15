@@ -76,6 +76,7 @@ describe('ProjectFile schema', () => {
           ],
         },
       ],
+      transitions: [],
     },
     exportSettings: {
       format: 'mp4',
@@ -86,15 +87,16 @@ describe('ProjectFile schema', () => {
     },
   };
 
-  it('CURRENT_SCHEMA_VERSION が 2 である', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(2);
+  it('CURRENT_SCHEMA_VERSION が 3 である', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(3);
   });
 
   it('有効なプロジェクトファイルが型に適合する', () => {
-    expect(validProject.schemaVersion).toBe(2);
+    expect(validProject.schemaVersion).toBe(3);
     expect(validProject.appVersion).toBe('0.1.0');
     expect(validProject.metadata.name).toBe('テストプロジェクト');
     expect(validProject.timeline.tracks).toHaveLength(3);
+    expect(validProject.timeline.transitions).toEqual([]);
   });
 
   it('タイムラインのトラック型が正しい', () => {
