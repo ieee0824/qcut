@@ -236,9 +236,6 @@ export interface Clip {
   // テキストオーバーレイ
   textProperties?: TextProperties;
 
-  // トランジション（前のクリップとの境界に適用）
-  transition?: ClipTransition;
-
   // タイムコードオーバーレイ
   timecodeOverlay?: TimecodeOverlay;
 }
@@ -302,8 +299,6 @@ export interface ClipSlice {
   updateClipSilent: (trackId: string, clipId: string, updates: Partial<Clip>) => void;
   splitClipAtTime: (trackId: string, clipId: string, splitTime: number) => void;
   deleteSelectedClip: () => void;
-  setTransition: (trackId: string, clipId: string, transition: ClipTransition) => void;
-  removeTransition: (trackId: string, clipId: string) => void;
   moveClipToTrack: (fromTrackId: string, clipId: string, toTrackId: string) => void;
   addKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, keyframe: Keyframe) => void;
   removeKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number) => void;

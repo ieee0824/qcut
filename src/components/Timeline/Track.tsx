@@ -32,6 +32,9 @@ interface TrackProps {
 
 function Track({ track }: TrackProps) {
   const pixelsPerSecond = useTimelineStore((s) => s.pixelsPerSecond);
+  const transitions = useTimelineStore((s) =>
+    s.transitions.filter((transition) => transition.inTrackId === track.id && transition.outTrackId === track.id),
+  );
   const overlaps = useMemo(() => computeOverlaps(track.clips), [track.clips]);
 
   return (
@@ -50,17 +53,18 @@ function Track({ track }: TrackProps) {
             }}
           />
         ))}
-        {track.clips
-          .filter(clip => clip.transition)
-          .map(clip => (
+        {transitions
+          .map((transition) => {
+            const incomingClip = track.clips.find((clip) => clip.id === transition.inClipId);
+            if (!incomingClip) return null;
+            return (
             <TransitionIndicator
-              key={`transition-${clip.id}`}
-              transition={clip.transition!}
-              clipId={clip.id}
-              trackId={track.id}
-              clipStartTime={clip.startTime}
+              key={`transition-${transition.id}`}
+              transition={transition}
+              clipStartTime={incomingClip.startTime}
             />
-          ))}
+            );
+          })}
       </div>
     </div>
   );

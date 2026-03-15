@@ -251,10 +251,10 @@ describe('projectStore', () => {
   });
 
   it('loadProjectFromPath で v2 プロジェクトを読み込むと transitions が生成される', async () => {
-    vi.mocked(invoke).mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+    vi.mocked(invoke).mockImplementation(async (cmd: string, args?: unknown) => {
       if (cmd === 'read_project') return JSON.stringify(validProjectJsonV2);
       if (cmd === 'get_file_info') {
-        const path = args?.path as string;
+        const path = (args as { path: string } | undefined)?.path as string;
         return { name: path.split('/').pop(), path, size: 1000, last_modified: 0 };
       }
       return undefined;
@@ -514,6 +514,7 @@ describe('projectStore', () => {
             filePath: 'assets/sample.mp4',
           }],
         }],
+        transitions: [],
       },
     };
 
@@ -679,7 +680,7 @@ describe('projectStore', () => {
       { name: 'Project1', path: '/tmp/project1.qcut', lastOpened: 1000 },
       { name: 'Project2', path: '/tmp/project2.qcut', lastOpened: 2000 },
     ];
-    vi.mocked(invoke).mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+    vi.mocked(invoke).mockImplementation(async (cmd: string, args?: unknown) => {
       if (cmd === 'read_recent_projects') return JSON.stringify(recentData);
       if (cmd === 'get_file_info') {
         if ((args as { path: string }).path === '/tmp/project2.qcut') throw new Error('not found');
@@ -811,6 +812,7 @@ describe('projectStore', () => {
         solo: false,
         clips: [clipWithAllProperties],
       }],
+      transitions: [],
     },
   };
 
