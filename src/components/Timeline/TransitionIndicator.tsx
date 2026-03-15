@@ -42,18 +42,20 @@ function TransitionIndicator({ transition, incomingClip }: TransitionIndicatorPr
     removeTransitionById(transition.id);
     setShowContextMenu(false);
   };
+  const isCrossTrack = transition.outTrackId !== transition.inTrackId;
 
   return (
     <>
       <div
         ref={indicatorRef}
-        className="transition-indicator"
+        className={`transition-indicator${isCrossTrack ? ' transition-indicator-cross-track' : ''}`}
+        data-cross-track={isCrossTrack ? 'true' : 'false'}
         style={{ left: `${left}px`, width: `${width}px` }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         title={t(TRANSITION_I18N_KEYS[transition.type])}
       >
-        <span className="transition-icon">◆</span>
+        <span className="transition-icon">{isCrossTrack ? '↕' : '◆'}</span>
         <span className="transition-label">
           {t(TRANSITION_I18N_KEYS[transition.type])}
         </span>

@@ -1,8 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, Clip as ClipType, DEFAULT_EFFECTS, type TimelineTransition, type TransitionType } from '../../store/timelineStore';
 import { TransitionSubmenu } from './TransitionSubmenu';
+import { CrossTrackTransitionSubmenu } from './CrossTrackTransitionSubmenu';
 import { clampMenuPosition } from './clipUtils';
+import { listCrossTrackTransitionCandidates, type CrossTrackTransitionCandidate } from './crossTrackTransitionUtils';
 
 interface ClipContextMenuProps {
   clip: ClipType;
@@ -27,12 +29,18 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
   const [menuPos, setMenuPos] = useState(position);
   const [visible, setVisible] = useState(false);
   const [showTransitionSubmenu, setShowTransitionSubmenu] = useState(false);
+  const [showCrossTrackSubmenu, setShowCrossTrackSubmenu] = useState(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const tracks = useTimelineStore((state) => state.tracks);
 
   const incomingTransition = useTimelineStore((state) =>
     state.transitions.find((transition) => transition.inClipId === clip.id && transition.inTrackId === trackId),
   );
   const hasTransition = !!incomingTransition;
+  const crossTrackCandidates = useMemo(
+    () => listCrossTrackTransitionCandidates(tracks, trackId, clip.id),
+    [tracks, trackId, clip.id],
+  );
 
   const findPreviousClip = (): ClipType | null => {
     const track = useTimelineStore.getState().tracks.find((candidate) => candidate.id === trackId);
@@ -117,6 +125,21 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
     onClose();
   };
 
+  const handleSelectCrossTrackCandidate = (candidate: CrossTrackTransitionCandidate) => {
+    const transition: TimelineTransition = {
+      id: `transition-${candidate.trackId}-${candidate.clipId}-${trackId}-${clip.id}`,
+      type: 'crossfade',
+      duration: 1.0,
+      outTrackId: candidate.trackId,
+      outClipId: candidate.clipId,
+      inTrackId: trackId,
+      inClipId: clip.id,
+    };
+
+    addTransition(transition);
+    onClose();
+  };
+
   // コンテキストメニューが画面外にはみ出る場合、位置を自動補正
   useEffect(() => {
     if (!contextMenuRef.current) return;
@@ -175,6 +198,39 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
             🔄 {t('transition.add')} ▸
             {showTransitionSubmenu && (
               <TransitionSubmenu onSelectTransition={handleSelectTransition} />
+            )}
+          </div>
+        )}
+        {!hasTransition && trackType === 'video' && (
+          <div
+            className="context-menu-item context-menu-submenu-trigger"
+            role="menuitem"
+            aria-haspopup="menu"
+            aria-expanded={showCrossTrackSubmenu}
+            tabIndex={0}
+            onMouseEnter={() => setShowCrossTrackSubmenu(true)}
+            onMouseLeave={() => setShowCrossTrackSubmenu(false)}
+            onFocus={() => setShowCrossTrackSubmenu(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setShowCrossTrackSubmenu(false);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                setShowCrossTrackSubmenu(true);
+              } else if (e.key === 'Escape' || e.key === 'ArrowLeft') {
+                setShowCrossTrackSubmenu(false);
+              }
+            }}
+          >
+            🔀 他のトラックのクリップと... ▸
+            {showCrossTrackSubmenu && (
+              <CrossTrackTransitionSubmenu
+                candidates={crossTrackCandidates}
+                onSelectCandidate={handleSelectCrossTrackCandidate}
+              />
             )}
           </div>
         )}

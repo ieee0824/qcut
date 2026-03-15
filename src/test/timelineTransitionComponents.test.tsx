@@ -48,6 +48,26 @@ describe('TimelineTransition UI components', () => {
       sourceStartTime: 0,
       sourceEndTime: 5,
     });
+    addTrack({ id: 'video-2', type: 'video', name: 'Video 2', clips: [] });
+    addClip('video-2', {
+      id: 'clip-a',
+      name: 'Clip A',
+      startTime: 2,
+      duration: 3,
+      filePath: 'c.mp4',
+      sourceStartTime: 0,
+      sourceEndTime: 3,
+    });
+    addTrack({ id: 'audio-1', type: 'audio', name: 'Audio 1', clips: [] });
+    addClip('audio-1', {
+      id: 'clip-audio',
+      name: 'Clip Audio',
+      startTime: 0,
+      duration: 5,
+      filePath: 'x.wav',
+      sourceStartTime: 0,
+      sourceEndTime: 5,
+    });
   });
 
   it('computeIndicatorLayout は TimelineTransition とクリップ情報から位置を計算する', () => {
@@ -135,7 +155,7 @@ describe('TimelineTransition UI components', () => {
   });
 
   it('ClipContextMenu から追加すると addTransition が反映される', () => {
-    const clip = useTimelineStore.getState().tracks[0].clips.find((candidate) => candidate.id === 'clip-2');
+    const clip = useTimelineStore.getState().tracks.find((track) => track.id === 'video-1')!.clips.find((candidate) => candidate.id === 'clip-2');
     render(
       <ClipContextMenu
         clip={clip!}
@@ -171,7 +191,7 @@ describe('TimelineTransition UI components', () => {
       loaded: true,
     });
 
-    const clip = useTimelineStore.getState().tracks[0].clips.find((candidate) => candidate.id === 'clip-2');
+    const clip = useTimelineStore.getState().tracks.find((track) => track.id === 'video-1')!.clips.find((candidate) => candidate.id === 'clip-2');
     render(
       <ClipContextMenu
         clip={clip!}
@@ -204,7 +224,7 @@ describe('TimelineTransition UI components', () => {
       inClipId: 'clip-2',
     });
 
-    const clip = useTimelineStore.getState().tracks[0].clips.find((candidate) => candidate.id === 'clip-2');
+    const clip = useTimelineStore.getState().tracks.find((track) => track.id === 'video-1')!.clips.find((candidate) => candidate.id === 'clip-2');
     render(
       <ClipContextMenu
         clip={clip!}
@@ -277,5 +297,66 @@ describe('TimelineTransition UI components', () => {
       type: 'wipe-up',
       duration: 2.3,
     });
+  });
+
+  it('ClipContextMenu からクロストラック候補を選ぶとストアに反映される', () => {
+    const clip = useTimelineStore.getState().tracks.find((track) => track.id === 'video-1')!.clips.find((candidate) => candidate.id === 'clip-2');
+    render(
+      <ClipContextMenu
+        clip={clip!}
+        trackId="video-1"
+        trackType="video"
+        position={{ x: 100, y: 100 }}
+        onClose={() => {}}
+      />,
+    );
+
+    fireEvent.mouseEnter(screen.getByText(/他のトラックのクリップと/));
+    fireEvent.click(screen.getByRole('button', { name: 'Video 2 / Clip A' }));
+
+    expect(useTimelineStore.getState().transitions[0]).toMatchObject({
+      id: 'transition-video-2-clip-a-video-1-clip-2',
+      type: 'crossfade',
+      duration: 1,
+      outTrackId: 'video-2',
+      outClipId: 'clip-a',
+      inTrackId: 'video-1',
+      inClipId: 'clip-2',
+    });
+  });
+
+  it('Track はクロストラック transition を incoming track 側に表示する', () => {
+    useTimelineStore.getState().addTransition({
+      id: 'transition-cross-track',
+      type: 'crossfade',
+      duration: 1,
+      outTrackId: 'video-2',
+      outClipId: 'clip-a',
+      inTrackId: 'video-1',
+      inClipId: 'clip-2',
+    });
+
+    const track = useTimelineStore.getState().tracks.find((candidate) => candidate.id === 'video-1');
+    render(<Track track={track!} />);
+
+    const indicator = document.querySelector('.transition-indicator') as HTMLElement;
+    expect(indicator.dataset.crossTrack).toBe('true');
+    expect(indicator.className).toContain('transition-indicator-cross-track');
+    expect(indicator.style.left).toBe('225px');
+  });
+
+  it('audio トラックではクロストラック追加 UI を表示しない', () => {
+    const clip = useTimelineStore.getState().tracks.find((track) => track.id === 'audio-1')!.clips[0];
+    render(
+      <ClipContextMenu
+        clip={clip}
+        trackId="audio-1"
+        trackType="audio"
+        position={{ x: 100, y: 100 }}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.queryByText(/他のトラックのクリップと/)).not.toBeInTheDocument();
   });
 });
