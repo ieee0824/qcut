@@ -315,6 +315,7 @@ describe('TimelineTransition UI components', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Video 2 / Clip A' }));
 
     expect(useTimelineStore.getState().transitions[0]).toMatchObject({
+      id: 'transition-video-2-clip-a-video-1-clip-2',
       type: 'crossfade',
       duration: 1,
       outTrackId: 'video-2',

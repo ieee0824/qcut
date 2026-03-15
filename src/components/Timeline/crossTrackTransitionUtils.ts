@@ -16,7 +16,7 @@ function clipEndTime(clip: Pick<Clip, 'startTime' | 'duration'>): number {
 }
 
 export function canCreateCrossTrackTransition(
-  baseTrack: Pick<Track, 'type'>,
+  baseTrack: Pick<Track, 'id' | 'type'>,
   baseClip: Pick<Clip, 'id' | 'startTime' | 'duration'>,
   candidateTrack: Pick<Track, 'id' | 'type'>,
   candidateClip: Pick<Clip, 'id' | 'startTime' | 'duration'>,
@@ -26,7 +26,7 @@ export function canCreateCrossTrackTransition(
     return false;
   }
 
-  if (candidateTrack.id === undefined || candidateClip.id === baseClip.id) {
+  if (candidateTrack.id === baseTrack.id) {
     return false;
   }
 

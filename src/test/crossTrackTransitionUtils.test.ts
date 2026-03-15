@@ -75,4 +75,26 @@ describe('crossTrackTransitionUtils', () => {
 
     expect(allowed).toBe(false);
   });
+
+  it('同一トラック同士はクロストラック候補にしない', () => {
+    const allowed = canCreateCrossTrackTransition(
+      makeTrack({ id: 'video-1', type: 'video' }),
+      { id: 'clip-1', startTime: 5, duration: 5 },
+      makeTrack({ id: 'video-1', type: 'video' }),
+      { id: 'clip-2', startTime: 2, duration: 3 },
+    );
+
+    expect(allowed).toBe(false);
+  });
+
+  it('別トラックなら同じ clip id でも候補にできる', () => {
+    const allowed = canCreateCrossTrackTransition(
+      makeTrack({ id: 'video-1', type: 'video' }),
+      { id: 'shared-clip', startTime: 5, duration: 5 },
+      makeTrack({ id: 'video-2', type: 'video' }),
+      { id: 'shared-clip', startTime: 2, duration: 3 },
+    );
+
+    expect(allowed).toBe(true);
+  });
 });

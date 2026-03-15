@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, Clip as ClipType, DEFAULT_EFFECTS, type TimelineTransition, type TransitionType } from '../../store/timelineStore';
 import { TransitionSubmenu } from './TransitionSubmenu';
@@ -37,7 +37,10 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
     state.transitions.find((transition) => transition.inClipId === clip.id && transition.inTrackId === trackId),
   );
   const hasTransition = !!incomingTransition;
-  const crossTrackCandidates = listCrossTrackTransitionCandidates(tracks, trackId, clip.id);
+  const crossTrackCandidates = useMemo(
+    () => listCrossTrackTransitionCandidates(tracks, trackId, clip.id),
+    [tracks, trackId, clip.id],
+  );
 
   const findPreviousClip = (): ClipType | null => {
     const track = useTimelineStore.getState().tracks.find((candidate) => candidate.id === trackId);
@@ -124,7 +127,7 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
 
   const handleSelectCrossTrackCandidate = (candidate: CrossTrackTransitionCandidate) => {
     const transition: TimelineTransition = {
-      id: `transition-${candidate.clipId}-${clip.id}`,
+      id: `transition-${candidate.trackId}-${candidate.clipId}-${trackId}-${clip.id}`,
       type: 'crossfade',
       duration: 1.0,
       outTrackId: candidate.trackId,
