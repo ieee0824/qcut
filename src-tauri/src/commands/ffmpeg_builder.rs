@@ -1,7 +1,5 @@
-use super::export::{
-    CurvePoint, ExportClip, ExportSettings, ExportTimelineTransition, ExportTrack, ToneCurves,
-};
-use super::hsl_lut::{generate_hsl_lut, HslParams};
+use super::export::{CurvePoint, ExportClip, ExportSettings, ExportTrack, ToneCurves};
+use super::hsl_lut::{HslParams, generate_hsl_lut};
 use regex::Regex;
 
 /// 16進カラー値をバリデーションする（6桁または8桁の16進数）
@@ -97,9 +95,13 @@ const FORMAT_PROFILES: &[FormatProfile] = &[
 
 // --- コーデック許可リスト（コマンドインジェクション対策）---
 
-const ALLOWED_VIDEO_CODECS: &[&str] = &["libx264", "libx265", "libvpx-vp9", "libaom-av1"];
+const ALLOWED_VIDEO_CODECS: &[&str] = &[
+    "libx264", "libx265", "libvpx-vp9", "libaom-av1",
+];
 
-const ALLOWED_AUDIO_CODECS: &[&str] = &["aac", "mp3", "libopus", "flac", "pcm_s16le", "libvorbis"];
+const ALLOWED_AUDIO_CODECS: &[&str] = &[
+    "aac", "mp3", "libopus", "flac", "pcm_s16le", "libvorbis",
+];
 
 /// プラグインから受け取ったカスタムフォーマットプロファイルを検証する
 pub(crate) fn validate_custom_format_profile(
@@ -161,9 +163,7 @@ pub(crate) struct VideoTrackClip<'a> {
     pub track_muted: bool,
 }
 
-pub(crate) fn collect_video_clips(
-    tracks: &[ExportTrack],
-) -> Result<Vec<VideoTrackClip<'_>>, String> {
+pub(crate) fn collect_video_clips(tracks: &[ExportTrack]) -> Result<Vec<VideoTrackClip<'_>>, String> {
     let has_solo = tracks.iter().any(|t| t.solo);
     let mut clips: Vec<VideoTrackClip> = tracks
         .iter()
@@ -178,8 +178,7 @@ pub(crate) fn collect_video_clips(
         })
         .collect();
     clips.sort_by(|a, b| {
-        a.clip
-            .start_time
+        a.clip.start_time
             .partial_cmp(&b.clip.start_time)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
@@ -245,19 +244,6 @@ fn transition_to_xfade(t: &str) -> &str {
     }
 }
 
-fn find_transition_between_clips<'a>(
-    transitions: &'a [ExportTimelineTransition],
-    out_clip_id: &str,
-    in_clip_id: &str,
-) -> Option<&'a ExportTimelineTransition> {
-    transitions.iter().find(|transition| {
-        transition.out_clip_id == out_clip_id
-            && transition.in_clip_id == in_clip_id
-            && transition.duration.is_finite()
-            && transition.duration > 0.0
-    })
-}
-
 // --- FFmpegコマンド構築 ---
 
 /// FFmpegコマンド構築の戻り値
@@ -314,10 +300,10 @@ pub(crate) fn build_ffmpeg_args(
 
     // 各動画クリップのフィルターチェーン構築
     struct SegmentInfo {
-        clip_id: Option<String>,
         v_label: String,
         a_label: String,
         duration: f64,
+        transition: Option<(String, f64)>,
     }
     let mut segments: Vec<SegmentInfo> = Vec::new();
     let mut current_time = 0.0;
@@ -338,10 +324,10 @@ pub(crate) fn build_ffmpeg_args(
                 gap_duration, gap_a_label
             ));
             segments.push(SegmentInfo {
-                clip_id: None,
                 v_label: gap_v_label,
                 a_label: gap_a_label,
                 duration: gap_duration,
+                transition: None,
             });
         }
 
@@ -384,20 +370,14 @@ pub(crate) fn build_ffmpeg_args(
                     let bs = -t * 0.3;
                     vfilter.push_str(&format!(
                         ",colorbalance=rs={:.2}:bs={:.2}:rm={:.2}:bm={:.2}",
-                        rs,
-                        bs,
-                        rs * 0.5,
-                        bs * 0.5
+                        rs, bs, rs * 0.5, bs * 0.5
                     ));
                 } else {
                     let bs = -t * 0.3;
                     let rs = t * 0.3;
                     vfilter.push_str(&format!(
                         ",colorbalance=rs={:.2}:bs={:.2}:rm={:.2}:bm={:.2}",
-                        rs,
-                        bs,
-                        rs * 0.5,
-                        bs * 0.5
+                        rs, bs, rs * 0.5, bs * 0.5
                     ));
                 }
             }
@@ -483,10 +463,7 @@ pub(crate) fn build_ffmpeg_args(
             // WebGL プレビューではブラーとシャープは排他的なので、
             // ブラーが有効な場合は unsharp を適用しない
             if effects.sharpen_amount > 0.01 && effects.blur_amount <= 0.1 {
-                vfilter.push_str(&format!(
-                    ",unsharp=5:5:{:.2}:5:5:0.0",
-                    effects.sharpen_amount
-                ));
+                vfilter.push_str(&format!(",unsharp=5:5:{:.2}:5:5:0.0", effects.sharpen_amount));
             }
 
             // モノクロ
@@ -516,10 +493,7 @@ pub(crate) fn build_ffmpeg_args(
             }
             if effects.fade_out > 0.01 {
                 let fade_out_start = (seg_duration - effects.fade_out).max(0.0);
-                vfilter.push_str(&format!(
-                    ",fade=t=out:st={:.3}:d={:.3}",
-                    fade_out_start, effects.fade_out
-                ));
+                vfilter.push_str(&format!(",fade=t=out:st={:.3}:d={:.3}", fade_out_start, effects.fade_out));
             }
         }
 
@@ -554,31 +528,19 @@ pub(crate) fn build_ffmpeg_args(
                 }
                 if effects.fade_out > 0.01 {
                     let fade_out_start = (audio_duration - effects.fade_out).max(0.0);
-                    afilter.push_str(&format!(
-                        ",afade=t=out:st={:.3}:d={:.3}",
-                        fade_out_start, effects.fade_out
-                    ));
+                    afilter.push_str(&format!(",afade=t=out:st={:.3}:d={:.3}", fade_out_start, effects.fade_out));
                 }
                 // イコライザー (3バンド: Low 100Hz shelf, Mid 1kHz peaking, High 10kHz shelf)
-                if effects.eq_low.abs() > 0.1
-                    || effects.eq_mid.abs() > 0.1
-                    || effects.eq_high.abs() > 0.1
-                {
+                if effects.eq_low.abs() > 0.1 || effects.eq_mid.abs() > 0.1 || effects.eq_high.abs() > 0.1 {
                     let mut eq_parts: Vec<String> = Vec::new();
                     if effects.eq_low.abs() > 0.1 {
                         eq_parts.push(format!("equalizer=f=100:t=h:w=200:g={:.1}", effects.eq_low));
                     }
                     if effects.eq_mid.abs() > 0.1 {
-                        eq_parts.push(format!(
-                            "equalizer=f=1000:t=q:w=1.0:g={:.1}",
-                            effects.eq_mid
-                        ));
+                        eq_parts.push(format!("equalizer=f=1000:t=q:w=1.0:g={:.1}", effects.eq_mid));
                     }
                     if effects.eq_high.abs() > 0.1 {
-                        eq_parts.push(format!(
-                            "equalizer=f=10000:t=h:w=200:g={:.1}",
-                            effects.eq_high
-                        ));
+                        eq_parts.push(format!("equalizer=f=10000:t=h:w=200:g={:.1}", effects.eq_high));
                     }
                     afilter.push_str(&format!(",{}", eq_parts.join(",")));
                 }
@@ -594,10 +556,7 @@ pub(crate) fn build_ffmpeg_args(
                 // エコー
                 if effects.echo_delay > 1.0 {
                     let decay = effects.echo_decay.clamp(0.01, 0.9);
-                    afilter.push_str(&format!(
-                        ",aecho=0.8:0.9:{:.0}:{:.2}",
-                        effects.echo_delay, decay
-                    ));
+                    afilter.push_str(&format!(",aecho=0.8:0.9:{:.0}:{:.2}", effects.echo_delay, decay));
                 }
                 // リバーブ（マルチタップ aecho でシミュレート）
                 if effects.reverb_amount > 0.01 {
@@ -615,13 +574,17 @@ pub(crate) fn build_ffmpeg_args(
         afilter.push_str(&format!("[{}]", a_label));
         filter_parts.push(afilter);
 
+        // トランジション情報
         let clip_duration = clip.source_end_time - clip.source_start_time;
+        let trans_info = clip.transition.as_ref().map(|t| {
+            (transition_to_xfade(&t.transition_type).to_string(), t.duration)
+        });
 
         segments.push(SegmentInfo {
-            clip_id: Some(clip.id.clone()),
             v_label,
             a_label,
             duration: clip_duration,
+            transition: trans_info,
         });
         current_time = clip.start_time + clip.duration;
     }
@@ -640,16 +603,15 @@ pub(crate) fn build_ffmpeg_args(
             gap_duration, gap_a_label
         ));
         segments.push(SegmentInfo {
-            clip_id: None,
             v_label: gap_v_label,
             a_label: gap_a_label,
             duration: gap_duration,
+            transition: None,
         });
     }
 
     // セグメント結合: xfade + concat
     struct CombinedSegment {
-        tail_clip_id: Option<String>,
         v_label: String,
         a_label: String,
         duration: f64,
@@ -658,43 +620,34 @@ pub(crate) fn build_ffmpeg_args(
     let mut xfade_counter = 0;
 
     for seg in segments.iter() {
-        if let Some(prev) = combined.last_mut() {
-            let out_clip_id = prev.tail_clip_id.as_deref();
-            let in_clip_id = seg.clip_id.as_deref();
-            if let (Some(out_clip_id), Some(in_clip_id)) = (out_clip_id, in_clip_id) {
-                if let Some(transition) =
-                    find_transition_between_clips(&settings.transitions, out_clip_id, in_clip_id)
-                {
-                    let xfade_name = transition_to_xfade(&transition.transition_type);
-                    let trans_dur = transition.duration;
-                    let offset = (prev.duration - trans_dur).max(0.0);
+        if let Some((ref xfade_name, trans_dur)) = seg.transition {
+            if let Some(prev) = combined.last_mut() {
+                let offset = prev.duration - trans_dur;
+                let offset = if offset < 0.0 { 0.0 } else { offset };
 
-                    let new_v_label = format!("xv{}", xfade_counter);
-                    let new_a_label = format!("xa{}", xfade_counter);
-                    xfade_counter += 1;
+                let new_v_label = format!("xv{}", xfade_counter);
+                let new_a_label = format!("xa{}", xfade_counter);
+                xfade_counter += 1;
 
-                    // 映像: xfade
-                    filter_parts.push(format!(
-                        "[{}][{}]xfade=transition={}:duration={:.3}:offset={:.3}[{}]",
-                        prev.v_label, seg.v_label, xfade_name, trans_dur, offset, new_v_label
-                    ));
+                // 映像: xfade
+                filter_parts.push(format!(
+                    "[{}][{}]xfade=transition={}:duration={:.3}:offset={:.3}[{}]",
+                    prev.v_label, seg.v_label, xfade_name, trans_dur, offset, new_v_label
+                ));
 
-                    // 音声: acrossfade
-                    filter_parts.push(format!(
-                        "[{}][{}]acrossfade=d={:.3}:c1=tri:c2=tri[{}]",
-                        prev.a_label, seg.a_label, trans_dur, new_a_label
-                    ));
+                // 音声: acrossfade
+                filter_parts.push(format!(
+                    "[{}][{}]acrossfade=d={:.3}:c1=tri:c2=tri[{}]",
+                    prev.a_label, seg.a_label, trans_dur, new_a_label
+                ));
 
-                    prev.tail_clip_id = seg.clip_id.clone();
-                    prev.v_label = new_v_label;
-                    prev.a_label = new_a_label;
-                    prev.duration = prev.duration + seg.duration - trans_dur;
-                    continue;
-                }
+                prev.v_label = new_v_label;
+                prev.a_label = new_a_label;
+                prev.duration = prev.duration + seg.duration - trans_dur;
+                continue;
             }
         }
         combined.push(CombinedSegment {
-            tail_clip_id: seg.clip_id.clone(),
             v_label: seg.v_label.clone(),
             a_label: seg.a_label.clone(),
             duration: seg.duration,
@@ -727,9 +680,9 @@ pub(crate) fn build_ffmpeg_args(
 
         for (i, atc) in audio_track_clips.iter().enumerate() {
             let clip = atc.clip;
-            let idx = input_map.get(&clip.file_path).ok_or_else(|| {
-                format!("音声入力インデックスが見つかりません: {}", clip.file_path)
-            })?;
+            let idx = input_map
+                .get(&clip.file_path)
+                .ok_or_else(|| format!("音声入力インデックスが見つかりません: {}", clip.file_path))?;
 
             let label = format!("at{}", i);
 
@@ -753,31 +706,19 @@ pub(crate) fn build_ffmpeg_args(
                 }
                 if effects.fade_out > 0.01 {
                     let fade_out_start = (audio_duration - effects.fade_out).max(0.0);
-                    afilter.push_str(&format!(
-                        ",afade=t=out:st={:.3}:d={:.3}",
-                        fade_out_start, effects.fade_out
-                    ));
+                    afilter.push_str(&format!(",afade=t=out:st={:.3}:d={:.3}", fade_out_start, effects.fade_out));
                 }
                 // イコライザー
-                if effects.eq_low.abs() > 0.1
-                    || effects.eq_mid.abs() > 0.1
-                    || effects.eq_high.abs() > 0.1
-                {
+                if effects.eq_low.abs() > 0.1 || effects.eq_mid.abs() > 0.1 || effects.eq_high.abs() > 0.1 {
                     let mut eq_parts: Vec<String> = Vec::new();
                     if effects.eq_low.abs() > 0.1 {
                         eq_parts.push(format!("equalizer=f=100:t=h:w=200:g={:.1}", effects.eq_low));
                     }
                     if effects.eq_mid.abs() > 0.1 {
-                        eq_parts.push(format!(
-                            "equalizer=f=1000:t=q:w=1.0:g={:.1}",
-                            effects.eq_mid
-                        ));
+                        eq_parts.push(format!("equalizer=f=1000:t=q:w=1.0:g={:.1}", effects.eq_mid));
                     }
                     if effects.eq_high.abs() > 0.1 {
-                        eq_parts.push(format!(
-                            "equalizer=f=10000:t=h:w=200:g={:.1}",
-                            effects.eq_high
-                        ));
+                        eq_parts.push(format!("equalizer=f=10000:t=h:w=200:g={:.1}", effects.eq_high));
                     }
                     afilter.push_str(&format!(",{}", eq_parts.join(",")));
                 }
@@ -793,10 +734,7 @@ pub(crate) fn build_ffmpeg_args(
                 // エコー
                 if effects.echo_delay > 1.0 {
                     let decay = effects.echo_decay.clamp(0.01, 0.9);
-                    afilter.push_str(&format!(
-                        ",aecho=0.8:0.9:{:.0}:{:.2}",
-                        effects.echo_delay, decay
-                    ));
+                    afilter.push_str(&format!(",aecho=0.8:0.9:{:.0}:{:.2}", effects.echo_delay, decay));
                 }
                 // リバーブ（マルチタップ aecho でシミュレート）
                 if effects.reverb_amount > 0.01 {
@@ -1035,7 +973,10 @@ fn ensure_min_points(points: &[CurvePoint]) -> Vec<CurvePoint> {
         }
     }
     // 0点の場合はデフォルト線形
-    vec![CurvePoint { x: 0.0, y: 0.0 }, CurvePoint { x: 1.0, y: 1.0 }]
+    vec![
+        CurvePoint { x: 0.0, y: 0.0 },
+        CurvePoint { x: 1.0, y: 1.0 },
+    ]
 }
 
 /// FFmpeg の `curves` フィルター文字列を生成する
@@ -1081,57 +1022,4 @@ fn curve_points_to_str(points: &[CurvePoint]) -> String {
         .map(|p| format!("{:.4}/{:.4}", p.x, p.y))
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::find_transition_between_clips;
-    use crate::commands::export::ExportTimelineTransition;
-
-    fn make_transition(
-        out_clip_id: &str,
-        in_clip_id: &str,
-        duration: f64,
-    ) -> ExportTimelineTransition {
-        ExportTimelineTransition {
-            id: format!("{}-{}", out_clip_id, in_clip_id),
-            transition_type: "crossfade".to_string(),
-            duration,
-            out_track_id: "video-1".to_string(),
-            out_clip_id: out_clip_id.to_string(),
-            in_track_id: "video-1".to_string(),
-            in_clip_id: in_clip_id.to_string(),
-        }
-    }
-
-    #[test]
-    fn finds_transition_for_exact_clip_pair() {
-        let transitions = vec![
-            make_transition("clip-1", "clip-2", 1.0),
-            make_transition("clip-2", "clip-3", 0.5),
-        ];
-
-        let transition = find_transition_between_clips(&transitions, "clip-2", "clip-3").unwrap();
-
-        assert_eq!(transition.id, "clip-2-clip-3");
-        assert!((transition.duration - 0.5).abs() < f64::EPSILON);
-    }
-
-    #[test]
-    fn does_not_match_transition_by_incoming_clip_only() {
-        let transitions = vec![make_transition("clip-1", "clip-3", 1.0)];
-
-        let transition = find_transition_between_clips(&transitions, "clip-2", "clip-3");
-
-        assert!(transition.is_none());
-    }
-
-    #[test]
-    fn ignores_invalid_duration_transition() {
-        let transitions = vec![make_transition("clip-1", "clip-2", 0.0)];
-
-        let transition = find_transition_between_clips(&transitions, "clip-1", "clip-2");
-
-        assert!(transition.is_none());
-    }
 }

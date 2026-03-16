@@ -5,10 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
-use super::ffmpeg_builder::{
-    build_ffmpeg_args, collect_audio_clips, collect_text_clips, collect_video_clips,
-    list_format_infos, FormatInfo,
-};
+use super::ffmpeg_builder::{build_ffmpeg_args, collect_audio_clips, collect_text_clips, collect_video_clips, list_format_infos, FormatInfo};
 use super::progress_parser::ProgressParser;
 
 // --- データ構造 ---
@@ -135,8 +132,8 @@ pub struct TextProperties {
 #[allow(dead_code)]
 pub struct TimecodeOverlay {
     pub enabled: bool,
-    pub start_date_time: f64, // epoch milliseconds
-    pub format: String,       // "ymd-hm" | "md-hm" | "hms" | "hm"
+    pub start_date_time: f64,  // epoch milliseconds
+    pub format: String,        // "ymd-hm" | "md-hm" | "hms" | "hm"
     #[serde(default = "default_timecode_position_x")]
     pub position_x: f64,
     #[serde(default = "default_timecode_position_y")]
@@ -147,31 +144,18 @@ pub struct TimecodeOverlay {
     pub font_color: String,
 }
 
-fn default_timecode_position_x() -> f64 {
-    50.0
-}
-fn default_timecode_position_y() -> f64 {
-    10.0
-}
-fn default_timecode_font_size() -> u32 {
-    24
-}
-fn default_timecode_font_color() -> String {
-    "#ffffff".to_string()
-}
+fn default_timecode_position_x() -> f64 { 50.0 }
+fn default_timecode_position_y() -> f64 { 10.0 }
+fn default_timecode_font_size() -> u32 { 24 }
+fn default_timecode_font_color() -> String { "#ffffff".to_string() }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
-pub struct ExportTimelineTransition {
-    pub id: String,
+pub struct ExportTransition {
     #[serde(rename = "type")]
     pub transition_type: String,
     pub duration: f64,
-    pub out_track_id: String,
-    pub out_clip_id: String,
-    pub in_track_id: String,
-    pub in_clip_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -188,6 +172,7 @@ pub struct ExportClip {
     pub effects: Option<ClipEffects>,
     pub tone_curves: Option<ToneCurves>,
     pub text_properties: Option<TextProperties>,
+    pub transition: Option<ExportTransition>,
     pub timecode_overlay: Option<TimecodeOverlay>,
 }
 
@@ -227,8 +212,6 @@ pub struct ExportSettings {
     pub fps: u32,
     pub output_path: String,
     pub tracks: Vec<ExportTrack>,
-    #[serde(default)]
-    pub transitions: Vec<ExportTimelineTransition>,
     pub total_duration: f64,
     pub preview_height: f64,
     #[serde(default)]
@@ -309,11 +292,7 @@ pub async fn export_video(
     let build_result = build_ffmpeg_args(&settings, &video_clips, &text_clips, &audio_track_clips)?;
     let args = build_result.args;
     let temp_files = build_result.temp_files;
-    log::info!(
-        "FFmpeg command: {} {}",
-        super::ffmpeg_path::ffmpeg_path(),
-        args.join(" ")
-    );
+    log::info!("FFmpeg command: {} {}", super::ffmpeg_path::ffmpeg_path(), args.join(" "));
 
     // FFmpegをサブプロセスとして起動
     let mut child = Command::new(super::ffmpeg_path::ffmpeg_path())

@@ -88,7 +88,6 @@ export function useExportDialog() {
     customFormatProfiles,
   } = useExportStore();
   const tracks = useTimelineStore((s) => s.tracks);
-  const transitions = useTimelineStore((s) => s.transitions);
   const duration = useTimelineStore((s) => s.duration);
   const previewContainerHeight = useVideoPreviewStore((s) => s.previewContainerHeight);
 
@@ -150,7 +149,6 @@ export function useExportDialog() {
           ...settings,
           outputPath,
           tracks,
-          transitions,
           totalDuration: duration,
           previewHeight: previewContainerHeight > 0 ? previewContainerHeight : settings.height,
           customFormatProfile: customFormatProfiles[settings.format] ?? null,
@@ -159,7 +157,7 @@ export function useExportDialog() {
     } catch (e) {
       setError(String(e));
     }
-  }, [outputPath, settings, tracks, transitions, duration, previewContainerHeight, customFormatProfiles, setStatus, setProgress, setError, t]);
+  }, [outputPath, settings, tracks, duration, previewContainerHeight, customFormatProfiles, setStatus, setProgress, setError, t]);
 
   const handleCancel = useCallback(async () => {
     try {
