@@ -147,18 +147,16 @@ function applyProjectToStores(project: ProjectFile): void {
   }
 
   // タイムラインをリセットしてトラックを復元
-  const tracks = project.timeline.tracks.map((track) => ({
-    ...track,
-    clips: track.clips.map((clip) => ({ ...clip })),
-  }));
   useTimelineStore.setState({
-    tracks,
-    transitions: [],
+    tracks: project.timeline.tracks.map((track) => ({
+      ...track,
+      clips: track.clips.map((clip) => ({ ...clip })),
+    })),
     selectedClipId: null,
     selectedTrackId: null,
     currentTime: 0,
     isPlaying: false,
-    _history: [{ tracks, transitions: [] }],
+    _history: [project.timeline.tracks],
     _historyIndex: 0,
   });
 

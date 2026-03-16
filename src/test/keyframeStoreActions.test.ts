@@ -5,13 +5,12 @@ import type { Clip } from '../store/timelineStore';
 function resetStore() {
   useTimelineStore.setState({
     tracks: [],
-    transitions: [],
     selectedClipId: null,
     selectedTrackId: null,
     currentTime: 0,
     isPlaying: false,
     pixelsPerSecond: 50,
-    _history: [{ tracks: [], transitions: [] }],
+    _history: [[]],
     _historyIndex: 0,
     _clipboard: null,
   });

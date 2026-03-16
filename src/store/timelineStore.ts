@@ -16,10 +16,8 @@ export type {
   TimecodeOverlay,
   TransitionType,
   ClipTransition,
-  TimelineTransition,
   Clip,
   Track,
-  TimelineHistoryEntry,
   TimelineState,
 } from './timeline';
 

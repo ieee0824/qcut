@@ -6,7 +6,6 @@ describe('timelineStore', () => {
     // Reset store before each test
     useTimelineStore.setState({
       tracks: [],
-      transitions: [],
       selectedClipId: null,
       selectedTrackId: null,
       currentTime: 0,
