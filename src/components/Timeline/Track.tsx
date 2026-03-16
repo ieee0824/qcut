@@ -34,7 +34,7 @@ function Track({ track }: TrackProps) {
   const pixelsPerSecond = useTimelineStore((s) => s.pixelsPerSecond);
   const allTransitions = useTimelineStore((s) => s.transitions);
   const transitions = useMemo(
-    () => allTransitions.filter((transition) => transition.inTrackId === track.id),
+    () => allTransitions.filter((transition) => transition.inTrackId === track.id && transition.outTrackId === track.id),
     [allTransitions, track.id],
   );
   const overlaps = useMemo(() => computeOverlaps(track.clips), [track.clips]);
