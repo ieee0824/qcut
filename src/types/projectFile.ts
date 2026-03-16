@@ -1,4 +1,4 @@
-import type { Clip, TimelineTransition, Track } from '../store/timelineStore';
+import type { Clip, Track } from '../store/timelineStore';
 import type { ExportSettings } from '../store/exportStore';
 
 /**
@@ -9,7 +9,7 @@ import type { ExportSettings } from '../store/exportStore';
  * - 破壊的変更（既存フィールドの型変更・削除）: メジャーバージョンを上げる (1 → 100)
  * - 読み込み時はマイグレーション関数で古いバージョンを最新に変換する
  */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 // --- プロジェクトファイルのルート ---
 
@@ -37,7 +37,6 @@ export interface ProjectMetadata {
 
 export interface ProjectTimeline {
   tracks: ProjectTrack[];
-  transitions: TimelineTransition[];
 }
 
 /**
