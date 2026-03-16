@@ -264,21 +264,6 @@ fn find_transition_between_segments<'a>(
     })
 }
 
-#[cfg(test)]
-#[allow(dead_code)]
-fn find_transition_between_clips<'a>(
-    transitions: &'a [ExportTimelineTransition],
-    out_clip_id: &str,
-    in_clip_id: &str,
-) -> Option<&'a ExportTimelineTransition> {
-    transitions.iter().find(|transition| {
-        transition.out_clip_id == out_clip_id
-            && transition.in_clip_id == in_clip_id
-            && transition.duration.is_finite()
-            && transition.duration > 0.0
-    })
-}
-
 // --- FFmpegコマンド構築 ---
 
 /// FFmpegコマンド構築の戻り値
@@ -1123,7 +1108,7 @@ fn curve_points_to_str(points: &[CurvePoint]) -> String {
 mod tests {
     use super::{
         build_ffmpeg_args, collect_audio_clips, collect_text_clips, collect_video_clips,
-        find_transition_between_clips, find_transition_between_segments,
+        find_transition_between_segments,
     };
     use crate::commands::export::{
         ExportClip, ExportSettings, ExportTimelineTransition, ExportTrack,
@@ -1211,7 +1196,14 @@ mod tests {
             make_transition("video-1", "clip-2", "video-1", "clip-3", 0.5, "crossfade"),
         ];
 
-        let transition = find_transition_between_clips(&transitions, "clip-2", "clip-3").unwrap();
+        let transition = find_transition_between_segments(
+            &transitions,
+            "video-1",
+            "clip-2",
+            "video-1",
+            "clip-3",
+        )
+        .unwrap();
 
         assert_eq!(transition.id, "clip-2-clip-3");
         assert!((transition.duration - 0.5).abs() < f64::EPSILON);
@@ -1228,7 +1220,13 @@ mod tests {
             "crossfade",
         )];
 
-        let transition = find_transition_between_clips(&transitions, "clip-2", "clip-3");
+        let transition = find_transition_between_segments(
+            &transitions,
+            "video-1",
+            "clip-2",
+            "video-1",
+            "clip-3",
+        );
 
         assert!(transition.is_none());
     }
@@ -1244,7 +1242,13 @@ mod tests {
             "crossfade",
         )];
 
-        let transition = find_transition_between_clips(&transitions, "clip-1", "clip-2");
+        let transition = find_transition_between_segments(
+            &transitions,
+            "video-1",
+            "clip-1",
+            "video-1",
+            "clip-2",
+        );
 
         assert!(transition.is_none());
     }
