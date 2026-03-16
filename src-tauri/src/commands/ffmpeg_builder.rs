@@ -156,6 +156,7 @@ pub(crate) fn get_format_profile(key: &str) -> &'static FormatProfile {
 // --- ヘルパー関数 ---
 
 pub(crate) struct VideoTrackClip<'a> {
+    pub track_id: &'a str,
     pub clip: &'a ExportClip,
     pub track_volume: f64,
     pub track_muted: bool,
@@ -171,6 +172,7 @@ pub(crate) fn collect_video_clips(
         .flat_map(|t| {
             let is_muted = t.mute || (has_solo && !t.solo);
             t.clips.iter().map(move |c| VideoTrackClip {
+                track_id: &t.id,
                 clip: c,
                 track_volume: t.volume,
                 track_muted: is_muted,
@@ -245,13 +247,17 @@ fn transition_to_xfade(t: &str) -> &str {
     }
 }
 
-fn find_transition_between_clips<'a>(
+fn find_transition_between_segments<'a>(
     transitions: &'a [ExportTimelineTransition],
+    out_track_id: &str,
     out_clip_id: &str,
+    in_track_id: &str,
     in_clip_id: &str,
 ) -> Option<&'a ExportTimelineTransition> {
     transitions.iter().find(|transition| {
-        transition.out_clip_id == out_clip_id
+        transition.out_track_id == out_track_id
+            && transition.in_track_id == in_track_id
+            && transition.out_clip_id == out_clip_id
             && transition.in_clip_id == in_clip_id
             && transition.duration.is_finite()
             && transition.duration > 0.0
@@ -314,6 +320,7 @@ pub(crate) fn build_ffmpeg_args(
 
     // 各動画クリップのフィルターチェーン構築
     struct SegmentInfo {
+        track_id: Option<String>,
         clip_id: Option<String>,
         v_label: String,
         a_label: String,
@@ -338,6 +345,7 @@ pub(crate) fn build_ffmpeg_args(
                 gap_duration, gap_a_label
             ));
             segments.push(SegmentInfo {
+                track_id: None,
                 clip_id: None,
                 v_label: gap_v_label,
                 a_label: gap_a_label,
@@ -618,6 +626,7 @@ pub(crate) fn build_ffmpeg_args(
         let clip_duration = clip.source_end_time - clip.source_start_time;
 
         segments.push(SegmentInfo {
+            track_id: Some(vtc.track_id.to_string()),
             clip_id: Some(clip.id.clone()),
             v_label,
             a_label,
@@ -640,6 +649,7 @@ pub(crate) fn build_ffmpeg_args(
             gap_duration, gap_a_label
         ));
         segments.push(SegmentInfo {
+            track_id: None,
             clip_id: None,
             v_label: gap_v_label,
             a_label: gap_a_label,
@@ -649,6 +659,7 @@ pub(crate) fn build_ffmpeg_args(
 
     // セグメント結合: xfade + concat
     struct CombinedSegment {
+        tail_track_id: Option<String>,
         tail_clip_id: Option<String>,
         v_label: String,
         a_label: String,
@@ -659,12 +670,20 @@ pub(crate) fn build_ffmpeg_args(
 
     for seg in segments.iter() {
         if let Some(prev) = combined.last_mut() {
+            let out_track_id = prev.tail_track_id.as_deref();
             let out_clip_id = prev.tail_clip_id.as_deref();
+            let in_track_id = seg.track_id.as_deref();
             let in_clip_id = seg.clip_id.as_deref();
-            if let (Some(out_clip_id), Some(in_clip_id)) = (out_clip_id, in_clip_id) {
-                if let Some(transition) =
-                    find_transition_between_clips(&settings.transitions, out_clip_id, in_clip_id)
-                {
+            if let (Some(out_track_id), Some(out_clip_id), Some(in_track_id), Some(in_clip_id)) =
+                (out_track_id, out_clip_id, in_track_id, in_clip_id)
+            {
+                if let Some(transition) = find_transition_between_segments(
+                    &settings.transitions,
+                    out_track_id,
+                    out_clip_id,
+                    in_track_id,
+                    in_clip_id,
+                ) {
                     let xfade_name = transition_to_xfade(&transition.transition_type);
                     let trans_dur = transition.duration;
                     let offset = (prev.duration - trans_dur).max(0.0);
@@ -685,6 +704,7 @@ pub(crate) fn build_ffmpeg_args(
                         prev.a_label, seg.a_label, trans_dur, new_a_label
                     ));
 
+                    prev.tail_track_id = seg.track_id.clone();
                     prev.tail_clip_id = seg.clip_id.clone();
                     prev.v_label = new_v_label;
                     prev.a_label = new_a_label;
@@ -694,6 +714,7 @@ pub(crate) fn build_ffmpeg_args(
             }
         }
         combined.push(CombinedSegment {
+            tail_track_id: seg.track_id.clone(),
             tail_clip_id: seg.clip_id.clone(),
             v_label: seg.v_label.clone(),
             a_label: seg.a_label.clone(),
@@ -1085,33 +1106,104 @@ fn curve_points_to_str(points: &[CurvePoint]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::find_transition_between_clips;
-    use crate::commands::export::ExportTimelineTransition;
+    use super::{
+        build_ffmpeg_args, collect_audio_clips, collect_text_clips, collect_video_clips,
+        find_transition_between_segments,
+    };
+    use crate::commands::export::{
+        ExportClip, ExportSettings, ExportTimelineTransition, ExportTrack,
+    };
 
     fn make_transition(
+        out_track_id: &str,
         out_clip_id: &str,
+        in_track_id: &str,
         in_clip_id: &str,
         duration: f64,
+        transition_type: &str,
     ) -> ExportTimelineTransition {
         ExportTimelineTransition {
             id: format!("{}-{}", out_clip_id, in_clip_id),
-            transition_type: "crossfade".to_string(),
+            transition_type: transition_type.to_string(),
             duration,
-            out_track_id: "video-1".to_string(),
+            out_track_id: out_track_id.to_string(),
             out_clip_id: out_clip_id.to_string(),
-            in_track_id: "video-1".to_string(),
+            in_track_id: in_track_id.to_string(),
             in_clip_id: in_clip_id.to_string(),
         }
+    }
+
+    fn make_clip(id: &str, start_time: f64, duration: f64, file_path: &str) -> ExportClip {
+        ExportClip {
+            id: id.to_string(),
+            name: id.to_string(),
+            start_time,
+            duration,
+            file_path: file_path.to_string(),
+            source_start_time: 0.0,
+            source_end_time: duration,
+            effects: None,
+            tone_curves: None,
+            text_properties: None,
+            timecode_overlay: None,
+        }
+    }
+
+    fn make_video_track(id: &str, clips: Vec<ExportClip>) -> ExportTrack {
+        ExportTrack {
+            id: id.to_string(),
+            track_type: "video".to_string(),
+            name: id.to_string(),
+            clips,
+            volume: 1.0,
+            mute: false,
+            solo: false,
+        }
+    }
+
+    fn make_settings(
+        tracks: Vec<ExportTrack>,
+        transitions: Vec<ExportTimelineTransition>,
+        total_duration: f64,
+    ) -> ExportSettings {
+        ExportSettings {
+            format: "mp4".to_string(),
+            width: 1920,
+            height: 1080,
+            bitrate: "8M".to_string(),
+            fps: 30,
+            output_path: "/tmp/out.mp4".to_string(),
+            tracks,
+            transitions,
+            total_duration,
+            preview_height: 1080.0,
+            custom_format_profile: None,
+        }
+    }
+
+    fn filter_complex_from_args(args: &[String]) -> String {
+        let index = args
+            .iter()
+            .position(|arg| arg == "-filter_complex")
+            .expect("missing -filter_complex flag");
+        args[index + 1].clone()
     }
 
     #[test]
     fn finds_transition_for_exact_clip_pair() {
         let transitions = vec![
-            make_transition("clip-1", "clip-2", 1.0),
-            make_transition("clip-2", "clip-3", 0.5),
+            make_transition("video-1", "clip-1", "video-1", "clip-2", 1.0, "crossfade"),
+            make_transition("video-1", "clip-2", "video-1", "clip-3", 0.5, "crossfade"),
         ];
 
-        let transition = find_transition_between_clips(&transitions, "clip-2", "clip-3").unwrap();
+        let transition = find_transition_between_segments(
+            &transitions,
+            "video-1",
+            "clip-2",
+            "video-1",
+            "clip-3",
+        )
+        .unwrap();
 
         assert_eq!(transition.id, "clip-2-clip-3");
         assert!((transition.duration - 0.5).abs() < f64::EPSILON);
@@ -1119,19 +1211,130 @@ mod tests {
 
     #[test]
     fn does_not_match_transition_by_incoming_clip_only() {
-        let transitions = vec![make_transition("clip-1", "clip-3", 1.0)];
+        let transitions = vec![make_transition(
+            "video-1",
+            "clip-1",
+            "video-1",
+            "clip-3",
+            1.0,
+            "crossfade",
+        )];
 
-        let transition = find_transition_between_clips(&transitions, "clip-2", "clip-3");
+        let transition = find_transition_between_segments(
+            &transitions,
+            "video-1",
+            "clip-2",
+            "video-1",
+            "clip-3",
+        );
 
         assert!(transition.is_none());
     }
 
     #[test]
     fn ignores_invalid_duration_transition() {
-        let transitions = vec![make_transition("clip-1", "clip-2", 0.0)];
+        let transitions = vec![make_transition(
+            "video-1",
+            "clip-1",
+            "video-1",
+            "clip-2",
+            0.0,
+            "crossfade",
+        )];
 
-        let transition = find_transition_between_clips(&transitions, "clip-1", "clip-2");
+        let transition = find_transition_between_segments(
+            &transitions,
+            "video-1",
+            "clip-1",
+            "video-1",
+            "clip-2",
+        );
 
         assert!(transition.is_none());
+    }
+
+    #[test]
+    fn matches_cross_track_transition_by_track_and_clip_ids() {
+        let transitions = vec![
+            make_transition("video-1", "clip-1", "video-2", "clip-2", 1.0, "crossfade"),
+            make_transition("video-9", "clip-1", "video-8", "clip-2", 1.0, "crossfade"),
+        ];
+
+        let transition = find_transition_between_segments(
+            &transitions,
+            "video-1",
+            "clip-1",
+            "video-2",
+            "clip-2",
+        )
+        .unwrap();
+
+        assert_eq!(transition.out_track_id, "video-1");
+        assert_eq!(transition.in_track_id, "video-2");
+    }
+
+    #[test]
+    fn builds_cross_track_transition_filters() {
+        let tracks = vec![
+            make_video_track("video-1", vec![make_clip("clip-1", 0.0, 5.0, "a.mp4")]),
+            make_video_track("video-2", vec![make_clip("clip-2", 5.0, 5.0, "b.mp4")]),
+        ];
+        let settings = make_settings(
+            tracks,
+            vec![make_transition(
+                "video-1",
+                "clip-1",
+                "video-2",
+                "clip-2",
+                1.0,
+                "crossfade",
+            )],
+            10.0,
+        );
+        let video_clips = collect_video_clips(&settings.tracks).unwrap();
+        let text_clips = collect_text_clips(&settings.tracks);
+        let audio_track_clips = collect_audio_clips(&settings.tracks);
+
+        let result =
+            build_ffmpeg_args(&settings, &video_clips, &text_clips, &audio_track_clips).unwrap();
+        let filter_complex = filter_complex_from_args(&result.args);
+
+        assert!(filter_complex
+            .contains("[v0][v1]xfade=transition=fade:duration=1.000:offset=4.000[xv0]"));
+        assert!(filter_complex.contains("[a0][a1]acrossfade=d=1.000:c1=tri:c2=tri[xa0]"));
+    }
+
+    #[test]
+    fn builds_mixed_single_track_and_cross_track_transitions() {
+        let tracks = vec![
+            make_video_track(
+                "video-1",
+                vec![
+                    make_clip("clip-1", 0.0, 5.0, "a.mp4"),
+                    make_clip("clip-2", 5.0, 5.0, "b.mp4"),
+                ],
+            ),
+            make_video_track("video-2", vec![make_clip("clip-3", 10.0, 5.0, "c.mp4")]),
+        ];
+        let settings = make_settings(
+            tracks,
+            vec![
+                make_transition("video-1", "clip-1", "video-1", "clip-2", 1.0, "dissolve"),
+                make_transition("video-1", "clip-2", "video-2", "clip-3", 0.5, "wipe-left"),
+            ],
+            15.0,
+        );
+        let video_clips = collect_video_clips(&settings.tracks).unwrap();
+        let text_clips = collect_text_clips(&settings.tracks);
+        let audio_track_clips = collect_audio_clips(&settings.tracks);
+
+        let result =
+            build_ffmpeg_args(&settings, &video_clips, &text_clips, &audio_track_clips).unwrap();
+        let filter_complex = filter_complex_from_args(&result.args);
+
+        assert!(filter_complex.contains("xfade=transition=dissolve:duration=1.000:offset=4.000"));
+        assert!(filter_complex.contains("xfade=transition=wipeleft:duration=0.500:offset=8.500"));
+        assert!(filter_complex.contains("acrossfade=d=1.000:c1=tri:c2=tri"));
+        assert!(filter_complex.contains("acrossfade=d=0.500:c1=tri:c2=tri"));
     }
 }
