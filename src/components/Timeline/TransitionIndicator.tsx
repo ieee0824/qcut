@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTimelineStore, type Clip, type TimelineTransition } from '../../store/timelineStore';
+import { useTimelineStore, type TimelineTransition } from '../../store/timelineStore';
 import { TransitionPopover } from './TransitionPopover';
 import { TransitionMenu } from './TransitionMenu';
 import { computeIndicatorLayout } from './transitionLayout';
@@ -8,10 +8,10 @@ import { TRANSITION_I18N_KEYS } from './transitionConstants';
 
 interface TransitionIndicatorProps {
   transition: TimelineTransition;
-  incomingClip: Pick<Clip, 'id' | 'startTime'>;
+  clipStartTime: number;
 }
 
-function TransitionIndicator({ transition, incomingClip }: TransitionIndicatorProps) {
+function TransitionIndicator({ transition, clipStartTime }: TransitionIndicatorProps) {
   const { t } = useTranslation();
   const { pixelsPerSecond, removeTransitionById } = useTimelineStore();
   const [showPopover, setShowPopover] = useState(false);
@@ -20,7 +20,7 @@ function TransitionIndicator({ transition, incomingClip }: TransitionIndicatorPr
   const indicatorRef = useRef<HTMLDivElement>(null);
   const [popoverPos, setPopoverPos] = useState({ x: 0, y: 0 });
 
-  const { width, left } = computeIndicatorLayout(transition, pixelsPerSecond, incomingClip);
+  const { width, left } = computeIndicatorLayout(transition.duration, pixelsPerSecond, clipStartTime);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
