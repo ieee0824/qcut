@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTimelineStore, type TimelineTransition, type TransitionType } from '../../store/timelineStore';
+import { useTimelineStore, type ClipTransition, type TransitionType } from '../../store/timelineStore';
 import { useTransitionPresetStore, BUILT_IN_PRESETS } from '../../store/transitionPresetStore';
 import { TRANSITION_TYPES, TRANSITION_I18N_KEYS } from './transitionConstants';
 
 interface TransitionPopoverProps {
-  transition: TimelineTransition;
+  transition: ClipTransition;
+  clipId: string;
+  trackId: string;
   popoverPos: { x: number; y: number };
   indicatorRef: React.RefObject<HTMLDivElement | null>;
   onClose: () => void;
@@ -13,12 +15,14 @@ interface TransitionPopoverProps {
 
 export function TransitionPopover({
   transition,
+  clipId,
+  trackId,
   popoverPos: initialPopoverPos,
   indicatorRef,
   onClose,
 }: TransitionPopoverProps) {
   const { t } = useTranslation();
-  const { updateTransition } = useTimelineStore();
+  const { setTransition } = useTimelineStore();
   const customPresets = useTransitionPresetStore((s) => s.customPresets);
   const allPresets = [...BUILT_IN_PRESETS, ...customPresets];
   const addPreset = useTransitionPresetStore((s) => s.addPreset);
@@ -29,13 +33,13 @@ export function TransitionPopover({
   const [popoverPos, setPopoverPos] = useState(initialPopoverPos);
 
   const handleSelectType = (type: TransitionType) => {
-    updateTransition(transition.id, { type });
+    setTransition(trackId, clipId, { ...transition, type });
     onClose();
   };
 
   const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const duration = parseFloat(e.target.value);
-    updateTransition(transition.id, { duration });
+    setTransition(trackId, clipId, { ...transition, duration });
   };
 
   // ポップオーバーが画面外にはみ出る場合、位置を自動補正
@@ -81,7 +85,7 @@ export function TransitionPopover({
                   className="transition-popover-item"
                   onClick={(e) => {
                     e.stopPropagation();
-                    updateTransition(transition.id, { type: preset.type, duration: preset.duration });
+                    setTransition(trackId, clipId, { type: preset.type, duration: preset.duration });
                   }}
                 >
                   {preset.isBuiltIn ? t(preset.name) : preset.name}

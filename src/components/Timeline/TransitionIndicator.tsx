@@ -1,19 +1,21 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTimelineStore, type TimelineTransition } from '../../store/timelineStore';
+import { useTimelineStore, type ClipTransition } from '../../store/timelineStore';
 import { TransitionPopover } from './TransitionPopover';
 import { TransitionMenu } from './TransitionMenu';
 import { computeIndicatorLayout } from './transitionLayout';
 import { TRANSITION_I18N_KEYS } from './transitionConstants';
 
 interface TransitionIndicatorProps {
-  transition: TimelineTransition;
+  transition: ClipTransition;
+  clipId: string;
+  trackId: string;
   clipStartTime: number;
 }
 
-function TransitionIndicator({ transition, clipStartTime }: TransitionIndicatorProps) {
+function TransitionIndicator({ transition, clipId, trackId, clipStartTime }: TransitionIndicatorProps) {
   const { t } = useTranslation();
-  const { pixelsPerSecond, removeTransitionById } = useTimelineStore();
+  const { pixelsPerSecond, removeTransition } = useTimelineStore();
   const [showPopover, setShowPopover] = useState(false);
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
@@ -39,7 +41,7 @@ function TransitionIndicator({ transition, clipStartTime }: TransitionIndicatorP
   };
 
   const handleRemove = () => {
-    removeTransitionById(transition.id);
+    removeTransition(trackId, clipId);
     setShowContextMenu(false);
   };
 
@@ -62,6 +64,8 @@ function TransitionIndicator({ transition, clipStartTime }: TransitionIndicatorP
       {showPopover && (
         <TransitionPopover
           transition={transition}
+          clipId={clipId}
+          trackId={trackId}
           popoverPos={popoverPos}
           indicatorRef={indicatorRef}
           onClose={() => setShowPopover(false)}

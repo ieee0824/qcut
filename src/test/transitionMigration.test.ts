@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ClipTransition, Track, TimelineTransition } from '../store/timelineStore';
+import type { Track, TimelineTransition } from '../store/timelineStore';
 import {
   migrateClipTransitionsToTimeline,
   timelineTransitionsToClipTransitions,
@@ -17,13 +17,6 @@ function createVideoTrack(id: string, clips: Track['clips']): Track {
   };
 }
 
-function withLegacyTransition<T extends Track['clips'][number]>(
-  clip: T,
-  transition: ClipTransition,
-): T & { transition: ClipTransition } {
-  return { ...clip, transition };
-}
-
 describe('transitionMigration', () => {
   it('migrates same-track adjacent clip transitions into timeline transitions', () => {
     const tracks: Track[] = [
@@ -37,7 +30,7 @@ describe('transitionMigration', () => {
           sourceStartTime: 0,
           sourceEndTime: 5,
         },
-        withLegacyTransition({
+        {
           id: 'clip-2',
           name: 'Clip 2',
           startTime: 5,
@@ -45,7 +38,8 @@ describe('transitionMigration', () => {
           filePath: 'b.mp4',
           sourceStartTime: 0,
           sourceEndTime: 5,
-        }, { type: 'crossfade', duration: 1 }),
+          transition: { type: 'crossfade', duration: 1 },
+        },
       ]),
     ];
 
@@ -74,7 +68,7 @@ describe('transitionMigration', () => {
           sourceStartTime: 0,
           sourceEndTime: 5,
         },
-        withLegacyTransition({
+        {
           id: 'clip-2',
           name: 'Clip 2',
           startTime: 5,
@@ -82,7 +76,8 @@ describe('transitionMigration', () => {
           filePath: 'b.mp4',
           sourceStartTime: 0,
           sourceEndTime: 5,
-        }, { type: 'wipe-left', duration: 0.5 }),
+          transition: { type: 'wipe-left', duration: 0.5 },
+        },
       ]),
       createVideoTrack('video-2', [
         {
@@ -94,7 +89,7 @@ describe('transitionMigration', () => {
           sourceStartTime: 0,
           sourceEndTime: 3,
         },
-        withLegacyTransition({
+        {
           id: 'clip-4',
           name: 'Clip 4',
           startTime: 3,
@@ -102,7 +97,8 @@ describe('transitionMigration', () => {
           filePath: 'd.mp4',
           sourceStartTime: 0,
           sourceEndTime: 4,
-        }, { type: 'dissolve', duration: 0.75 }),
+          transition: { type: 'dissolve', duration: 0.75 },
+        },
       ]),
     ];
 
@@ -131,7 +127,7 @@ describe('transitionMigration', () => {
   it('ignores clips without transition and first clips with transition but no previous clip', () => {
     const tracks: Track[] = [
       createVideoTrack('video-1', [
-        withLegacyTransition({
+        {
           id: 'clip-1',
           name: 'Clip 1',
           startTime: 0,
@@ -139,7 +135,8 @@ describe('transitionMigration', () => {
           filePath: 'a.mp4',
           sourceStartTime: 0,
           sourceEndTime: 5,
-        }, { type: 'crossfade', duration: 1 }),
+          transition: { type: 'crossfade', duration: 1 },
+        },
         {
           id: 'clip-2',
           name: 'Clip 2',
@@ -192,9 +189,9 @@ describe('transitionMigration', () => {
 
     const migrated = timelineTransitionsToClipTransitions(transitions, tracks);
 
-    expect((migrated[0].clips[0] as { transition?: ClipTransition }).transition).toBeUndefined();
-    expect((migrated[0].clips[1] as { transition?: ClipTransition }).transition).toEqual({ type: 'crossfade', duration: 1 });
-    expect((tracks[0].clips[1] as { transition?: ClipTransition }).transition).toBeUndefined();
+    expect(migrated[0].clips[0].transition).toBeUndefined();
+    expect(migrated[0].clips[1].transition).toEqual({ type: 'crossfade', duration: 1 });
+    expect(tracks[0].clips[1].transition).toBeUndefined();
   });
 
   it('drops cross-track transitions on reverse conversion', () => {
@@ -235,8 +232,8 @@ describe('transitionMigration', () => {
       },
     ], tracks);
 
-    expect((migrated[0].clips[0] as { transition?: ClipTransition }).transition).toBeUndefined();
-    expect((migrated[1].clips[0] as { transition?: ClipTransition }).transition).toBeUndefined();
+    expect(migrated[0].clips[0].transition).toBeUndefined();
+    expect(migrated[1].clips[0].transition).toBeUndefined();
   });
 
   it('handles empty tracks and clips without error', () => {

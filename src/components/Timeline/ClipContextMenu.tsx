@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTimelineStore, Clip as ClipType, DEFAULT_EFFECTS, type TimelineTransition, type TransitionType } from '../../store/timelineStore';
+import { useTimelineStore, Clip as ClipType, DEFAULT_EFFECTS, type TransitionType } from '../../store/timelineStore';
 import { TransitionSubmenu } from './TransitionSubmenu';
 import { clampMenuPosition } from './clipUtils';
 
@@ -17,8 +17,8 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
   const {
     removeClip,
     splitClipAtTime,
-    addTransition,
-    removeTransitionById,
+    setTransition,
+    removeTransition,
     addTrack,
     addClip,
     updateClip,
@@ -29,19 +29,7 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
   const [showTransitionSubmenu, setShowTransitionSubmenu] = useState(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  const incomingTransition = useTimelineStore((state) =>
-    state.transitions.find((transition) => transition.inClipId === clip.id && transition.inTrackId === trackId),
-  );
-  const hasTransition = !!incomingTransition;
-
-  const findPreviousClip = (): ClipType | null => {
-    const track = useTimelineStore.getState().tracks.find((candidate) => candidate.id === trackId);
-    if (!track) return null;
-    const sortedClips = [...track.clips].sort((a, b) => a.startTime - b.startTime);
-    const currentIndex = sortedClips.findIndex((candidate) => candidate.id === clip.id);
-    if (currentIndex <= 0) return null;
-    return sortedClips[currentIndex - 1];
-  };
+  const hasTransition = !!clip.transition;
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -57,9 +45,7 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
 
   const handleRemoveTransition = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (incomingTransition) {
-      removeTransitionById(incomingTransition.id);
-    }
+    removeTransition(trackId, clip.id);
     onClose();
   };
 
@@ -90,30 +76,7 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
   };
 
   const handleSelectTransition = (presetType: TransitionType, presetDuration: number) => {
-    const previousClip = findPreviousClip();
-    if (!previousClip) {
-      onClose();
-      return;
-    }
-
-    const transition: TimelineTransition = incomingTransition ?? {
-      id: `transition-${previousClip.id}-${clip.id}`,
-      type: presetType,
-      duration: presetDuration,
-      outTrackId: trackId,
-      outClipId: previousClip.id,
-      inTrackId: trackId,
-      inClipId: clip.id,
-    };
-
-    if (incomingTransition) {
-      useTimelineStore.getState().updateTransition(incomingTransition.id, {
-        type: presetType,
-        duration: presetDuration,
-      });
-    } else {
-      addTransition(transition);
-    }
+    setTransition(trackId, clip.id, { type: presetType, duration: presetDuration });
     onClose();
   };
 

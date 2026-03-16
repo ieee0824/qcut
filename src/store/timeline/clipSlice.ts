@@ -1,6 +1,6 @@
 import type { StoreApi } from 'zustand';
 import { logAction } from '../actionLogger';
-import type { TimelineState, Clip, ClipEffects, Keyframe, EasingType, ToneCurveKeyframe } from './types';
+import type { TimelineState, Clip, ClipTransition, ClipEffects, Keyframe, EasingType, ToneCurveKeyframe } from './types';
 import { withHistory } from './historySlice';
 
 type Set = StoreApi<TimelineState>['setState'];
@@ -126,6 +126,36 @@ export const createClipSlice = (set: Set) => ({
       selectedClipId: null,
       selectedTrackId: null,
     };
+  }),
+
+  setTransition: (trackId: string, clipId: string, transition: ClipTransition) => set((state) => {
+    logAction('setTransition', `track=${trackId} clip=${clipId} type=${transition.type}`);
+    const newTracks = state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip =>
+              clip.id === clipId ? { ...clip, transition } : clip
+            ),
+          }
+        : track
+    );
+    return withHistory(state, newTracks);
+  }),
+
+  removeTransition: (trackId: string, clipId: string) => set((state) => {
+    logAction('removeTransition', `track=${trackId} clip=${clipId}`);
+    const newTracks = state.tracks.map(track =>
+      track.id === trackId
+        ? {
+            ...track,
+            clips: track.clips.map(clip =>
+              clip.id === clipId ? { ...clip, transition: undefined } : clip
+            ),
+          }
+        : track
+    );
+    return withHistory(state, newTracks);
   }),
 
   addKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, keyframe: Keyframe) => set((state) => {

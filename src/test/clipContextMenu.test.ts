@@ -9,7 +9,6 @@ describe('ClipContextMenu store actions', () => {
   beforeEach(() => {
     useTimelineStore.setState({
       tracks: [],
-      transitions: [],
       selectedClipId: null,
       selectedTrackId: null,
       currentTime: 0,
@@ -115,35 +114,23 @@ describe('ClipContextMenu store actions', () => {
   });
 
   describe('トランジション', () => {
-    it('addTransition でトランジションが追加される', () => {
-      const { addTransition } = useTimelineStore.getState();
-      addTransition({
-        id: 'transition-clip-1-clip-2',
-        type: 'wipe-left',
-        duration: 0.5,
-        outTrackId: 'video-1',
-        outClipId: 'clip-1',
-        inTrackId: 'video-1',
-        inClipId: 'clip-2',
-      });
+    it('setTransition でトランジションが追加される', () => {
+      const { setTransition } = useTimelineStore.getState();
+      setTransition('video-1', 'clip-2', { type: 'wipe-left', duration: 0.5 });
 
-      expect(useTimelineStore.getState().transitions[0]).toMatchObject({ type: 'wipe-left', duration: 0.5 });
+      const track = useTimelineStore.getState().tracks.find(t => t.id === 'video-1');
+      const clip2 = track!.clips.find(c => c.id === 'clip-2');
+      expect(clip2!.transition).toEqual({ type: 'wipe-left', duration: 0.5 });
     });
 
-    it('removeTransitionById でトランジションが削除される', () => {
-      const { addTransition, removeTransitionById } = useTimelineStore.getState();
-      addTransition({
-        id: 'transition-clip-1-clip-2',
-        type: 'dissolve',
-        duration: 1.0,
-        outTrackId: 'video-1',
-        outClipId: 'clip-1',
-        inTrackId: 'video-1',
-        inClipId: 'clip-2',
-      });
-      removeTransitionById('transition-clip-1-clip-2');
+    it('removeTransition でトランジションが削除される', () => {
+      const { setTransition, removeTransition } = useTimelineStore.getState();
+      setTransition('video-1', 'clip-2', { type: 'dissolve', duration: 1.0 });
+      removeTransition('video-1', 'clip-2');
 
-      expect(useTimelineStore.getState().transitions).toEqual([]);
+      const track = useTimelineStore.getState().tracks.find(t => t.id === 'video-1');
+      const clip2 = track!.clips.find(c => c.id === 'clip-2');
+      expect(clip2!.transition).toBeUndefined();
     });
   });
 

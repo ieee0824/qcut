@@ -8,31 +8,34 @@ import { useTimelineStore, type TransitionType } from '../store/timelineStore';
 
 // findTransitionAtTime のロジックを再現
 function findTransitionAtTime(time: number) {
-  const { tracks, transitions } = useTimelineStore.getState();
-  for (const transition of transitions) {
-    const incomingClip = tracks.find((track) => track.id === transition.inTrackId)?.clips.find((clip) => clip.id === transition.inClipId);
-    if (!incomingClip) continue;
-    const overlapStart = incomingClip.startTime - transition.duration;
-    const overlapEnd = incomingClip.startTime;
-    if (time >= overlapStart && time < overlapEnd) {
-      let outgoing = null;
-      for (const t of tracks) {
-        if (t.type !== 'video') continue;
-        for (const c of t.clips) {
-          if (time >= c.startTime && time < c.startTime + c.duration) {
-            outgoing = c;
-            break;
+  const tracks = useTimelineStore.getState().tracks;
+  for (const track of tracks) {
+    if (track.type !== 'video') continue;
+    for (const clip of track.clips) {
+      if (!clip.transition) continue;
+      const overlapStart = clip.startTime - clip.transition.duration;
+      const overlapEnd = clip.startTime;
+      if (time >= overlapStart && time < overlapEnd) {
+        // outgoing clip を探す
+        let outgoing = null;
+        for (const t of tracks) {
+          if (t.type !== 'video') continue;
+          for (const c of t.clips) {
+            if (time >= c.startTime && time < c.startTime + c.duration) {
+              outgoing = c;
+              break;
+            }
           }
         }
+        if (!outgoing || outgoing.id === clip.id) continue;
+        const progress = (time - overlapStart) / clip.transition.duration;
+        return {
+          outgoingClip: outgoing,
+          incomingClip: clip,
+          progress,
+          transitionType: clip.transition.type,
+        };
       }
-      if (!outgoing || outgoing.id === incomingClip.id) continue;
-      const progress = (time - overlapStart) / transition.duration;
-      return {
-        outgoingClip: outgoing,
-        incomingClip,
-        progress,
-        transitionType: transition.type,
-      };
     }
   }
   return null;
@@ -79,7 +82,6 @@ describe('transition playback logic', () => {
   beforeEach(() => {
     useTimelineStore.setState({
       tracks: [],
-      transitions: [],
       selectedClipId: null,
       selectedTrackId: null,
       currentTime: 0,
@@ -87,7 +89,7 @@ describe('transition playback logic', () => {
       pixelsPerSecond: 50,
     });
 
-    const { addTrack, addClip, addTransition } = useTimelineStore.getState();
+    const { addTrack, addClip, setTransition } = useTimelineStore.getState();
     addTrack({ id: 'video-1', type: 'video', name: 'Video 1', clips: [] });
     addClip('video-1', {
       id: 'clip-1',
@@ -107,15 +109,7 @@ describe('transition playback logic', () => {
       sourceStartTime: 0,
       sourceEndTime: 5,
     });
-    addTransition({
-      id: 'transition-clip-1-clip-2',
-      type: 'crossfade',
-      duration: 1.0,
-      outTrackId: 'video-1',
-      outClipId: 'clip-1',
-      inTrackId: 'video-1',
-      inClipId: 'clip-2',
-    });
+    setTransition('video-1', 'clip-2', { type: 'crossfade', duration: 1.0 });
   });
 
   describe('findTransitionAtTime', () => {
@@ -148,8 +142,8 @@ describe('transition playback logic', () => {
     });
 
     it('should return null when no transition is set', () => {
-      const { removeTransitionById } = useTimelineStore.getState();
-      removeTransitionById('transition-clip-1-clip-2');
+      const { removeTransition } = useTimelineStore.getState();
+      removeTransition('video-1', 'clip-2');
       expect(findTransitionAtTime(4.5)).toBeNull();
     });
   });

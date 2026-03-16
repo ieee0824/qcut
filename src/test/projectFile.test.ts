@@ -104,9 +104,10 @@ describe('ProjectFile schema', () => {
     expect(types).toEqual(['video', 'audio', 'text']);
   });
 
-  it('クリップにエフェクト・テキストがオプショナルで設定できる', () => {
+  it('クリップにエフェクト・テキスト・トランジションがオプショナルで設定できる', () => {
     const videoClip = validProject.timeline.tracks[0].clips[0];
     expect(videoClip.effects).toBeUndefined();
+    expect(videoClip.transition).toBeUndefined();
 
     const textClip = validProject.timeline.tracks[2].clips[0];
     expect(textClip.textProperties).toBeDefined();
@@ -142,30 +143,15 @@ describe('ProjectFile schema', () => {
         echoDelay: 0,
         echoDecay: 0.3,
         reverbAmount: 0,
-        colorTemperature: 0,
-        hue: 0,
-        hslRedSat: 0,
-        hslYellowSat: 0,
-        hslGreenSat: 0,
-        hslCyanSat: 0,
-        hslBlueSat: 0,
-        hslMagentaSat: 0,
-        liftR: 0,
-        liftG: 0,
-        liftB: 0,
-        gammaR: 0,
-        gammaG: 0,
-        gammaB: 0,
-        gainR: 0,
-        gainG: 0,
-        gainB: 0,
-        blurAmount: 0,
-        sharpenAmount: 0,
-        monochrome: 0,
+      },
+      transition: {
+        type: 'crossfade',
+        duration: 0.5,
       },
     };
 
     expect(clipWithEffects.effects?.brightness).toBe(1.2);
+    expect(clipWithEffects.transition?.type).toBe('crossfade');
   });
 
   it('createdAt / updatedAt が ISO 8601 形式の文字列である', () => {
