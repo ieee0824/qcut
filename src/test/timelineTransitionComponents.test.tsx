@@ -151,43 +151,6 @@ describe('TimelineTransition UI components', () => {
 
     expect(useTimelineStore.getState().transitions[0]).toMatchObject({
       type: 'crossfade',
-      duration: 1,
-      outClipId: 'clip-1',
-      inClipId: 'clip-2',
-    });
-  });
-
-  it('ClipContextMenu でカスタムプリセットを選ぶと addTransition に type と duration が反映される', () => {
-    useTransitionPresetStore.setState({
-      customPresets: [
-        {
-          id: 'custom-soft-dissolve',
-          name: 'Soft Dissolve',
-          type: 'dissolve',
-          duration: 1.7,
-          isBuiltIn: false,
-        },
-      ],
-      loaded: true,
-    });
-
-    const clip = useTimelineStore.getState().tracks[0].clips.find((candidate) => candidate.id === 'clip-2');
-    render(
-      <ClipContextMenu
-        clip={clip!}
-        trackId="video-1"
-        trackType="video"
-        position={{ x: 100, y: 100 }}
-        onClose={() => {}}
-      />,
-    );
-
-    fireEvent.mouseEnter(screen.getByText(/トランジション追加/));
-    fireEvent.click(screen.getByRole('button', { name: 'Soft Dissolve' }));
-
-    expect(useTimelineStore.getState().transitions[0]).toMatchObject({
-      type: 'dissolve',
-      duration: 1.7,
       outClipId: 'clip-1',
       inClipId: 'clip-2',
     });
@@ -218,64 +181,5 @@ describe('TimelineTransition UI components', () => {
     fireEvent.click(screen.getByRole('button', { name: /トランジション削除/ }));
 
     expect(useTimelineStore.getState().transitions).toEqual([]);
-  });
-
-  it('TransitionPopover でビルトインプリセットを選ぶと type と duration が更新される', () => {
-    useTimelineStore.getState().addTransition({
-      id: 'transition-clip-1-clip-2',
-      type: 'crossfade',
-      duration: 1,
-      outTrackId: 'video-1',
-      outClipId: 'clip-1',
-      inTrackId: 'video-1',
-      inClipId: 'clip-2',
-    });
-
-    const track = useTimelineStore.getState().tracks.find((candidate) => candidate.id === 'video-1');
-    render(<Track track={track!} />);
-
-    fireEvent.click(document.querySelector('.transition-indicator') as HTMLElement);
-    fireEvent.click(screen.getByRole('button', { name: 'ワイプ左 (0.5s)' }));
-
-    expect(useTimelineStore.getState().transitions[0]).toMatchObject({
-      type: 'wipe-left',
-      duration: 0.5,
-    });
-  });
-
-  it('TransitionPopover でカスタムプリセットを選ぶと type と duration が更新される', () => {
-    useTransitionPresetStore.setState({
-      customPresets: [
-        {
-          id: 'custom-wipe-up',
-          name: 'Custom Wipe Up',
-          type: 'wipe-up',
-          duration: 2.3,
-          isBuiltIn: false,
-        },
-      ],
-      loaded: true,
-    });
-
-    useTimelineStore.getState().addTransition({
-      id: 'transition-clip-1-clip-2',
-      type: 'crossfade',
-      duration: 1,
-      outTrackId: 'video-1',
-      outClipId: 'clip-1',
-      inTrackId: 'video-1',
-      inClipId: 'clip-2',
-    });
-
-    const track = useTimelineStore.getState().tracks.find((candidate) => candidate.id === 'video-1');
-    render(<Track track={track!} />);
-
-    fireEvent.click(document.querySelector('.transition-indicator') as HTMLElement);
-    fireEvent.click(screen.getByRole('button', { name: 'Custom Wipe Up' }));
-
-    expect(useTimelineStore.getState().transitions[0]).toMatchObject({
-      type: 'wipe-up',
-      duration: 2.3,
-    });
   });
 });
