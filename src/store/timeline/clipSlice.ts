@@ -2,6 +2,13 @@ import type { StoreApi } from 'zustand';
 import { logAction } from '../actionLogger';
 import type { TimelineState, Clip, ClipTransition, ClipEffects, Keyframe, EasingType, ToneCurveKeyframe } from './types';
 import { withHistory } from './historySlice';
+import {
+  splitClip,
+  upsertKeyframe,
+  removeKeyframeAtTime,
+  updateKeyframeEasingAtTime,
+  moveKeyframeTime,
+} from '../../utils/clipOperations';
 
 type Set = StoreApi<TimelineState>['setState'];
 type Get = StoreApi<TimelineState>['getState'];
@@ -78,24 +85,11 @@ export const createClipSlice = (set: Set, get: Get) => ({
     const clip = track.clips.find(c => c.id === clipId);
     if (!clip) return;
 
-    const relativeTime = splitTime - clip.startTime;
-    if (relativeTime <= 0 || relativeTime >= clip.duration) return;
+    const result = splitClip(clip, splitTime);
+    if (!result) return;
     logAction('splitClipAtTime', `track=${trackId} clip=${clipId} time=${splitTime.toFixed(2)}`);
 
-    const firstClip: Clip = {
-      ...clip,
-      id: `${clip.id}-1`,
-      duration: relativeTime,
-      sourceEndTime: clip.sourceStartTime + relativeTime,
-    };
-
-    const secondClip: Clip = {
-      ...clip,
-      id: `${clip.id}-2`,
-      startTime: clip.startTime + relativeTime,
-      duration: clip.duration - relativeTime,
-      sourceStartTime: clip.sourceStartTime + relativeTime,
-    };
+    const [firstClip, secondClip] = result;
 
     set((state) => {
       const newTracks = state.tracks.map(t =>
@@ -180,8 +174,7 @@ export const createClipSlice = (set: Set, get: Get) => ({
               clips: track.clips.map(clip => {
                 if (clip.id !== clipId) return clip;
                 const existing = clip.keyframes?.[effectKey] ?? [];
-                const filtered = existing.filter(kf => Math.abs(kf.time - keyframe.time) > 0.001);
-                const updated = [...filtered, keyframe].sort((a, b) => a.time - b.time);
+                const updated = upsertKeyframe(existing, keyframe);
                 return {
                   ...clip,
                   keyframes: { ...clip.keyframes, [effectKey]: updated },
@@ -204,7 +197,7 @@ export const createClipSlice = (set: Set, get: Get) => ({
               clips: track.clips.map(clip => {
                 if (clip.id !== clipId) return clip;
                 const existing = clip.keyframes?.[effectKey] ?? [];
-                const updated = existing.filter(kf => Math.abs(kf.time - time) > 0.001);
+                const updated = removeKeyframeAtTime(existing, time);
                 const newKeyframes = { ...clip.keyframes, [effectKey]: updated };
                 if (updated.length === 0) delete newKeyframes[effectKey];
                 const hasKeys = Object.keys(newKeyframes).length > 0;
@@ -227,9 +220,7 @@ export const createClipSlice = (set: Set, get: Get) => ({
               clips: track.clips.map(clip => {
                 if (clip.id !== clipId) return clip;
                 const existing = clip.keyframes?.[effectKey] ?? [];
-                const updated = existing.map(kf =>
-                  Math.abs(kf.time - time) <= 0.001 ? { ...kf, easing } : kf
-                );
+                const updated = updateKeyframeEasingAtTime(existing, time, easing);
                 return { ...clip, keyframes: { ...clip.keyframes, [effectKey]: updated } };
               }),
             }
@@ -252,20 +243,7 @@ export const createClipSlice = (set: Set, get: Get) => ({
                 for (const key of Object.keys(newKeyframes) as Array<keyof ClipEffects>) {
                   const kfs = newKeyframes[key];
                   if (!kfs) continue;
-                  const moved = kfs.map(kf =>
-                    Math.abs(kf.time - fromTime) <= 0.001 ? { ...kf, time: toTime } : kf
-                  );
-                  const sorted = moved.sort((a, b) => a.time - b.time);
-                  const deduped: typeof sorted = [];
-                  for (const kf of sorted) {
-                    const last = deduped[deduped.length - 1];
-                    if (last && Math.abs(last.time - kf.time) <= 0.001) {
-                      deduped[deduped.length - 1] = kf;
-                    } else {
-                      deduped.push(kf);
-                    }
-                  }
-                  newKeyframes[key] = deduped;
+                  newKeyframes[key] = moveKeyframeTime(kfs, fromTime, toTime);
                 }
                 return { ...clip, keyframes: newKeyframes };
               }),
@@ -289,7 +267,7 @@ export const createClipSlice = (set: Set, get: Get) => ({
                 for (const key of Object.keys(newKeyframes) as Array<keyof ClipEffects>) {
                   const kfs = newKeyframes[key];
                   if (!kfs) continue;
-                  const updated = kfs.filter(kf => Math.abs(kf.time - time) > 0.001);
+                  const updated = removeKeyframeAtTime(kfs, time);
                   if (updated.length === 0) {
                     delete newKeyframes[key];
                   } else {
