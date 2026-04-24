@@ -5,6 +5,8 @@ import {
   removeKeyframeAtTime,
   updateKeyframeEasingAtTime,
   moveKeyframeTime,
+  deduplicateByTime,
+  mapClipKeyframes,
   compactClipKeyframes,
 } from '../utils/clipOperations';
 import type { Clip, Keyframe, ClipKeyframes } from '../store/timeline/types';
@@ -258,6 +260,42 @@ describe('moveKeyframeTime', () => {
 });
 
 // ------------------------------------------------------------------
+// mapClipKeyframes
+// ------------------------------------------------------------------
+describe('mapClipKeyframes', () => {
+  it('applies fn to every effect key', () => {
+    const keyframes: ClipKeyframes = {
+      brightness: [makeKeyframe(1.0, 50)],
+      contrast: [makeKeyframe(2.0, 80)],
+    };
+    const result = mapClipKeyframes(keyframes, kfs => kfs.map(kf => ({ ...kf, value: kf.value * 2 })));
+    expect(result.brightness![0].value).toBe(100);
+    expect(result.contrast![0].value).toBe(160);
+  });
+
+  it('preserves keys where fn returns the same array', () => {
+    const keyframes: ClipKeyframes = {
+      brightness: [makeKeyframe(1.0, 50)],
+    };
+    const result = mapClipKeyframes(keyframes, kfs => kfs);
+    expect(result.brightness).toEqual(keyframes.brightness);
+  });
+
+  it('does not mutate the input object', () => {
+    const keyframes: ClipKeyframes = {
+      brightness: [makeKeyframe(1.0, 50)],
+    };
+    mapClipKeyframes(keyframes, kfs => kfs.map(kf => ({ ...kf, value: 0 })));
+    expect(keyframes.brightness![0].value).toBe(50);
+  });
+
+  it('handles empty keyframes object', () => {
+    const result = mapClipKeyframes({}, kfs => kfs);
+    expect(Object.keys(result)).toHaveLength(0);
+  });
+});
+
+// ------------------------------------------------------------------
 // compactClipKeyframes
 // ------------------------------------------------------------------
 describe('compactClipKeyframes', () => {
@@ -266,12 +304,11 @@ describe('compactClipKeyframes', () => {
       brightness: [makeKeyframe(1.0, 50), makeKeyframe(2.0, 80)],
       contrast: [makeKeyframe(1.0, 30)],
     };
-    // time=1.0 のキーフレームだけ除去
     const result = compactClipKeyframes(keyframes, kfs => kfs.filter(kf => kf.time !== 1.0));
     expect(result).toBeDefined();
     expect(result!.brightness).toHaveLength(1);
     expect(result!.brightness![0].time).toBe(2.0);
-    expect(result!.contrast).toBeUndefined(); // 空になったキーは除去される
+    expect(result!.contrast).toBeUndefined();
   });
 
   it('returns undefined when all keys become empty', () => {
@@ -302,5 +339,58 @@ describe('compactClipKeyframes', () => {
   it('handles empty keyframes object', () => {
     const result = compactClipKeyframes({}, kfs => kfs);
     expect(result).toBeUndefined();
+  });
+});
+
+// ------------------------------------------------------------------
+// deduplicateByTime
+// ------------------------------------------------------------------
+describe('deduplicateByTime', () => {
+  it('returns empty array for empty input', () => {
+    expect(deduplicateByTime([])).toEqual([]);
+  });
+
+  it('returns single-element array unchanged', () => {
+    const input = [makeKeyframe(1.0, 50)];
+    expect(deduplicateByTime(input)).toEqual(input);
+  });
+
+  it('keeps the later element when two have the same time', () => {
+    const input = [makeKeyframe(2.0, 50), makeKeyframe(2.0, 80)];
+    const result = deduplicateByTime(input);
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toBe(80);
+  });
+
+  it('keeps the last when three or more share the same time', () => {
+    const input = [makeKeyframe(1.0, 10), makeKeyframe(1.0, 20), makeKeyframe(1.0, 30)];
+    const result = deduplicateByTime(input);
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toBe(30);
+  });
+
+  it('preserves distinct-time elements in order', () => {
+    const input = [makeKeyframe(1.0, 10), makeKeyframe(2.0, 20), makeKeyframe(3.0, 30)];
+    const result = deduplicateByTime(input);
+    expect(result).toEqual(input);
+  });
+
+  it('deduplicates only adjacent same-time groups', () => {
+    const input = [
+      makeKeyframe(1.0, 10),
+      makeKeyframe(1.0, 11),
+      makeKeyframe(3.0, 30),
+      makeKeyframe(3.0, 31),
+    ];
+    const result = deduplicateByTime(input);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual(makeKeyframe(1.0, 11));
+    expect(result[1]).toEqual(makeKeyframe(3.0, 31));
+  });
+
+  it('does not mutate the input array', () => {
+    const input = [makeKeyframe(1.0, 50), makeKeyframe(1.0, 80)];
+    deduplicateByTime(input);
+    expect(input).toHaveLength(2);
   });
 });

@@ -8,6 +8,7 @@ import {
   removeKeyframeAtTime,
   updateKeyframeEasingAtTime,
   moveKeyframeTime,
+  mapClipKeyframes,
   compactClipKeyframes,
 } from '../../utils/clipOperations';
 
@@ -240,12 +241,7 @@ export const createClipSlice = (set: Set, get: Get) => ({
               ...track,
               clips: track.clips.map(clip => {
                 if (clip.id !== clipId || !clip.keyframes) return clip;
-                const newKeyframes = { ...clip.keyframes } as typeof clip.keyframes;
-                for (const key of Object.keys(newKeyframes) as Array<keyof ClipEffects>) {
-                  const kfs = newKeyframes[key];
-                  if (!kfs) continue;
-                  newKeyframes[key] = moveKeyframeTime(kfs, fromTime, toTime);
-                }
+                const newKeyframes = mapClipKeyframes(clip.keyframes, kfs => moveKeyframeTime(kfs, fromTime, toTime));
                 return { ...clip, keyframes: newKeyframes };
               }),
             }

@@ -75,17 +75,33 @@ export function moveKeyframeTime<T extends { time: number }>(
   const moved = existing.filter(isTarget).map(kf => ({ ...kf, time: toTime }) as T);
   // moved を後ろに配置: stable sort 後の dedup で移動した方が勝つ
   const sorted = [...unmoved, ...moved].sort((a, b) => a.time - b.time);
+  return deduplicateByTime(sorted);
+}
 
-  const deduped: T[] = [];
-  for (const kf of sorted) {
-    const last = deduped[deduped.length - 1];
-    if (last && Math.abs(last.time - kf.time) <= TIME_TOLERANCE) {
-      deduped[deduped.length - 1] = kf;
-    } else {
-      deduped.push(kf);
-    }
+/**
+ * 時刻順にソート済みの配列から、同一時刻（tolerance 内）の重複を除去する。
+ * 同一時刻が連続する場合、後の要素が勝つ（上書き）。
+ */
+export function deduplicateByTime<T extends { time: number }>(sorted: readonly T[]): T[] {
+  if (sorted.length <= 1) return [...sorted];
+  const [first, ...rest] = sorted;
+  const deduped = deduplicateByTime(rest);
+  if (deduped.length > 0 && Math.abs(first.time - deduped[0].time) <= TIME_TOLERANCE) {
+    return deduped;
   }
-  return deduped;
+  return [first, ...deduped];
+}
+
+/**
+ * ClipKeyframes の全エフェクトキーに変換関数を適用して新しい ClipKeyframes を返す。
+ */
+export function mapClipKeyframes(
+  keyframes: ClipKeyframes,
+  fn: (kfs: Keyframe[]) => Keyframe[],
+): ClipKeyframes {
+  return Object.fromEntries(
+    Object.entries(keyframes).map(([key, kfs]) => [key, kfs ? fn(kfs) : kfs]),
+  ) as ClipKeyframes;
 }
 
 /**
