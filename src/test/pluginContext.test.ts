@@ -10,12 +10,14 @@ vi.mock('@/store/actionLogger', () => ({
   logAction: vi.fn(),
 }));
 
+const mockTimelineAddClip = vi.fn();
+
 vi.mock('@/store/timelineStore', () => ({
   useTimelineStore: {
     getState: vi.fn(() => ({
       tracks: [],
       currentTime: 0,
-      addClip: vi.fn(),
+      addClip: mockTimelineAddClip,
       updateClip: vi.fn(),
       removeClip: vi.fn(),
     })),
@@ -151,6 +153,68 @@ describe('PluginContextImpl', () => {
       ctx.disposeAll();
 
       expect(mockUnregisterCustomFormat).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('timeline.addClip()', () => {
+    it('generateId で plugin-clip- プレフィックスの ID を生成してクリップを追加する', () => {
+      const manifest = { ...baseManifest, permissions: ['timeline:write'] as PluginManifest['permissions'] };
+      const ctx = new PluginContextImpl('com.test.plugin', manifest);
+
+      const clipData = {
+        name: 'test.mp4',
+        startTime: 0,
+        duration: 5,
+        filePath: '/test.mp4',
+        sourceStartTime: 0,
+        sourceEndTime: 5,
+      };
+
+      const id = ctx.timeline.addClip('track-1', clipData);
+
+      expect(id).toMatch(/^plugin-clip-/);
+      expect(mockTimelineAddClip).toHaveBeenCalledWith('track-1', expect.objectContaining({
+        ...clipData,
+        id,
+      }));
+    });
+
+    it('timeline:write 権限なしで呼ぶと PluginPermissionError がスローされる', () => {
+      const manifest = { ...baseManifest, permissions: [] as PluginManifest['permissions'] };
+      const ctx = new PluginContextImpl('com.test.plugin', manifest);
+
+      expect(() => ctx.timeline.addClip('track-1', {
+        name: 'test.mp4', startTime: 0, duration: 5, filePath: '', sourceStartTime: 0, sourceEndTime: 5,
+      })).toThrow(PluginPermissionError);
+    });
+  });
+
+  describe('ui.showNotification()', () => {
+    it('generateId で notif- プレフィックスの ID を生成して通知を追加する', () => {
+      const manifest = { ...baseManifest, permissions: [] as PluginManifest['permissions'] };
+      const ctx = new PluginContextImpl('com.test.plugin', manifest);
+
+      ctx.ui.showNotification('テストメッセージ', 'info');
+
+      expect(mockAddNotification).toHaveBeenCalledWith(expect.objectContaining({
+        id: expect.stringMatching(/^notif-/),
+        pluginId: 'com.test.plugin',
+        message: 'テストメッセージ',
+        type: 'info',
+        timestamp: expect.any(Number),
+      }));
+    });
+
+    it('通知ごとに異なる ID が生成される', () => {
+      const manifest = { ...baseManifest, permissions: [] as PluginManifest['permissions'] };
+      const ctx = new PluginContextImpl('com.test.plugin', manifest);
+
+      ctx.ui.showNotification('msg1', 'info');
+      ctx.ui.showNotification('msg2', 'warning');
+
+      const calls = mockAddNotification.mock.calls;
+      expect(calls).toHaveLength(2);
+      expect(calls[0][0].id).not.toBe(calls[1][0].id);
     });
   });
 });
