@@ -819,16 +819,38 @@ describe('projectStore', () => {
       expect(result1).toEqual(result2);
     });
 
-    it('トラックをディープコピーする（参照が共有されない）', () => {
-      const clip = { id: 'c1', name: 'clip', startTime: 0, duration: 5, filePath: '/a.mp4', sourceStartTime: 0, sourceEndTime: 5 };
+    it('トラックをディープコピーする（ネストオブジェクトも参照が共有されない）', () => {
+      const effects = { brightness: 1.2, contrast: 0.8, saturation: 1.0 };
+      const keyframes = { brightness: [{ time: 0, value: 1.0, easing: 'linear' as const }] };
+      const toneCurves = { rgb: [{ x: 0, y: 0 }, { x: 1, y: 1 }], r: [], g: [], b: [] };
+      const clip = {
+        id: 'c1', name: 'clip', startTime: 0, duration: 5, filePath: '/a.mp4',
+        sourceStartTime: 0, sourceEndTime: 5, effects, keyframes, toneCurves,
+      };
       const tracks = [{ id: 'v1', type: 'video' as const, name: 'V1', clips: [clip], volume: 1.0, mute: false, solo: false }];
       const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
 
       const result = buildProjectFile('Test', tracks, exportSettings, '2026-01-01T00:00:00.000Z');
 
-      // 参照が異なることを確認
+      const resultClip = result.timeline.tracks[0].clips[0];
+
+      // トップレベルの参照が異なる
       expect(result.timeline.tracks[0]).not.toBe(tracks[0]);
-      expect(result.timeline.tracks[0].clips[0]).not.toBe(clip);
+      expect(resultClip).not.toBe(clip);
+
+      // ネストオブジェクトの参照も異なる
+      expect(resultClip.effects).not.toBe(effects);
+      expect(resultClip.keyframes).not.toBe(keyframes);
+      expect(resultClip.toneCurves).not.toBe(toneCurves);
+
+      // 値は一致する
+      expect(resultClip.effects).toEqual(effects);
+      expect(resultClip.keyframes).toEqual(keyframes);
+      expect(resultClip.toneCurves).toEqual(toneCurves);
+
+      // exportSettings も参照が異なる
+      expect(result.exportSettings).not.toBe(exportSettings);
+      expect(result.exportSettings).toEqual(exportSettings);
     });
 
     it('空のトラック配列でも有効な ProjectFile を返す', () => {
@@ -842,20 +864,28 @@ describe('projectStore', () => {
       expect(result.schemaVersion).toBe(2);
     });
 
-    it('呼び出し後に入力トラックを変更しても出力に影響しない', () => {
-      const clip = { id: 'c1', name: 'clip', startTime: 0, duration: 5, filePath: '/a.mp4', sourceStartTime: 0, sourceEndTime: 5 };
+    it('呼び出し後に入力を変更しても出力に影響しない（ネストオブジェクト含む）', () => {
+      const effects = { brightness: 1.2, contrast: 0.8 };
+      const clip = {
+        id: 'c1', name: 'clip', startTime: 0, duration: 5, filePath: '/a.mp4',
+        sourceStartTime: 0, sourceEndTime: 5, effects,
+      };
       const tracks = [{ id: 'v1', type: 'video' as const, name: 'V1', clips: [clip], volume: 1.0, mute: false, solo: false }];
       const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
 
       const result = buildProjectFile('Test', tracks, exportSettings, '2026-01-01T00:00:00.000Z');
 
-      // 入力を変更
+      // 入力のネストオブジェクトを変更
       tracks[0].name = 'MUTATED';
       clip.name = 'MUTATED CLIP';
+      effects.brightness = 9.9;
+      exportSettings.fps = 999;
 
       // 出力は影響を受けない
       expect(result.timeline.tracks[0].name).toBe('V1');
       expect(result.timeline.tracks[0].clips[0].name).toBe('clip');
+      expect(result.timeline.tracks[0].clips[0].effects.brightness).toBe(1.2);
+      expect(result.exportSettings.fps).toBe(30);
     });
 
     it('now を省略するとデフォルトで現在時刻が使われる', () => {

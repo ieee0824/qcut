@@ -79,11 +79,6 @@ export function buildProjectFile(
   exportSettings: ExportSettings,
   now: string = new Date().toISOString(),
 ): ProjectFile {
-  const copiedTracks: ProjectTrack[] = tracks.map((track) => ({
-    ...track,
-    clips: track.clips.map((clip) => ({ ...clip })),
-  }));
-
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     appVersion: '0.1.0',
@@ -92,10 +87,8 @@ export function buildProjectFile(
     metadata: {
       name: projectName,
     },
-    timeline: {
-      tracks: copiedTracks,
-    },
-    exportSettings,
+    timeline: JSON.parse(JSON.stringify({ tracks })),
+    exportSettings: JSON.parse(JSON.stringify(exportSettings)),
   };
 }
 
