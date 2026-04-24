@@ -9,22 +9,26 @@ import { useExportStore } from './exportStore';
 import { useVideoPreviewStore } from './videoPreviewStore';
 import i18n from '../i18n';
 import { toRelativePath, resolveRelativePath, getDirectoryPath } from '../utils/pathUtils';
+import {
+  clearAutosaveFilePath,
+  createAutosaveRuntimeState,
+  finishAutosaveRecovery,
+  getAutosaveFilePath,
+  resetAutosaveRuntimeState,
+  scheduleAutosaveTimer,
+  setAutosaveFilePath,
+  startAutosaveRecovery,
+  stopAutosaveTimer,
+} from './projectAutosaveRuntime';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
-let autosaveTimerId: number | null = null;
-let autosaveFilePath: string | null = null;
-let isRecoveringAutosave = false;
+const autosaveRuntime = createAutosaveRuntimeState();
 
 /** テスト用: モジュールレベル変数をリセットする */
 export function _resetAutosaveState(): void {
-  if (autosaveTimerId !== null) {
-    clearTimeout(autosaveTimerId);
-  }
-  autosaveTimerId = null;
-  autosaveFilePath = null;
-  isRecoveringAutosave = false;
+  resetAutosaveRuntimeState(autosaveRuntime);
 }
 
 export const AUTOSAVE_DEBOUNCE_MS = 5 * 1000; // 編集操作後5秒で自動保存
@@ -356,21 +360,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   stopAutosave: () => {
-    if (autosaveTimerId !== null) {
-      clearTimeout(autosaveTimerId);
-      autosaveTimerId = null;
-    }
+    stopAutosaveTimer(autosaveRuntime);
   },
 
   scheduleAutosave: () => {
-    // 既存のタイマーをリセットしてデバウンス
-    if (autosaveTimerId !== null) {
-      clearTimeout(autosaveTimerId);
-    }
-    autosaveTimerId = window.setTimeout(() => {
-      autosaveTimerId = null;
-      useProjectStore.getState().performAutosave();
-    }, AUTOSAVE_DEBOUNCE_MS);
+    scheduleAutosaveTimer(
+      autosaveRuntime,
+      (callback, delayMs) => window.setTimeout(callback, delayMs),
+      clearTimeout,
+      () => {
+        useProjectStore.getState().performAutosave();
+      },
+      AUTOSAVE_DEBOUNCE_MS,
+    );
   },
 
   performAutosave: async () => {
@@ -379,8 +381,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
     try {
       // 初回は UUID パスを生成、以降は同じパスに上書き
+      let autosaveFilePath = getAutosaveFilePath(autosaveRuntime);
       if (!autosaveFilePath) {
         autosaveFilePath = await invoke<string>('get_autosave_path');
+        setAutosaveFilePath(autosaveRuntime, autosaveFilePath);
       }
       const timeline = useTimelineStore.getState();
       const exportSettings = useExportStore.getState().settings;
@@ -399,8 +403,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   checkAndRecoverAutosave: async () => {
     // React StrictMode による二重実行を防止
-    if (isRecoveringAutosave) return;
-    isRecoveringAutosave = true;
+    if (!startAutosaveRecovery(autosaveRuntime)) return;
 
     try {
       const autosaveFiles = await invoke<string[]>('list_autosaves');
@@ -464,15 +467,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     } catch (e) {
       console.error('[autosave] 復旧チェックに失敗:', e);
     } finally {
-      isRecoveringAutosave = false;
+      finishAutosaveRecovery(autosaveRuntime);
     }
   },
 
   deleteAutosave: async () => {
+    const autosaveFilePath = getAutosaveFilePath(autosaveRuntime);
     if (!autosaveFilePath) return;
     try {
       await invoke('delete_file', { path: autosaveFilePath });
-      autosaveFilePath = null;
+      clearAutosaveFilePath(autosaveRuntime);
     } catch (e) {
       console.error('[autosave] 削除に失敗:', e);
     }
