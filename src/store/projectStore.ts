@@ -92,19 +92,42 @@ export function buildProjectFile(
   };
 }
 
+function mapProjectClipPaths(
+  projectFile: ProjectFile,
+  mapPath: (filePath: string) => string,
+): ProjectFile {
+  return {
+    ...projectFile,
+    timeline: {
+      ...projectFile.timeline,
+      tracks: projectFile.timeline.tracks.map((track) => ({
+        ...track,
+        clips: track.clips.map((clip) => (
+          clip.filePath
+            ? { ...clip, filePath: mapPath(clip.filePath) }
+            : { ...clip }
+        )),
+      })),
+    },
+  };
+}
+
+export function withRelativeProjectClipPaths(projectFile: ProjectFile, projectDir: string): ProjectFile {
+  return mapProjectClipPaths(projectFile, (filePath) => toRelativePath(filePath, projectDir));
+}
+
+export function withResolvedProjectClipPaths(projectFile: ProjectFile, projectDir: string): ProjectFile {
+  return mapProjectClipPaths(projectFile, (filePath) => resolveRelativePath(filePath, projectDir));
+}
+
 async function writeProjectFile(path: string, projectName: string): Promise<void> {
   const timeline = useTimelineStore.getState();
   const exportSettings = useExportStore.getState().settings;
-  const projectFile = buildProjectFile(projectName, timeline.tracks, exportSettings);
-  // 保存先ディレクトリを基準に素材パスを相対パスに変換
   const projectDir = getDirectoryPath(path);
-  for (const track of projectFile.timeline.tracks) {
-    for (const clip of track.clips) {
-      if (clip.filePath) {
-        clip.filePath = toRelativePath(clip.filePath, projectDir);
-      }
-    }
-  }
+  const projectFile = withRelativeProjectClipPaths(
+    buildProjectFile(projectName, timeline.tracks, exportSettings),
+    projectDir,
+  );
   const content = JSON.stringify(projectFile, null, 2);
   await invoke('save_project', { path, content });
 }
@@ -282,20 +305,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const content = await invoke<string>('read_project', { path });
       const parsed = JSON.parse(content);
       const project = validateProjectFile(parsed);
-
-      // 相対パスを絶対パスに解決（後方互換: 絶対パスはそのまま）
       const projectDir = getDirectoryPath(path);
-      for (const track of project.timeline.tracks) {
-        for (const clip of track.clips) {
-          if (clip.filePath) {
-            clip.filePath = resolveRelativePath(clip.filePath, projectDir);
-          }
-        }
-      }
+      const resolvedProject = withResolvedProjectClipPaths(project, projectDir);
 
-      const missing = await checkMissingFiles(project);
+      const missing = await checkMissingFiles(resolvedProject);
 
-      applyProjectToStores(project);
+      applyProjectToStores(resolvedProject);
 
       const name = path.split('/').pop()?.replace(/\.qcut$/, '')
         ?? path.split('\\').pop()?.replace(/\.qcut$/, '')
@@ -411,7 +426,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
             // loadStatus を 'loading' にして subscriber が autosave をスケジュールしないようにする
             set({ loadStatus: 'loading' });
 
-            applyProjectToStores(project);
+            const projectDir = originalPath ? getDirectoryPath(originalPath) : '';
+            applyProjectToStores(withResolvedProjectClipPaths(project, projectDir));
 
             const name = originalPath
               ? (originalPath.split('/').pop()?.replace(/\.qcut$/, '')

@@ -14,7 +14,13 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 import { invoke } from '@tauri-apps/api/core';
 import { save, open, ask } from '@tauri-apps/plugin-dialog';
-import { useProjectStore, _resetAutosaveState, buildProjectFile } from '../store/projectStore';
+import {
+  useProjectStore,
+  _resetAutosaveState,
+  buildProjectFile,
+  withRelativeProjectClipPaths,
+  withResolvedProjectClipPaths,
+} from '../store/projectStore';
 import { useTimelineStore } from '../store/timelineStore';
 import { useExportStore } from '../store/exportStore';
 import { useVideoPreviewStore } from '../store/videoPreviewStore';
@@ -91,6 +97,79 @@ describe('projectStore', () => {
     expect(parsed.metadata.name).toBe('無題のプロジェクト');
     expect(parsed.timeline).toBeDefined();
     expect(parsed.exportSettings).toBeDefined();
+  });
+
+  it('withRelativeProjectClipPaths は入力を破壊せずに相対パス化する', () => {
+    const projectFile = buildProjectFile(
+      'test',
+      [
+        {
+          id: 'video-1',
+          type: 'video',
+          name: 'Video 1',
+          volume: 1,
+          mute: false,
+          solo: false,
+          clips: [
+            {
+              id: 'clip-1',
+              name: 'sample.mp4',
+              startTime: 0,
+              duration: 10,
+              filePath: '/tmp/assets/sample.mp4',
+              sourceStartTime: 0,
+              sourceEndTime: 10,
+            },
+          ],
+        },
+      ],
+      useExportStore.getState().settings,
+      '2026-03-08T12:00:00.000Z',
+    );
+
+    const converted = withRelativeProjectClipPaths(projectFile, '/tmp/project');
+
+    expect(projectFile.timeline.tracks[0].clips[0].filePath).toBe('/tmp/assets/sample.mp4');
+    expect(converted.timeline.tracks[0].clips[0].filePath).toBe('../assets/sample.mp4');
+  });
+
+  it('withResolvedProjectClipPaths は入力を破壊せずに絶対パス化する', () => {
+    const projectFile: ProjectFile = {
+      schemaVersion: 2,
+      appVersion: '0.1.0',
+      createdAt: '2026-03-08T12:00:00.000Z',
+      updatedAt: '2026-03-08T12:00:00.000Z',
+      metadata: { name: 'test' },
+      timeline: {
+        tracks: [
+          {
+            id: 'video-1',
+            type: 'video',
+            name: 'Video 1',
+            volume: 1,
+            mute: false,
+            solo: false,
+            clips: [
+              {
+                id: 'clip-1',
+                name: 'sample.mp4',
+                startTime: 0,
+                duration: 10,
+                filePath: '../assets/sample.mp4',
+                sourceStartTime: 0,
+                sourceEndTime: 10,
+              },
+            ],
+          },
+        ],
+      },
+      exportSettings: useExportStore.getState().settings,
+    };
+
+    const converted = withResolvedProjectClipPaths(projectFile, '/tmp/project');
+
+    expect(projectFile.timeline.tracks[0].clips[0].filePath).toBe('../assets/sample.mp4');
+    expect(converted.timeline.tracks[0].clips[0].filePath).toBe('/tmp/assets/sample.mp4');
   });
 
   it('saveProject がタイムラインのトラックデータを含む', async () => {
