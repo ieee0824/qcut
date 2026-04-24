@@ -5,8 +5,9 @@ import {
   removeKeyframeAtTime,
   updateKeyframeEasingAtTime,
   moveKeyframeTime,
+  compactClipKeyframes,
 } from '../utils/clipOperations';
-import type { Clip, Keyframe } from '../store/timeline/types';
+import type { Clip, Keyframe, ClipKeyframes } from '../store/timeline/types';
 
 function makeClip(overrides: Partial<Clip> = {}): Clip {
   return {
@@ -253,5 +254,53 @@ describe('moveKeyframeTime', () => {
     const existing = [makeKeyframe(1.0, 50), makeKeyframe(3.0, 80)];
     const result = moveKeyframeTime(existing, 1.0, 1.0);
     expect(result).toEqual(existing);
+  });
+});
+
+// ------------------------------------------------------------------
+// compactClipKeyframes
+// ------------------------------------------------------------------
+describe('compactClipKeyframes', () => {
+  it('applies fn and keeps non-empty results', () => {
+    const keyframes: ClipKeyframes = {
+      brightness: [makeKeyframe(1.0, 50), makeKeyframe(2.0, 80)],
+      contrast: [makeKeyframe(1.0, 30)],
+    };
+    // time=1.0 のキーフレームだけ除去
+    const result = compactClipKeyframes(keyframes, kfs => kfs.filter(kf => kf.time !== 1.0));
+    expect(result).toBeDefined();
+    expect(result!.brightness).toHaveLength(1);
+    expect(result!.brightness![0].time).toBe(2.0);
+    expect(result!.contrast).toBeUndefined(); // 空になったキーは除去される
+  });
+
+  it('returns undefined when all keys become empty', () => {
+    const keyframes: ClipKeyframes = {
+      brightness: [makeKeyframe(1.0, 50)],
+    };
+    const result = compactClipKeyframes(keyframes, () => []);
+    expect(result).toBeUndefined();
+  });
+
+  it('returns all keys when none become empty', () => {
+    const keyframes: ClipKeyframes = {
+      brightness: [makeKeyframe(1.0, 50)],
+      contrast: [makeKeyframe(2.0, 80)],
+    };
+    const result = compactClipKeyframes(keyframes, kfs => kfs);
+    expect(result).toEqual(keyframes);
+  });
+
+  it('does not mutate the input object', () => {
+    const keyframes: ClipKeyframes = {
+      brightness: [makeKeyframe(1.0, 50)],
+    };
+    compactClipKeyframes(keyframes, () => []);
+    expect(keyframes.brightness).toHaveLength(1);
+  });
+
+  it('handles empty keyframes object', () => {
+    const result = compactClipKeyframes({}, kfs => kfs);
+    expect(result).toBeUndefined();
   });
 });
