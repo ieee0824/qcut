@@ -70,16 +70,9 @@ export function moveKeyframeTime<T extends { time: number }>(
   fromTime: number,
   toTime: number,
 ): T[] {
-  const unmoved: T[] = [];
-  const toMove: T[] = [];
-  for (const kf of existing) {
-    if (Math.abs(kf.time - fromTime) <= TIME_TOLERANCE) {
-      toMove.push(kf);
-    } else {
-      unmoved.push(kf);
-    }
-  }
-  const moved = toMove.map(kf => ({ ...kf, time: toTime }) as T);
+  const isTarget = (kf: T) => Math.abs(kf.time - fromTime) <= TIME_TOLERANCE;
+  const unmoved = existing.filter(kf => !isTarget(kf));
+  const moved = existing.filter(isTarget).map(kf => ({ ...kf, time: toTime }) as T);
   // moved を後ろに配置: stable sort 後の dedup で移動した方が勝つ
   const sorted = [...unmoved, ...moved].sort((a, b) => a.time - b.time);
 
