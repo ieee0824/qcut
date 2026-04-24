@@ -15,6 +15,7 @@ import { ShortcutHelp } from './components/ShortcutHelp/ShortcutHelp';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTimelineStore } from './store/timelineStore';
 import { DEFAULT_TEXT_PROPERTIES } from './store/timelineStore';
+import { generateId } from './utils/idGenerator';
 import { useVideoPreviewStore } from './store/videoPreviewStore';
 import { useExportStore } from './store/exportStore';
 import { useShortcutStore } from './store/shortcutStore';
@@ -106,10 +107,10 @@ function App() {
 
   const handleAddTextTrack = useCallback(() => {
     const { addTrack, addClip, tracks } = useTimelineStore.getState();
-    const trackId = `track-text-${Date.now()}`;
+    const trackId = generateId('track-text');
     addTrack({ id: trackId, type: 'text', name: `Text ${tracks.filter((t) => t.type === 'text').length + 1}`, clips: [] });
     addClip(trackId, {
-      id: `text-${Date.now()}`,
+      id: generateId('text'),
       name: 'テキスト',
       startTime: useTimelineStore.getState().currentTime,
       duration: 3,
