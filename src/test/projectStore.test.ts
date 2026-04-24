@@ -14,7 +14,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 import { invoke } from '@tauri-apps/api/core';
 import { save, open, ask } from '@tauri-apps/plugin-dialog';
-import { useProjectStore, _resetAutosaveState } from '../store/projectStore';
+import { useProjectStore, _resetAutosaveState, buildProjectFile } from '../store/projectStore';
 import { useTimelineStore } from '../store/timelineStore';
 import { useExportStore } from '../store/exportStore';
 import { useVideoPreviewStore } from '../store/videoPreviewStore';
@@ -783,6 +783,122 @@ describe('projectStore', () => {
     expect(clip.keyframes!.brightness).toHaveLength(2);
     expect(clip.keyframes!.brightness![0].easing).toBe('linear');
     expect(clip.keyframes!.brightness![1].value).toBe(1.5);
+  });
+
+  // --- buildProjectFile 純粋関数テスト ---
+
+  describe('buildProjectFile', () => {
+    it('引数から決定的にProjectFileを生成する', () => {
+      const tracks = [{
+        id: 'v1', type: 'video' as const, name: 'V1', clips: [],
+        volume: 1.0, mute: false, solo: false,
+      }];
+      const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
+      const now = '2026-01-01T00:00:00.000Z';
+
+      const result = buildProjectFile('TestProject', tracks, exportSettings, now);
+
+      expect(result.metadata.name).toBe('TestProject');
+      expect(result.createdAt).toBe(now);
+      expect(result.updatedAt).toBe(now);
+      expect(result.timeline.tracks).toHaveLength(1);
+      expect(result.timeline.tracks[0].id).toBe('v1');
+      expect(result.exportSettings.fps).toBe(30);
+      expect(result.schemaVersion).toBe(2);
+      expect(result.appVersion).toBe('0.1.0');
+    });
+
+    it('同じ引数で同じ結果を返す（参照透過性）', () => {
+      const tracks = [{ id: 'v1', type: 'video' as const, name: 'V1', clips: [], volume: 1.0, mute: false, solo: false }];
+      const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
+      const now = '2026-01-01T00:00:00.000Z';
+
+      const result1 = buildProjectFile('Test', tracks, exportSettings, now);
+      const result2 = buildProjectFile('Test', tracks, exportSettings, now);
+
+      expect(result1).toEqual(result2);
+    });
+
+    it('トラックをディープコピーする（ネストオブジェクトも参照が共有されない）', () => {
+      const effects = { brightness: 1.2, contrast: 0.8, saturation: 1.0 };
+      const keyframes = { brightness: [{ time: 0, value: 1.0, easing: 'linear' as const }] };
+      const toneCurves = { rgb: [{ x: 0, y: 0 }, { x: 1, y: 1 }], r: [], g: [], b: [] };
+      const clip = {
+        id: 'c1', name: 'clip', startTime: 0, duration: 5, filePath: '/a.mp4',
+        sourceStartTime: 0, sourceEndTime: 5, effects, keyframes, toneCurves,
+      };
+      const tracks = [{ id: 'v1', type: 'video' as const, name: 'V1', clips: [clip], volume: 1.0, mute: false, solo: false }];
+      const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
+
+      const result = buildProjectFile('Test', tracks, exportSettings, '2026-01-01T00:00:00.000Z');
+
+      const resultClip = result.timeline.tracks[0].clips[0];
+
+      // トップレベルの参照が異なる
+      expect(result.timeline.tracks[0]).not.toBe(tracks[0]);
+      expect(resultClip).not.toBe(clip);
+
+      // ネストオブジェクトの参照も異なる
+      expect(resultClip.effects).not.toBe(effects);
+      expect(resultClip.keyframes).not.toBe(keyframes);
+      expect(resultClip.toneCurves).not.toBe(toneCurves);
+
+      // 値は一致する
+      expect(resultClip.effects).toEqual(effects);
+      expect(resultClip.keyframes).toEqual(keyframes);
+      expect(resultClip.toneCurves).toEqual(toneCurves);
+
+      // exportSettings も参照が異なる
+      expect(result.exportSettings).not.toBe(exportSettings);
+      expect(result.exportSettings).toEqual(exportSettings);
+    });
+
+    it('空のトラック配列でも有効な ProjectFile を返す', () => {
+      const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
+      const now = '2026-01-01T00:00:00.000Z';
+
+      const result = buildProjectFile('Empty', [], exportSettings, now);
+
+      expect(result.timeline.tracks).toHaveLength(0);
+      expect(result.metadata.name).toBe('Empty');
+      expect(result.schemaVersion).toBe(2);
+    });
+
+    it('呼び出し後に入力を変更しても出力に影響しない（ネストオブジェクト含む）', () => {
+      const effects = { brightness: 1.2, contrast: 0.8 };
+      const clip = {
+        id: 'c1', name: 'clip', startTime: 0, duration: 5, filePath: '/a.mp4',
+        sourceStartTime: 0, sourceEndTime: 5, effects,
+      };
+      const tracks = [{ id: 'v1', type: 'video' as const, name: 'V1', clips: [clip], volume: 1.0, mute: false, solo: false }];
+      const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
+
+      const result = buildProjectFile('Test', tracks, exportSettings, '2026-01-01T00:00:00.000Z');
+
+      // 入力のネストオブジェクトを変更
+      tracks[0].name = 'MUTATED';
+      clip.name = 'MUTATED CLIP';
+      effects.brightness = 9.9;
+      exportSettings.fps = 999;
+
+      // 出力は影響を受けない
+      expect(result.timeline.tracks[0].name).toBe('V1');
+      expect(result.timeline.tracks[0].clips[0].name).toBe('clip');
+      expect(result.timeline.tracks[0].clips[0].effects.brightness).toBe(1.2);
+      expect(result.exportSettings.fps).toBe(30);
+    });
+
+    it('now を省略するとデフォルトで現在時刻が使われる', () => {
+      const tracks = [{ id: 'v1', type: 'video' as const, name: 'V1', clips: [], volume: 1.0, mute: false, solo: false }];
+      const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
+
+      const before = new Date().toISOString();
+      const result = buildProjectFile('Test', tracks, exportSettings);
+      const after = new Date().toISOString();
+
+      expect(result.createdAt >= before).toBe(true);
+      expect(result.createdAt <= after).toBe(true);
+    });
   });
 
   it('clearRecentProjects で全件削除する', async () => {
