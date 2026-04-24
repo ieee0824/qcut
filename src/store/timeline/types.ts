@@ -178,7 +178,7 @@ export interface TimecodeOverlay {
 
 export const DEFAULT_TIMECODE_OVERLAY: TimecodeOverlay = {
   enabled: false,
-  startDateTime: Date.now(),
+  startDateTime: 0,
   format: 'hm',
   positionX: 50,
   positionY: 10,
