@@ -77,6 +77,20 @@ describe('splitClip', () => {
     expect(first.effects).toEqual({ brightness: 1.5 });
     expect(second.transition).toEqual({ type: 'crossfade', duration: 0.5 });
   });
+
+  it('correctly computes source times when sourceStartTime is non-zero', () => {
+    const clip = makeClip({
+      sourceStartTime: 5,
+      sourceEndTime: 11,
+    });
+    const [first, second] = splitClip(clip, 13)!; // relative 3s
+
+    expect(first.sourceStartTime).toBe(5);
+    expect(first.sourceEndTime).toBe(8);   // 5 + 3
+
+    expect(second.sourceStartTime).toBe(8); // 5 + 3
+    expect(second.sourceEndTime).toBe(11);
+  });
 });
 
 // ------------------------------------------------------------------
@@ -136,6 +150,10 @@ describe('removeKeyframeAtTime', () => {
     removeKeyframeAtTime(existing, 1.0);
     expect(existing).toHaveLength(2);
   });
+
+  it('returns empty array for empty input', () => {
+    expect(removeKeyframeAtTime([], 1.0)).toEqual([]);
+  });
 });
 
 // ------------------------------------------------------------------
@@ -159,6 +177,17 @@ describe('updateKeyframeEasingAtTime', () => {
     const existing = [makeKeyframe(1.0, 50, 'linear')];
     updateKeyframeEasingAtTime(existing, 1.0, 'easeOut');
     expect(existing[0].easing).toBe('linear');
+  });
+
+  it('returns unchanged copy when no keyframe matches', () => {
+    const existing = [makeKeyframe(1.0, 50, 'linear')];
+    const result = updateKeyframeEasingAtTime(existing, 9.0, 'easeIn');
+    expect(result).toEqual(existing);
+    expect(result).not.toBe(existing);
+  });
+
+  it('returns empty array for empty input', () => {
+    expect(updateKeyframeEasingAtTime([], 1.0, 'easeIn')).toEqual([]);
   });
 });
 
@@ -191,5 +220,21 @@ describe('moveKeyframeTime', () => {
     const existing = [makeKeyframe(1.0, 50), makeKeyframe(3.0, 80)];
     moveKeyframeTime(existing, 1.0, 2.0);
     expect(existing[0].time).toBe(1.0);
+  });
+
+  it('returns unchanged copy when fromTime matches no keyframe', () => {
+    const existing = [makeKeyframe(1.0, 50), makeKeyframe(3.0, 80)];
+    const result = moveKeyframeTime(existing, 9.0, 2.0);
+    expect(result).toEqual(existing);
+  });
+
+  it('returns empty array for empty input', () => {
+    expect(moveKeyframeTime([], 1.0, 2.0)).toEqual([]);
+  });
+
+  it('is a no-op when fromTime equals toTime', () => {
+    const existing = [makeKeyframe(1.0, 50), makeKeyframe(3.0, 80)];
+    const result = moveKeyframeTime(existing, 1.0, 1.0);
+    expect(result).toEqual(existing);
   });
 });
