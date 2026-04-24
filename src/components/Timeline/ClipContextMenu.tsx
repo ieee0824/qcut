@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useTimelineStore, Clip as ClipType, DEFAULT_EFFECTS, type TransitionType } from '../../store/timelineStore';
 import { TransitionSubmenu } from './TransitionSubmenu';
 import { clampMenuPosition } from './clipUtils';
+import { generateId } from '../../utils/idGenerator';
 
 interface ClipContextMenuProps {
   clip: ClipType;
@@ -55,11 +56,11 @@ export function ClipContextMenu({ clip, trackId, trackType, position, onClose }:
     if (!clip.filePath) return;
 
     // 音声トラックを作成し、同じ動画ファイルを参照する音声クリップを配置
-    const audioTrackId = `track-audio-${Date.now()}`;
+    const audioTrackId = generateId('track-audio');
     addTrack({ id: audioTrackId, type: 'audio', name: `${clip.name} (音声)`, clips: [] });
 
     addClip(audioTrackId, {
-      id: `clip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: generateId('clip'),
       name: `${clip.name} (音声)`,
       startTime: clip.startTime,
       duration: clip.duration,
