@@ -2,6 +2,7 @@ import type { StoreApi } from 'zustand';
 import { logAction } from '../actionLogger';
 import type { TimelineState, Clip, Track } from './types';
 import { withHistory } from './historySlice';
+import { generateId } from '../../utils/idGenerator';
 
 type Set = StoreApi<TimelineState>['setState'];
 
@@ -35,18 +36,14 @@ export function resolveTargetTrackId(
   return resolvedTrackId;
 }
 
-function defaultGenerateId(): string {
-  return `clip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 export function buildPastedClip(
   sourceClip: Clip,
   currentTime: number,
-  generateId: () => string = defaultGenerateId,
+  idGenerator: () => string = () => generateId('clip'),
 ): Clip {
   return {
     ...JSON.parse(JSON.stringify(sourceClip)),
-    id: generateId(),
+    id: idGenerator(),
     startTime: currentTime,
   };
 }
