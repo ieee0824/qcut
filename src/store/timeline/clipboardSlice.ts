@@ -5,6 +5,7 @@ import { withHistory } from './historySlice';
 import { generateId } from '../../utils/idGenerator';
 
 type Set = StoreApi<TimelineState>['setState'];
+type Get = StoreApi<TimelineState>['getState'];
 
 export function resolveTargetTrackId(
   tracks: Track[],
@@ -48,35 +49,42 @@ export function buildPastedClip(
   };
 }
 
-export const createClipboardSlice = (set: Set) => ({
+export const createClipboardSlice = (set: Set, get: Get) => ({
   _clipboard: null as { trackId: string; trackType: Track['type']; clip: Clip } | null,
 
-  copySelectedClip: () => set((state) => {
-    if (!state.selectedClipId || !state.selectedTrackId) return state;
-    logAction('copySelectedClip', `track=${state.selectedTrackId} clip=${state.selectedClipId}`);
+  copySelectedClip: () => {
+    const state = get();
+    if (!state.selectedClipId || !state.selectedTrackId) return;
     const track = state.tracks.find(t => t.id === state.selectedTrackId);
     const clip = track?.clips.find(c => c.id === state.selectedClipId);
-    if (!track || !clip) return state;
-    return { _clipboard: { trackId: state.selectedTrackId, trackType: track.type, clip: JSON.parse(JSON.stringify(clip)) } };
-  }),
+    if (!track || !clip) return;
+    logAction('copySelectedClip', `track=${state.selectedTrackId} clip=${state.selectedClipId}`);
+    set({
+      _clipboard: {
+        trackId: state.selectedTrackId,
+        trackType: track.type,
+        clip: JSON.parse(JSON.stringify(clip)),
+      },
+    });
+  },
 
-  pasteClip: () => set((state) => {
-    if (!state._clipboard) return state;
-    logAction('pasteClip', `clip=${state._clipboard.clip.name}`);
+  pasteClip: () => {
+    const state = get();
+    if (!state._clipboard) return;
     const { clip, trackId: sourceTrackId, trackType: sourceType } = state._clipboard;
-
     const resolvedTrackId = resolveTargetTrackId(
       state.tracks, state.selectedTrackId, sourceTrackId, sourceType,
     );
-    if (!resolvedTrackId) return state;
-
+    if (!resolvedTrackId) return;
+    logAction('pasteClip', `clip=${state._clipboard.clip.name}`);
     const newClip = buildPastedClip(clip, state.currentTime);
-
-    const newTracks = state.tracks.map(t =>
-      t.id === resolvedTrackId
-        ? { ...t, clips: [...t.clips, newClip] }
-        : t
-    );
-    return withHistory(state, newTracks);
-  }),
+    set((currentState) => {
+      const newTracks = currentState.tracks.map(t =>
+        t.id === resolvedTrackId
+          ? { ...t, clips: [...t.clips, newClip] }
+          : t
+      );
+      return withHistory(currentState, newTracks);
+    });
+  },
 });
