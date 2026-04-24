@@ -9,6 +9,7 @@ import {
   updateKeyframeEasingAtTime,
   moveKeyframeTime,
   mapClipKeyframes,
+  compactClipKeyframes,
 } from '../../utils/clipOperations';
 
 type Set = StoreApi<TimelineState>['setState'];
@@ -259,19 +260,8 @@ export const createClipSlice = (set: Set, get: Get) => ({
               ...track,
               clips: track.clips.map(clip => {
                 if (clip.id !== clipId || !clip.keyframes) return clip;
-                const newKeyframes = { ...clip.keyframes } as typeof clip.keyframes;
-                for (const key of Object.keys(newKeyframes) as Array<keyof ClipEffects>) {
-                  const kfs = newKeyframes[key];
-                  if (!kfs) continue;
-                  const updated = removeKeyframeAtTime(kfs, time);
-                  if (updated.length === 0) {
-                    delete newKeyframes[key];
-                  } else {
-                    newKeyframes[key] = updated;
-                  }
-                }
-                const hasKeys = Object.keys(newKeyframes).length > 0;
-                return { ...clip, keyframes: hasKeys ? newKeyframes : undefined };
+                const newKeyframes = compactClipKeyframes(clip.keyframes, kfs => removeKeyframeAtTime(kfs, time));
+                return { ...clip, keyframes: newKeyframes };
               }),
             }
           : track
