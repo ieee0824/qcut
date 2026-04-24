@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { open } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useFileOperationsStore } from '@/store/fileOperationsStore';
+import { generateId } from '@/utils/idGenerator';
 import { useVideoPreviewStore } from '@/store/videoPreviewStore';
 import { useTimelineStore } from '@/store/timelineStore';
 import { useProjectStore } from '@/store/projectStore';
@@ -143,7 +144,7 @@ export const FileOperations: React.FC = () => {
       const target = getTargetTrack(mediaType);
 
       addClip(target.trackId, {
-        id: `clip-${Date.now()}`,
+        id: generateId('clip'),
         name: fileName,
         startTime: target.startTime,
         duration,
