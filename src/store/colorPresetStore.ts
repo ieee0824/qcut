@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
+import { generateId } from '../utils/idGenerator';
 import type { ColorPreset } from '../data/colorPresets';
 import { BUILT_IN_COLOR_PRESETS } from '../data/colorPresets';
 import type { ColorEffectFields } from '../data/colorPresets';
@@ -47,7 +48,7 @@ export const useColorPresetStore = create<ColorPresetState>((set, get) => ({
   },
 
   addPreset: async (name, effects) => {
-    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = generateId('custom');
     const newPreset: ColorPreset = { id, name, category: 'custom', effects, isBuiltIn: false };
     const updated = [...get().customPresets, newPreset];
     set({ customPresets: updated });

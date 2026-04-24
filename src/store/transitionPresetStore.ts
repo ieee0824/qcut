@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
+import { generateId } from '../utils/idGenerator';
 import type { TransitionType } from './timelineStore';
 
 export interface TransitionPreset {
@@ -61,7 +62,7 @@ export const useTransitionPresetStore = create<TransitionPresetState>((set, get)
   },
 
   addPreset: async (name, type, duration) => {
-    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = generateId('custom');
     const newPreset: TransitionPreset = { id, name, type, duration, isBuiltIn: false };
     const updated = [...get().customPresets, newPreset];
     set({ customPresets: updated });
