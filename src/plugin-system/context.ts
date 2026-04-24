@@ -3,6 +3,7 @@ import type { Clip } from '@/store/timelineStore';
 import { logAction } from '@/store/actionLogger';
 import { usePluginStore } from '@/store/pluginStore';
 import { useExportStore } from '@/store/exportStore';
+import { generateId } from '@/utils/idGenerator';
 import type { PluginManifest, PluginPermission } from './types/manifest';
 import type {
   PluginContext,
@@ -111,7 +112,7 @@ export class PluginContextImpl implements PluginContext {
 
       addClip: (trackId: string, clip: Omit<Clip, 'id'>): string => {
         this.requirePermission('timeline:write');
-        const id = `plugin-clip-${Date.now()}`;
+        const id = generateId('plugin-clip');
         useTimelineStore.getState().addClip(trackId, { ...clip, id });
         return id;
       },
@@ -185,13 +186,13 @@ export class PluginContextImpl implements PluginContext {
 
       showNotification: (message: string, type: 'info' | 'warning' | 'error') => {
         const store = usePluginStore.getState();
-        const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const id = generateId('notif');
         store.addNotification({
           id,
           pluginId: this.pluginId,
           message,
           type,
-          timestamp: Date.now(),
+          timestamp: Date.now(),  // UI 表示用タイムスタンプ
         });
         // 5秒後に自動削除。プラグインのライフサイクルに紐づけるため Disposable として登録
         const timeoutId = setTimeout(() => {
