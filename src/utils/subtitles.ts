@@ -150,9 +150,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 // --- Track conversion ---
 
-export function subtitlesToTrack(entries: SubtitleEntry[], trackName = 'Subtitle'): Track {
-  const clips: Clip[] = entries.map((entry, i) => ({
-    id: `text-${Date.now()}-${i}`,
+function defaultIdGenerator(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function subtitlesToTrack(
+  entries: SubtitleEntry[],
+  trackName = 'Subtitle',
+  idGenerator: (prefix: string) => string = defaultIdGenerator,
+): Track {
+  const clips: Clip[] = entries.map((entry) => ({
+    id: idGenerator('text'),
     name: entry.text.substring(0, 20),
     startTime: entry.startTime,
     duration: entry.endTime - entry.startTime,
@@ -168,7 +176,7 @@ export function subtitlesToTrack(entries: SubtitleEntry[], trackName = 'Subtitle
   }));
 
   return {
-    id: `track-text-${Date.now()}`,
+    id: idGenerator('track-text'),
     type: 'text',
     name: trackName,
     clips,
