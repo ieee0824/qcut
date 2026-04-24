@@ -819,7 +819,7 @@ describe('projectStore', () => {
       expect(result1).toEqual(result2);
     });
 
-    it('トラックをディープコピーする（元のデータを変更しない）', () => {
+    it('トラックをディープコピーする（参照が共有されない）', () => {
       const clip = { id: 'c1', name: 'clip', startTime: 0, duration: 5, filePath: '/a.mp4', sourceStartTime: 0, sourceEndTime: 5 };
       const tracks = [{ id: 'v1', type: 'video' as const, name: 'V1', clips: [clip], volume: 1.0, mute: false, solo: false }];
       const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
@@ -829,6 +829,45 @@ describe('projectStore', () => {
       // 参照が異なることを確認
       expect(result.timeline.tracks[0]).not.toBe(tracks[0]);
       expect(result.timeline.tracks[0].clips[0]).not.toBe(clip);
+    });
+
+    it('空のトラック配列でも有効な ProjectFile を返す', () => {
+      const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
+      const now = '2026-01-01T00:00:00.000Z';
+
+      const result = buildProjectFile('Empty', [], exportSettings, now);
+
+      expect(result.timeline.tracks).toHaveLength(0);
+      expect(result.metadata.name).toBe('Empty');
+      expect(result.schemaVersion).toBe(2);
+    });
+
+    it('呼び出し後に入力トラックを変更しても出力に影響しない', () => {
+      const clip = { id: 'c1', name: 'clip', startTime: 0, duration: 5, filePath: '/a.mp4', sourceStartTime: 0, sourceEndTime: 5 };
+      const tracks = [{ id: 'v1', type: 'video' as const, name: 'V1', clips: [clip], volume: 1.0, mute: false, solo: false }];
+      const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
+
+      const result = buildProjectFile('Test', tracks, exportSettings, '2026-01-01T00:00:00.000Z');
+
+      // 入力を変更
+      tracks[0].name = 'MUTATED';
+      clip.name = 'MUTATED CLIP';
+
+      // 出力は影響を受けない
+      expect(result.timeline.tracks[0].name).toBe('V1');
+      expect(result.timeline.tracks[0].clips[0].name).toBe('clip');
+    });
+
+    it('now を省略するとデフォルトで現在時刻が使われる', () => {
+      const tracks = [{ id: 'v1', type: 'video' as const, name: 'V1', clips: [], volume: 1.0, mute: false, solo: false }];
+      const exportSettings = { format: 'mp4' as const, width: 1920, height: 1080, bitrate: '8M', fps: 30 };
+
+      const before = new Date().toISOString();
+      const result = buildProjectFile('Test', tracks, exportSettings);
+      const after = new Date().toISOString();
+
+      expect(result.createdAt >= before).toBe(true);
+      expect(result.createdAt <= after).toBe(true);
     });
   });
 
