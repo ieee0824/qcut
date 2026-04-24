@@ -5,8 +5,9 @@ import {
   removeKeyframeAtTime,
   updateKeyframeEasingAtTime,
   moveKeyframeTime,
+  mapClipKeyframes,
 } from '../utils/clipOperations';
-import type { Clip, Keyframe } from '../store/timeline/types';
+import type { Clip, Keyframe, ClipKeyframes } from '../store/timeline/types';
 
 function makeClip(overrides: Partial<Clip> = {}): Clip {
   return {
@@ -253,5 +254,41 @@ describe('moveKeyframeTime', () => {
     const existing = [makeKeyframe(1.0, 50), makeKeyframe(3.0, 80)];
     const result = moveKeyframeTime(existing, 1.0, 1.0);
     expect(result).toEqual(existing);
+  });
+});
+
+// ------------------------------------------------------------------
+// mapClipKeyframes
+// ------------------------------------------------------------------
+describe('mapClipKeyframes', () => {
+  it('applies fn to every effect key', () => {
+    const keyframes: ClipKeyframes = {
+      brightness: [makeKeyframe(1.0, 50)],
+      contrast: [makeKeyframe(2.0, 80)],
+    };
+    const result = mapClipKeyframes(keyframes, kfs => kfs.map(kf => ({ ...kf, value: kf.value * 2 })));
+    expect(result.brightness![0].value).toBe(100);
+    expect(result.contrast![0].value).toBe(160);
+  });
+
+  it('preserves keys where fn returns the same array', () => {
+    const keyframes: ClipKeyframes = {
+      brightness: [makeKeyframe(1.0, 50)],
+    };
+    const result = mapClipKeyframes(keyframes, kfs => kfs);
+    expect(result.brightness).toEqual(keyframes.brightness);
+  });
+
+  it('does not mutate the input object', () => {
+    const keyframes: ClipKeyframes = {
+      brightness: [makeKeyframe(1.0, 50)],
+    };
+    mapClipKeyframes(keyframes, kfs => kfs.map(kf => ({ ...kf, value: 0 })));
+    expect(keyframes.brightness![0].value).toBe(50);
+  });
+
+  it('handles empty keyframes object', () => {
+    const result = mapClipKeyframes({}, kfs => kfs);
+    expect(Object.keys(result)).toHaveLength(0);
   });
 });
