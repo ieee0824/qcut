@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useTransitionPresetStore, BUILT_IN_PRESETS } from '../store/transitionPresetStore';
 
 describe('transition preset store', () => {
@@ -96,6 +96,25 @@ describe('transition preset store', () => {
       const remaining = useTransitionPresetStore.getState().customPresets;
       expect(remaining).toHaveLength(1);
       expect(remaining[0].name).toBe('Keep');
+    });
+
+    it('should generate deterministic id when Date.now and Math.random are mocked', async () => {
+      const dateSpy = vi.spyOn(Date, 'now').mockReturnValueOnce(5000).mockReturnValueOnce(6000);
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValueOnce(0.2).mockReturnValueOnce(0.8);
+      await useTransitionPresetStore.getState().addPreset('A', 'crossfade', 1.0);
+      await useTransitionPresetStore.getState().addPreset('B', 'dissolve', 2.0);
+      dateSpy.mockRestore();
+      randomSpy.mockRestore();
+      const customs = useTransitionPresetStore.getState().customPresets;
+      expect(customs[0].id).toBe(`custom-5000-${(0.2).toString(36).slice(2, 8)}`);
+      expect(customs[1].id).toBe(`custom-6000-${(0.8).toString(36).slice(2, 8)}`);
+      expect(customs[0].id).not.toBe(customs[1].id);
+    });
+
+    it('should not throw when removing non-existent id', async () => {
+      await useTransitionPresetStore.getState().addPreset('Keep', 'crossfade', 1.0);
+      await useTransitionPresetStore.getState().removePreset('non-existent-id');
+      expect(useTransitionPresetStore.getState().customPresets).toHaveLength(1);
     });
   });
 });

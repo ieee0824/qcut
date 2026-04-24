@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useColorPresetStore } from '../store/colorPresetStore';
 import { BUILT_IN_COLOR_PRESETS } from '../data/colorPresets';
 
@@ -63,5 +63,24 @@ describe('colorPresetStore', () => {
     await useColorPresetStore.getState().removePreset(id);
     const all = useColorPresetStore.getState().getAllPresets();
     expect(all.length).toBe(BUILT_IN_COLOR_PRESETS.length);
+  });
+
+  it('should generate deterministic id when Date.now and Math.random are mocked', async () => {
+    const dateSpy = vi.spyOn(Date, 'now').mockReturnValueOnce(3000).mockReturnValueOnce(4000);
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValueOnce(0.3).mockReturnValueOnce(0.7);
+    await useColorPresetStore.getState().addPreset('A', {});
+    await useColorPresetStore.getState().addPreset('B', {});
+    dateSpy.mockRestore();
+    randomSpy.mockRestore();
+    const customs = useColorPresetStore.getState().customPresets;
+    expect(customs[0].id).toBe(`custom-3000-${(0.3).toString(36).slice(2, 8)}`);
+    expect(customs[1].id).toBe(`custom-4000-${(0.7).toString(36).slice(2, 8)}`);
+    expect(customs[0].id).not.toBe(customs[1].id);
+  });
+
+  it('should not throw when removing non-existent id', async () => {
+    await useColorPresetStore.getState().addPreset('Keep', { brightness: 1.0 });
+    await useColorPresetStore.getState().removePreset('non-existent-id');
+    expect(useColorPresetStore.getState().customPresets).toHaveLength(1);
   });
 });
