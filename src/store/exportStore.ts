@@ -39,7 +39,7 @@ export interface ExportState {
   formatOptions: FormatOption[];
   customFormatProfiles: Record<string, ExportFormatProfile>;
 
-  setStatus: (status: ExportStatus) => void;
+  setStatus: (status: ExportStatus, timestamp?: number) => void;
   setProgress: (progress: number, currentTime: number) => void;
   setError: (message: string) => void;
   setDialogOpen: (open: boolean) => void;
@@ -71,9 +71,9 @@ export const useExportStore = create<ExportState>((set) => ({
   formatOptions: DEFAULT_FORMAT_OPTIONS,
   customFormatProfiles: {},
 
-  setStatus: (status) => set((state) => ({
+  setStatus: (status, timestamp = Date.now()) => set((state) => ({
     status,
-    exportStartedAt: status === 'exporting' ? (state.exportStartedAt ?? Date.now()) : state.exportStartedAt,
+    exportStartedAt: status === 'exporting' ? (state.exportStartedAt ?? timestamp) : state.exportStartedAt,
   })),
   setProgress: (progress, currentTime) => set({ progress, currentTime }),
   setError: (message) => set({ status: 'error', errorMessage: message }),

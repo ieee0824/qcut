@@ -601,6 +601,15 @@ describe('projectStore', () => {
     expect(recentProjects[1].exists).toBe(false);
   });
 
+  it('addRecentProject に固定タイムスタンプを渡すと決定的に lastOpened が設定される', async () => {
+    vi.mocked(invoke).mockResolvedValue(undefined);
+
+    await useProjectStore.getState().addRecentProject('Test', '/tmp/test.qcut', 1700000000000);
+
+    const { recentProjects } = useProjectStore.getState();
+    expect(recentProjects[0].lastOpened).toBe(1700000000000);
+  });
+
   it('addRecentProject で先頭に追加され最大10件に制限される', async () => {
     const existing = Array.from({ length: 10 }, (_, i) => ({
       name: `Project${i}`,

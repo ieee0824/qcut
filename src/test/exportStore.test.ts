@@ -96,6 +96,69 @@ describe('exportStore', () => {
     expect(result.current.outputPath).toBe('/tmp/output.mp4');
   });
 
+  it('setStatus に固定タイムスタンプを渡すと決定的に exportStartedAt が設定される', () => {
+    const { result } = renderHook(() => useExportStore());
+
+    act(() => {
+      result.current.setStatus('exporting', 1700000000000);
+    });
+
+    expect(result.current.exportStartedAt).toBe(1700000000000);
+  });
+
+  it('setStatus で既に exportStartedAt がある場合は上書きしない', () => {
+    const { result } = renderHook(() => useExportStore());
+
+    act(() => {
+      result.current.setStatus('exporting', 1000);
+    });
+    act(() => {
+      result.current.setStatus('exporting', 2000);
+    });
+
+    expect(result.current.exportStartedAt).toBe(1000);
+  });
+
+  it('exporting 以外のステータスに変更しても exportStartedAt は保持される', () => {
+    const { result } = renderHook(() => useExportStore());
+
+    act(() => {
+      result.current.setStatus('exporting', 5000);
+    });
+    expect(result.current.exportStartedAt).toBe(5000);
+
+    act(() => {
+      result.current.setStatus('complete');
+    });
+    expect(result.current.status).toBe('complete');
+    expect(result.current.exportStartedAt).toBe(5000);
+  });
+
+  it('idle → exporting → complete → idle のステータス遷移', () => {
+    const { result } = renderHook(() => useExportStore());
+
+    expect(result.current.status).toBe('idle');
+    expect(result.current.exportStartedAt).toBeNull();
+
+    act(() => {
+      result.current.setStatus('exporting', 1000);
+    });
+    expect(result.current.status).toBe('exporting');
+    expect(result.current.exportStartedAt).toBe(1000);
+
+    act(() => {
+      result.current.setStatus('complete');
+    });
+    expect(result.current.status).toBe('complete');
+    expect(result.current.exportStartedAt).toBe(1000);
+
+    act(() => {
+      result.current.reset();
+    });
+    expect(result.current.status).toBe('idle');
+    expect(result.current.exportStartedAt).toBeNull();
+  });
+
   it('リセットで初期状態に戻る', () => {
     const { result } = renderHook(() => useExportStore());
 

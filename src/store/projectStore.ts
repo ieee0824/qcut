@@ -68,7 +68,7 @@ export interface ProjectState {
 
   // 最近のプロジェクト
   loadRecentProjects: () => Promise<void>;
-  addRecentProject: (name: string, path: string) => Promise<void>;
+  addRecentProject: (name: string, path: string, timestamp?: number) => Promise<void>;
   removeRecentProject: (path: string) => Promise<void>;
   clearRecentProjects: () => Promise<void>;
 }
@@ -487,11 +487,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
-  addRecentProject: async (name: string, path: string) => {
+  addRecentProject: async (name: string, path: string, timestamp: number = Date.now()) => {
     const { recentProjects } = get();
     const filtered = recentProjects.filter((p) => p.path !== path);
     const updated: RecentProject[] = [
-      { name, path, lastOpened: Date.now(), exists: true },
+      { name, path, lastOpened: timestamp, exists: true },
       ...filtered,
     ].slice(0, MAX_RECENT_PROJECTS);
 
