@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { ask, message, open, save } from '@tauri-apps/plugin-dialog';
 import type { ProjectFile, ProjectTrack } from '../types/projectFile';
+import type { ExportSettings } from './exportStore';
 import { CURRENT_SCHEMA_VERSION } from '../types/projectFile';
 import { useTimelineStore } from './timelineStore';
 import { useExportStore } from './exportStore';
@@ -72,16 +73,17 @@ export interface ProjectState {
   clearRecentProjects: () => Promise<void>;
 }
 
-function buildProjectFile(projectName: string): ProjectFile {
-  const timeline = useTimelineStore.getState();
-  const exportSettings = useExportStore.getState().settings;
-
-  const tracks: ProjectTrack[] = timeline.tracks.map((track) => ({
+export function buildProjectFile(
+  projectName: string,
+  tracks: ProjectTrack[],
+  exportSettings: ExportSettings,
+  now: string = new Date().toISOString(),
+): ProjectFile {
+  const copiedTracks: ProjectTrack[] = tracks.map((track) => ({
     ...track,
     clips: track.clips.map((clip) => ({ ...clip })),
   }));
 
-  const now = new Date().toISOString();
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     appVersion: '0.1.0',
@@ -91,14 +93,16 @@ function buildProjectFile(projectName: string): ProjectFile {
       name: projectName,
     },
     timeline: {
-      tracks,
+      tracks: copiedTracks,
     },
     exportSettings,
   };
 }
 
 async function writeProjectFile(path: string, projectName: string): Promise<void> {
-  const projectFile = buildProjectFile(projectName);
+  const timeline = useTimelineStore.getState();
+  const exportSettings = useExportStore.getState().settings;
+  const projectFile = buildProjectFile(projectName, timeline.tracks, exportSettings);
   // 保存先ディレクトリを基準に素材パスを相対パスに変換
   const projectDir = getDirectoryPath(path);
   for (const track of projectFile.timeline.tracks) {
@@ -370,7 +374,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       if (!autosaveFilePath) {
         autosaveFilePath = await invoke<string>('get_autosave_path');
       }
-      const projectFile = buildProjectFile(projectName);
+      const timeline = useTimelineStore.getState();
+      const exportSettings = useExportStore.getState().settings;
+      const projectFile = buildProjectFile(projectName, timeline.tracks, exportSettings);
       // 元のプロジェクトファイルパスを metadata に記録（復旧時に使用）
       if (projectFilePath) {
         projectFile.metadata.originalPath = projectFilePath;
