@@ -1,4 +1,4 @@
-import type { Clip, EasingType } from '../store/timeline/types';
+import type { Clip, ClipKeyframes, Keyframe, EasingType } from '../store/timeline/types';
 
 export const TIME_TOLERANCE = 0.001;
 
@@ -86,4 +86,20 @@ export function moveKeyframeTime<T extends { time: number }>(
     }
   }
   return deduped;
+}
+
+/**
+ * ClipKeyframes の全エフェクトキーに変換関数を適用し、空になったキーを除去して返す。
+ * 全キーが空になった場合は undefined を返す。
+ */
+export function compactClipKeyframes(
+  keyframes: ClipKeyframes,
+  fn: (kfs: Keyframe[]) => Keyframe[],
+): ClipKeyframes | undefined {
+  const entries = Object.entries(keyframes).reduce<[string, Keyframe[]][]>((acc, [key, kfs]) => {
+    if (!kfs) return acc;
+    const updated = fn(kfs);
+    return updated.length > 0 ? [...acc, [key, updated]] : acc;
+  }, []);
+  return entries.length > 0 ? Object.fromEntries(entries) as ClipKeyframes : undefined;
 }
