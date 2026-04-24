@@ -63,6 +63,61 @@ describe('subtitlesToTrack', () => {
     expect(track.clips).toHaveLength(0);
     expect(track.type).toBe('text');
   });
+
+  it('startTime >= endTime の場合 duration が 0 以下になる', () => {
+    const idGen = (prefix: string) => `${prefix}-id`;
+    const zeroEntries: SubtitleEntry[] = [
+      { startTime: 5, endTime: 5, text: 'Zero duration' },
+      { startTime: 10, endTime: 8, text: 'Negative duration' },
+    ];
+    const track = subtitlesToTrack(zeroEntries, 'Edge', idGen);
+
+    expect(track.clips[0].duration).toBe(0);
+    expect(track.clips[1].duration).toBe(-2);
+  });
+
+  it('20文字を超えるテキストはクリップ名が切り詰められる', () => {
+    const idGen = (prefix: string) => `${prefix}-id`;
+    const longTextEntries: SubtitleEntry[] = [
+      { startTime: 0, endTime: 1, text: '12345678901234567890EXTRA' },
+      { startTime: 1, endTime: 2, text: 'short' },
+    ];
+    const track = subtitlesToTrack(longTextEntries, 'Sub', idGen);
+
+    expect(track.clips[0].name).toBe('12345678901234567890');
+    expect(track.clips[0].name).toHaveLength(20);
+    expect(track.clips[1].name).toBe('short');
+  });
+
+  it('entry.style がある場合 textProperties にマージされる', () => {
+    const idGen = (prefix: string) => `${prefix}-id`;
+    const styledEntries: SubtitleEntry[] = [
+      { startTime: 0, endTime: 1, text: 'Styled', style: { fontSize: 48, fontColor: '#ff0000' } },
+    ];
+    const track = subtitlesToTrack(styledEntries, 'Sub', idGen);
+
+    expect(track.clips[0].textProperties?.fontSize).toBe(48);
+    expect(track.clips[0].textProperties?.fontColor).toBe('#ff0000');
+    expect(track.clips[0].textProperties?.text).toBe('Styled');
+  });
+
+  it('subtitlesToTrack → trackToSubtitles のラウンドトリップ', () => {
+    const idGen = (prefix: string) => `${prefix}-id`;
+    const original: SubtitleEntry[] = [
+      { startTime: 0, endTime: 2, text: 'First' },
+      { startTime: 3, endTime: 5.5, text: 'Second' },
+    ];
+    const track = subtitlesToTrack(original, 'Sub', idGen);
+    const result = trackToSubtitles(track);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].startTime).toBe(0);
+    expect(result[0].endTime).toBe(2);
+    expect(result[0].text).toBe('First');
+    expect(result[1].startTime).toBe(3);
+    expect(result[1].endTime).toBe(5.5);
+    expect(result[1].text).toBe('Second');
+  });
 });
 
 describe('trackToSubtitles', () => {
