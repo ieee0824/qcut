@@ -96,6 +96,29 @@ describe('exportStore', () => {
     expect(result.current.outputPath).toBe('/tmp/output.mp4');
   });
 
+  it('setStatus に固定タイムスタンプを渡すと決定的に exportStartedAt が設定される', () => {
+    const { result } = renderHook(() => useExportStore());
+
+    act(() => {
+      result.current.setStatus('exporting', 1700000000000);
+    });
+
+    expect(result.current.exportStartedAt).toBe(1700000000000);
+  });
+
+  it('setStatus で既に exportStartedAt がある場合は上書きしない', () => {
+    const { result } = renderHook(() => useExportStore());
+
+    act(() => {
+      result.current.setStatus('exporting', 1000);
+    });
+    act(() => {
+      result.current.setStatus('exporting', 2000);
+    });
+
+    expect(result.current.exportStartedAt).toBe(1000);
+  });
+
   it('リセットで初期状態に戻る', () => {
     const { result } = renderHook(() => useExportStore());
 
