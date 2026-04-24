@@ -5,6 +5,7 @@ import {
   removeKeyframeAtTime,
   updateKeyframeEasingAtTime,
   moveKeyframeTime,
+  deduplicateByTime,
 } from '../utils/clipOperations';
 import type { Clip, Keyframe } from '../store/timeline/types';
 
@@ -253,5 +254,58 @@ describe('moveKeyframeTime', () => {
     const existing = [makeKeyframe(1.0, 50), makeKeyframe(3.0, 80)];
     const result = moveKeyframeTime(existing, 1.0, 1.0);
     expect(result).toEqual(existing);
+  });
+});
+
+// ------------------------------------------------------------------
+// deduplicateByTime
+// ------------------------------------------------------------------
+describe('deduplicateByTime', () => {
+  it('returns empty array for empty input', () => {
+    expect(deduplicateByTime([])).toEqual([]);
+  });
+
+  it('returns single-element array unchanged', () => {
+    const input = [makeKeyframe(1.0, 50)];
+    expect(deduplicateByTime(input)).toEqual(input);
+  });
+
+  it('keeps the later element when two have the same time', () => {
+    const input = [makeKeyframe(2.0, 50), makeKeyframe(2.0, 80)];
+    const result = deduplicateByTime(input);
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toBe(80);
+  });
+
+  it('keeps the last when three or more share the same time', () => {
+    const input = [makeKeyframe(1.0, 10), makeKeyframe(1.0, 20), makeKeyframe(1.0, 30)];
+    const result = deduplicateByTime(input);
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toBe(30);
+  });
+
+  it('preserves distinct-time elements in order', () => {
+    const input = [makeKeyframe(1.0, 10), makeKeyframe(2.0, 20), makeKeyframe(3.0, 30)];
+    const result = deduplicateByTime(input);
+    expect(result).toEqual(input);
+  });
+
+  it('deduplicates only adjacent same-time groups', () => {
+    const input = [
+      makeKeyframe(1.0, 10),
+      makeKeyframe(1.0, 11),
+      makeKeyframe(3.0, 30),
+      makeKeyframe(3.0, 31),
+    ];
+    const result = deduplicateByTime(input);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual(makeKeyframe(1.0, 11));
+    expect(result[1]).toEqual(makeKeyframe(3.0, 31));
+  });
+
+  it('does not mutate the input array', () => {
+    const input = [makeKeyframe(1.0, 50), makeKeyframe(1.0, 80)];
+    deduplicateByTime(input);
+    expect(input).toHaveLength(2);
   });
 });
