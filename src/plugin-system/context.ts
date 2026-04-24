@@ -4,6 +4,7 @@ import { logAction } from '@/store/actionLogger';
 import { usePluginStore } from '@/store/pluginStore';
 import { useExportStore } from '@/store/exportStore';
 import { generateId } from '@/utils/idGenerator';
+import { buildPluginNotification, createNotificationAutoRemoveDisposable } from './notifications';
 import type { PluginManifest, PluginPermission } from './types/manifest';
 import type {
   PluginContext,
@@ -187,23 +188,17 @@ export class PluginContextImpl implements PluginContext {
       showNotification: (message: string, type: 'info' | 'warning' | 'error') => {
         const store = usePluginStore.getState();
         const id = generateId('notif');
-        store.addNotification({
+        store.addNotification(buildPluginNotification({
           id,
           pluginId: this.pluginId,
           message,
           type,
-          timestamp: Date.now(),  // UI 表示用タイムスタンプ
-        });
-        // 5秒後に自動削除。プラグインのライフサイクルに紐づけるため Disposable として登録
-        const timeoutId = setTimeout(() => {
-          usePluginStore.getState().removeNotification(id);
-        }, 5000);
-        const disposable: Disposable = {
-          dispose: () => {
-            clearTimeout(timeoutId);
-            usePluginStore.getState().removeNotification(id);
-          },
-        };
+          timestamp: Date.now(),
+        }));
+        const disposable = createNotificationAutoRemoveDisposable(
+          id,
+          (notificationId) => usePluginStore.getState().removeNotification(notificationId),
+        );
         this.disposables.push(disposable);
       },
     };

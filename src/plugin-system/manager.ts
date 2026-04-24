@@ -4,6 +4,7 @@ import { logAction } from '@/store/actionLogger';
 import { generateId } from '@/utils/idGenerator';
 import { PluginLoader } from './loader';
 import { PluginContextImpl } from './context';
+import { buildPluginNotification, createNotificationAutoRemoveDisposable } from './notifications';
 import type { QcutPlugin } from './types/plugin';
 import type { PluginManifest } from './types/manifest';
 
@@ -223,16 +224,17 @@ export class PluginManager {
 
       const displayName = store.plugins[pluginId]?.manifest.name ?? pluginId;
       const notifId = generateId(`plugin-error-${pluginId}`);
-      store.addNotification({
+      store.addNotification(buildPluginNotification({
         id: notifId,
         pluginId,
         message: `プラグイン "${displayName}" でエラーが発生しました: ${message}`,
         type: 'error',
-        timestamp: Date.now(),  // UI 表示用タイムスタンプ
-      });
-      setTimeout(() => {
-        usePluginStore.getState().removeNotification(notifId);
-      }, 5000);
+        timestamp: Date.now(),
+      }));
+      createNotificationAutoRemoveDisposable(
+        notifId,
+        (notificationId) => usePluginStore.getState().removeNotification(notificationId),
+      );
 
       const context = this.contexts.get(pluginId);
       if (context) {
