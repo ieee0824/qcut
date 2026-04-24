@@ -22,29 +22,35 @@ export const createHistorySlice = (set: Set, get: Get) => ({
   _history: [[]] as Track[][],
   _historyIndex: 0,
 
-  undo: () => set((state) => {
-    if (state._historyIndex <= 0) return state;
+  undo: () => {
+    const state = get();
+    if (state._historyIndex <= 0) return;
     logAction('undo', `index=${state._historyIndex - 1}`);
-    const newIndex = state._historyIndex - 1;
-    return {
-      tracks: JSON.parse(JSON.stringify(state._history[newIndex])),
-      _historyIndex: newIndex,
-      selectedClipId: null,
-      selectedTrackId: null,
-    };
-  }),
+    set((currentState) => {
+      const newIndex = currentState._historyIndex - 1;
+      return {
+        tracks: JSON.parse(JSON.stringify(currentState._history[newIndex])),
+        _historyIndex: newIndex,
+        selectedClipId: null,
+        selectedTrackId: null,
+      };
+    });
+  },
 
-  redo: () => set((state) => {
-    if (state._historyIndex >= state._history.length - 1) return state;
+  redo: () => {
+    const state = get();
+    if (state._historyIndex >= state._history.length - 1) return;
     logAction('redo', `index=${state._historyIndex + 1}`);
-    const newIndex = state._historyIndex + 1;
-    return {
-      tracks: JSON.parse(JSON.stringify(state._history[newIndex])),
-      _historyIndex: newIndex,
-      selectedClipId: null,
-      selectedTrackId: null,
-    };
-  }),
+    set((currentState) => {
+      const newIndex = currentState._historyIndex + 1;
+      return {
+        tracks: JSON.parse(JSON.stringify(currentState._history[newIndex])),
+        _historyIndex: newIndex,
+        selectedClipId: null,
+        selectedTrackId: null,
+      };
+    });
+  },
 
   canUndo: () => get()._historyIndex > 0,
   canRedo: () => {
