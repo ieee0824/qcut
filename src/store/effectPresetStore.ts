@@ -7,7 +7,7 @@ import type { ClipEffects } from './timelineStore';
 
 const VALID_CATEGORIES: EffectPresetCategory[] = ['voice', 'music', 'scene', 'custom'];
 
-function normalizePreset(p: unknown): EffectPreset | null {
+export function normalizePreset(p: unknown): EffectPreset | null {
   if (!p || typeof p !== 'object') return null;
   const obj = p as Record<string, unknown>;
   const id = typeof obj.id === 'string' && obj.id ? obj.id : null;
