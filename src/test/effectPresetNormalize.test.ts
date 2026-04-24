@@ -86,4 +86,11 @@ describe('normalizePreset', () => {
     const result2 = normalizePreset(input);
     expect(result1).toEqual(result2);
   });
+
+  it('does not mutate the input object', () => {
+    const input = { id: 'p-1', name: 'Orig', category: 'voice', effects: { brightness: 1.0 }, isBuiltIn: true };
+    const snapshot = JSON.parse(JSON.stringify(input));
+    normalizePreset(input);
+    expect(input).toEqual(snapshot);
+  });
 });

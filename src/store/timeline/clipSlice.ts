@@ -294,8 +294,7 @@ export const createClipSlice = (set: Set, get: Get) => ({
               clips: track.clips.map(clip => {
                 if (clip.id !== clipId) return clip;
                 const existing = clip.toneCurveKeyframes ?? [];
-                const filtered = existing.filter(kf => Math.abs(kf.time - keyframe.time) > 0.001);
-                const updated = [...filtered, keyframe].sort((a, b) => a.time - b.time);
+                const updated = upsertKeyframe(existing, keyframe);
                 return { ...clip, toneCurveKeyframes: updated };
               }),
             }
@@ -315,7 +314,7 @@ export const createClipSlice = (set: Set, get: Get) => ({
               clips: track.clips.map(clip => {
                 if (clip.id !== clipId) return clip;
                 const existing = clip.toneCurveKeyframes ?? [];
-                const updated = existing.filter(kf => Math.abs(kf.time - time) > 0.001);
+                const updated = removeKeyframeAtTime(existing, time);
                 return { ...clip, toneCurveKeyframes: updated.length > 0 ? updated : undefined };
               }),
             }
@@ -335,9 +334,7 @@ export const createClipSlice = (set: Set, get: Get) => ({
               clips: track.clips.map(clip => {
                 if (clip.id !== clipId) return clip;
                 const existing = clip.toneCurveKeyframes ?? [];
-                const updated = existing.map(kf =>
-                  Math.abs(kf.time - time) <= 0.001 ? { ...kf, easing } : kf
-                );
+                const updated = updateKeyframeEasingAtTime(existing, time, easing);
                 return { ...clip, toneCurveKeyframes: updated };
               }),
             }

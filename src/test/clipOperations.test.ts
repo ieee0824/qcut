@@ -62,20 +62,36 @@ describe('splitClip', () => {
   });
 
   it('does not mutate the original clip', () => {
-    const clip = makeClip();
-    const original = { ...clip };
+    const effects = { brightness: 1.5 } as Clip['effects'];
+    const clip = makeClip({ effects });
+    const originalEffects = clip.effects;
     splitClip(clip, 13);
-    expect(clip).toEqual(original);
+    expect(clip.effects).toBe(originalEffects); // 参照が変わっていないこと
+    expect(clip.id).toBe('clip-1');
+    expect(clip.duration).toBe(6);
   });
 
-  it('preserves extra clip properties (effects, transition, etc.)', () => {
+  it('produces deep copies: first and second do not share nested references', () => {
     const clip = makeClip({
       effects: { brightness: 1.5 } as Clip['effects'],
+      keyframes: { brightness: [{ time: 1, value: 2, easing: 'linear' as const }] },
       transition: { type: 'crossfade', duration: 0.5 },
     });
     const [first, second] = splitClip(clip, 13)!;
-    expect(first.effects).toEqual({ brightness: 1.5 });
-    expect(second.transition).toEqual({ type: 'crossfade', duration: 0.5 });
+
+    // 値は同じだが参照は独立
+    expect(first.effects).toEqual(second.effects);
+    expect(first.effects).not.toBe(second.effects);
+
+    expect(first.keyframes).toEqual(second.keyframes);
+    expect(first.keyframes).not.toBe(second.keyframes);
+
+    expect(first.transition).toEqual(second.transition);
+    expect(first.transition).not.toBe(second.transition);
+
+    // 元の clip とも独立
+    expect(first.effects).not.toBe(clip.effects);
+    expect(second.effects).not.toBe(clip.effects);
   });
 
   it('correctly computes source times when sourceStartTime is non-zero', () => {
@@ -170,10 +186,11 @@ describe('updateKeyframeEasingAtTime', () => {
   it('does not modify keyframes at other times', () => {
     const existing = [makeKeyframe(1.0, 50), makeKeyframe(2.0, 80)];
     const result = updateKeyframeEasingAtTime(existing, 1.0, 'easeIn');
-    expect(result[1]).toEqual(existing[1]);
+    expect(result[1].value).toBe(80);
+    expect(result[1].easing).toBe('linear');
   });
 
-  it('does not mutate the input array', () => {
+  it('does not mutate the input array or its elements', () => {
     const existing = [makeKeyframe(1.0, 50, 'linear')];
     updateKeyframeEasingAtTime(existing, 1.0, 'easeOut');
     expect(existing[0].easing).toBe('linear');
@@ -202,12 +219,12 @@ describe('moveKeyframeTime', () => {
     expect(result[0].value).toBe(50);
   });
 
-  it('deduplicates when moved to the same time as another keyframe', () => {
+  it('when moved onto an existing keyframe, the moved one wins', () => {
     const existing = [makeKeyframe(1.0, 50), makeKeyframe(2.0, 80)];
     const result = moveKeyframeTime(existing, 1.0, 2.0);
     expect(result).toHaveLength(1);
-    // sort安定: moved=[{t:2,v:50},{t:2,v:80}] → dedupは後勝ちで80が残る
-    expect(result[0].value).toBe(80);
+    // ドラッグ操作: 移動した側 (value=50) が既存 (value=80) を上書きする
+    expect(result[0].value).toBe(50);
   });
 
   it('maintains sorted order after move', () => {
