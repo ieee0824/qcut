@@ -444,4 +444,14 @@ describe('updateClipInTracks', () => {
     const result = updateClipInTracks(tracks, 't1', 'c1', clip => ({ ...clip, name: 'X' }));
     expect(result[0].clips[1]).toBe(tracks[0].clips[1]);
   });
+
+  it('returns empty array for empty tracks input', () => {
+    const result = updateClipInTracks([], 't1', 'c1', clip => ({ ...clip, name: 'X' }));
+    expect(result).toEqual([]);
+  });
+
+  it('returns same values when fn is identity', () => {
+    const result = updateClipInTracks(tracks, 't1', 'c1', clip => clip);
+    expect(result[0].clips[0]).toBe(tracks[0].clips[0]);
+  });
 });
