@@ -9,6 +9,7 @@ import { useExportStore } from './exportStore';
 import { useVideoPreviewStore } from './videoPreviewStore';
 import i18n from '../i18n';
 import { toRelativePath, resolveRelativePath, getDirectoryPath } from '../utils/pathUtils';
+import { extractDisplayName, extractProjectName } from '../utils/projectPaths';
 import {
   clearAutosaveFilePath,
   createAutosaveRuntimeState,
@@ -316,9 +317,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
       applyProjectToStores(resolvedProject);
 
-      const name = path.split('/').pop()?.replace(/\.qcut$/, '')
-        ?? path.split('\\').pop()?.replace(/\.qcut$/, '')
-        ?? project.metadata.name;
+      const name = extractProjectName(path, project.metadata.name);
 
       set({
         projectFilePath: path,
@@ -416,9 +415,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           const project = validateProjectFile(parsed);
 
           const originalPath = project.metadata.originalPath;
-          const displayName = originalPath
-            ? (originalPath.split('/').pop() ?? originalPath.split('\\').pop() ?? project.metadata.name)
-            : project.metadata.name;
+          const displayName = extractDisplayName(originalPath, project.metadata.name);
 
           const recover = await ask(
             i18n.t('project.autosaveRecover', { name: displayName }),
@@ -432,11 +429,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
             const projectDir = originalPath ? getDirectoryPath(originalPath) : '';
             applyProjectToStores(withResolvedProjectClipPaths(project, projectDir));
 
-            const name = originalPath
-              ? (originalPath.split('/').pop()?.replace(/\.qcut$/, '')
-                ?? originalPath.split('\\').pop()?.replace(/\.qcut$/, '')
-                ?? project.metadata.name)
-              : project.metadata.name;
+            const name = extractProjectName(originalPath, project.metadata.name);
 
             set({
               projectFilePath: originalPath ?? null,
