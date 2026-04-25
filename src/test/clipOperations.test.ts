@@ -8,8 +8,9 @@ import {
   deduplicateByTime,
   mapClipKeyframes,
   compactClipKeyframes,
+  updateClipInTracks,
 } from '../utils/clipOperations';
-import type { Clip, Keyframe, ClipKeyframes } from '../store/timeline/types';
+import type { Clip, Keyframe, ClipKeyframes, Track } from '../store/timeline/types';
 
 function makeClip(overrides: Partial<Clip> = {}): Clip {
   return {
@@ -392,5 +393,65 @@ describe('deduplicateByTime', () => {
     const input = [makeKeyframe(1.0, 50), makeKeyframe(1.0, 80)];
     deduplicateByTime(input);
     expect(input).toHaveLength(2);
+  });
+});
+
+// ------------------------------------------------------------------
+// updateClipInTracks
+// ------------------------------------------------------------------
+function makeTrack(id: string, clips: Clip[]): Track {
+  return { id, type: 'video', name: `Track ${id}`, clips, volume: 1, mute: false, solo: false };
+}
+
+describe('updateClipInTracks', () => {
+  const clip1 = makeClip({ id: 'c1', name: 'Clip 1' });
+  const clip2 = makeClip({ id: 'c2', name: 'Clip 2' });
+  const tracks: Track[] = [
+    makeTrack('t1', [clip1, clip2]),
+    makeTrack('t2', [makeClip({ id: 'c3', name: 'Clip 3' })]),
+  ];
+
+  it('applies fn only to the matching clip', () => {
+    const result = updateClipInTracks(tracks, 't1', 'c1', clip => ({ ...clip, name: 'Updated' }));
+    expect(result[0].clips[0].name).toBe('Updated');
+    expect(result[0].clips[1].name).toBe('Clip 2');
+    expect(result[1].clips[0].name).toBe('Clip 3');
+  });
+
+  it('returns unchanged tracks when trackId does not match', () => {
+    const result = updateClipInTracks(tracks, 'nonexistent', 'c1', clip => ({ ...clip, name: 'X' }));
+    expect(result[0].clips[0].name).toBe('Clip 1');
+  });
+
+  it('returns unchanged tracks when clipId does not match', () => {
+    const result = updateClipInTracks(tracks, 't1', 'nonexistent', clip => ({ ...clip, name: 'X' }));
+    expect(result[0].clips[0].name).toBe('Clip 1');
+    expect(result[0].clips[1].name).toBe('Clip 2');
+  });
+
+  it('does not mutate the input tracks array', () => {
+    const originalName = tracks[0].clips[0].name;
+    updateClipInTracks(tracks, 't1', 'c1', clip => ({ ...clip, name: 'Changed' }));
+    expect(tracks[0].clips[0].name).toBe(originalName);
+  });
+
+  it('preserves referential identity for non-matching tracks', () => {
+    const result = updateClipInTracks(tracks, 't1', 'c1', clip => ({ ...clip, name: 'X' }));
+    expect(result[1]).toBe(tracks[1]);
+  });
+
+  it('preserves referential identity for non-matching clips in the same track', () => {
+    const result = updateClipInTracks(tracks, 't1', 'c1', clip => ({ ...clip, name: 'X' }));
+    expect(result[0].clips[1]).toBe(tracks[0].clips[1]);
+  });
+
+  it('returns empty array for empty tracks input', () => {
+    const result = updateClipInTracks([], 't1', 'c1', clip => ({ ...clip, name: 'X' }));
+    expect(result).toEqual([]);
+  });
+
+  it('returns same values when fn is identity', () => {
+    const result = updateClipInTracks(tracks, 't1', 'c1', clip => clip);
+    expect(result[0].clips[0]).toBe(tracks[0].clips[0]);
   });
 });

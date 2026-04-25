@@ -1,4 +1,4 @@
-import type { Clip, ClipKeyframes, Keyframe, EasingType } from '../store/timeline/types';
+import type { Clip, ClipKeyframes, Keyframe, EasingType, Track } from '../store/timeline/types';
 
 export const TIME_TOLERANCE = 0.001;
 
@@ -118,4 +118,21 @@ export function compactClipKeyframes(
     return updated.length > 0 ? [...acc, [key, updated]] : acc;
   }, []);
   return entries.length > 0 ? Object.fromEntries(entries) as ClipKeyframes : undefined;
+}
+
+/**
+ * 指定 trackId/clipId のクリップに変換関数を適用した新しい tracks 配列を返す。
+ * マッチしないトラック・クリップは参照をそのまま保持する。
+ */
+export function updateClipInTracks(
+  tracks: readonly Track[],
+  trackId: string,
+  clipId: string,
+  fn: (clip: Clip) => Clip,
+): Track[] {
+  return tracks.map(track =>
+    track.id === trackId
+      ? { ...track, clips: track.clips.map(clip => clip.id === clipId ? fn(clip) : clip) }
+      : track,
+  );
 }
