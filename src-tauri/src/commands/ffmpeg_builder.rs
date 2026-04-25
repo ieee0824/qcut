@@ -253,11 +253,26 @@ pub(crate) struct FfmpegBuildResult {
     pub temp_files: Vec<std::path::PathBuf>,
 }
 
+/// LUT ファイルのパスを生成する純粋関数
+pub(crate) fn build_lut_path(uuid_str: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("qcut_hsl_lut_{}.cube", uuid_str))
+}
+
 pub(crate) fn build_ffmpeg_args(
     settings: &ExportSettings,
     video_clips: &[VideoTrackClip],
     text_clips: &[&ExportClip],
     audio_track_clips: &[AudioTrackClip],
+) -> Result<FfmpegBuildResult, String> {
+    build_ffmpeg_args_with(settings, video_clips, text_clips, audio_track_clips, || uuid::Uuid::new_v4().to_string())
+}
+
+pub(crate) fn build_ffmpeg_args_with(
+    settings: &ExportSettings,
+    video_clips: &[VideoTrackClip],
+    text_clips: &[&ExportClip],
+    audio_track_clips: &[AudioTrackClip],
+    generate_uuid: impl Fn() -> String,
 ) -> Result<FfmpegBuildResult, String> {
     // セキュリティ: 数値パラメータのバリデーション
     validate_export_settings(settings)?;
@@ -425,8 +440,7 @@ pub(crate) fn build_ffmpeg_args(
                 magenta_sat: effects.hsl_magenta_sat,
             };
             if hsl_params.is_active() {
-                let lut_path = std::env::temp_dir()
-                    .join(format!("qcut_hsl_lut_{}.cube", uuid::Uuid::new_v4()));
+                let lut_path = build_lut_path(&generate_uuid());
                 generate_hsl_lut(&hsl_params, &lut_path)?;
                 let lut_path_str = lut_path
                     .to_string_lossy()
@@ -1022,4 +1036,30 @@ fn curve_points_to_str(points: &[CurvePoint]) -> String {
         .map(|p| format!("{:.4}/{:.4}", p.x, p.y))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_lut_path_は同じuuidで同じパスを返す() {
+        let result1 = build_lut_path("test-uuid-123");
+        let result2 = build_lut_path("test-uuid-123");
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn build_lut_path_はuuidをファイル名に含む() {
+        let result = build_lut_path("abc-def");
+        let filename = result.file_name().unwrap().to_str().unwrap();
+        assert_eq!(filename, "qcut_hsl_lut_abc-def.cube");
+    }
+
+    #[test]
+    fn build_lut_path_は異なるuuidで異なるパスを返す() {
+        let result1 = build_lut_path("uuid-a");
+        let result2 = build_lut_path("uuid-b");
+        assert_ne!(result1, result2);
+    }
 }

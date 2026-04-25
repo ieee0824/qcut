@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
+import { generateId } from '../utils/idGenerator';
 import type { EffectPreset, EffectPresetCategory } from '../data/effectPresets';
 import { BUILT_IN_EFFECT_PRESETS } from '../data/effectPresets';
 import type { ClipEffects } from './timelineStore';
 
 const VALID_CATEGORIES: EffectPresetCategory[] = ['voice', 'music', 'scene', 'custom'];
 
-function normalizePreset(p: unknown): EffectPreset | null {
+export function normalizePreset(p: unknown): EffectPreset | null {
   if (!p || typeof p !== 'object') return null;
   const obj = p as Record<string, unknown>;
   const id = typeof obj.id === 'string' && obj.id ? obj.id : null;
@@ -66,7 +67,7 @@ export const useEffectPresetStore = create<EffectPresetState>((set, get) => ({
   },
 
   addPreset: async (name, effects) => {
-    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = generateId('custom');
     const newPreset: EffectPreset = { id, name, category: 'custom', effects, isBuiltIn: false };
     const updated = [...get().customPresets, newPreset];
     set({ customPresets: updated });

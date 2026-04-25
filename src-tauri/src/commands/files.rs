@@ -148,16 +148,21 @@ pub fn write_recent_projects(app_handle: tauri::AppHandle, content: String) -> R
         .map_err(|e| format!("ファイルの書き込みに失敗: {}", e))
 }
 
+/// app_data_dir と UUID 文字列から自動保存ファイルパスを組み立てる純粋関数
+pub(crate) fn build_autosave_path(app_data_dir: &Path, uuid_str: &str) -> Result<String, String> {
+  let filename = format!("autosave-{}.qcut", uuid_str);
+  let autosave_path = app_data_dir.join(filename);
+  autosave_path.to_str()
+    .map(|s| s.to_string())
+    .ok_or_else(|| "パスの変換に失敗".to_string())
+}
+
 /// UUIDベースの自動保存ファイルパスを生成する
 #[tauri::command]
 pub fn get_autosave_path(app_handle: tauri::AppHandle) -> Result<String, String> {
   let app_data = app_handle.path().app_data_dir()
     .map_err(|e| format!("app_data_dir の取得に失敗: {}", e))?;
-  let filename = format!("autosave-{}.qcut", Uuid::new_v4());
-  let autosave_path = app_data.join(filename);
-  autosave_path.to_str()
-    .map(|s| s.to_string())
-    .ok_or_else(|| "パスの変換に失敗".to_string())
+  build_autosave_path(&app_data, &Uuid::new_v4().to_string())
 }
 
 /// 指定パスのファイルを削除する
@@ -201,4 +206,42 @@ pub fn list_autosaves(app_handle: tauri::AppHandle) -> Result<Vec<String>, Strin
     }
   }
   Ok(autosaves)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn build_autosave_path_は同じ引数で同じ結果を返す() {
+        let dir = PathBuf::from("/tmp/app_data");
+        let uuid = "550e8400-e29b-41d4-a716-446655440000";
+
+        let result1 = build_autosave_path(&dir, uuid).unwrap();
+        let result2 = build_autosave_path(&dir, uuid).unwrap();
+
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn build_autosave_path_はuuidをファイル名に含む() {
+        let dir = PathBuf::from("/tmp/app_data");
+        let uuid = "test-uuid-1234";
+
+        let result = build_autosave_path(&dir, uuid).unwrap();
+
+        assert!(result.contains("autosave-test-uuid-1234.qcut"));
+        assert!(result.starts_with("/tmp/app_data"));
+    }
+
+    #[test]
+    fn build_autosave_path_は異なるuuidで異なるパスを返す() {
+        let dir = PathBuf::from("/tmp/app_data");
+
+        let result1 = build_autosave_path(&dir, "uuid-a").unwrap();
+        let result2 = build_autosave_path(&dir, "uuid-b").unwrap();
+
+        assert_ne!(result1, result2);
+    }
 }

@@ -1,8 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
 import { usePluginStore } from '@/store/pluginStore';
 import { logAction } from '@/store/actionLogger';
+import { generateId } from '@/utils/idGenerator';
 import { PluginLoader } from './loader';
 import { PluginContextImpl } from './context';
+import { buildPluginNotification, createNotificationAutoRemoveDisposable } from './notifications';
 import type { QcutPlugin } from './types/plugin';
 import type { PluginManifest } from './types/manifest';
 
@@ -221,17 +223,18 @@ export class PluginManager {
       store.setPluginState(pluginId, 'error', message);
 
       const displayName = store.plugins[pluginId]?.manifest.name ?? pluginId;
-      const notifId = `plugin-error-${pluginId}-${Date.now()}`;
-      store.addNotification({
+      const notifId = generateId(`plugin-error-${pluginId}`);
+      store.addNotification(buildPluginNotification({
         id: notifId,
         pluginId,
         message: `プラグイン "${displayName}" でエラーが発生しました: ${message}`,
         type: 'error',
         timestamp: Date.now(),
-      });
-      setTimeout(() => {
-        usePluginStore.getState().removeNotification(notifId);
-      }, 5000);
+      }));
+      createNotificationAutoRemoveDisposable(
+        notifId,
+        (notificationId) => usePluginStore.getState().removeNotification(notificationId),
+      );
 
       const context = this.contexts.get(pluginId);
       if (context) {

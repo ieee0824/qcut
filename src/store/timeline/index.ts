@@ -8,10 +8,10 @@ import { createClipboardSlice } from './clipboardSlice';
 
 export const useTimelineStore = create<TimelineState>((set, get) => ({
   ...createPlaybackSlice(set),
-  ...createTrackSlice(set),
-  ...createClipSlice(set),
+  ...createTrackSlice(set, get),
+  ...createClipSlice(set, get),
   ...createHistorySlice(set, get),
-  ...createClipboardSlice(set),
+  ...createClipboardSlice(set, get),
 }));
 
 // Re-export all types and constants
@@ -20,6 +20,7 @@ export type {
   EasingType,
   Keyframe,
   ClipKeyframes,
+  ToneCurveKeyframe,
   CurvePoint,
   ToneCurves,
   TextAnimation,

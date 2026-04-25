@@ -2,28 +2,34 @@ import { create } from 'zustand';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { ask, message, open, save } from '@tauri-apps/plugin-dialog';
 import type { ProjectFile, ProjectTrack } from '../types/projectFile';
+import type { ExportSettings } from './exportStore';
 import { CURRENT_SCHEMA_VERSION } from '../types/projectFile';
 import { useTimelineStore } from './timelineStore';
 import { useExportStore } from './exportStore';
 import { useVideoPreviewStore } from './videoPreviewStore';
 import i18n from '../i18n';
 import { toRelativePath, resolveRelativePath, getDirectoryPath } from '../utils/pathUtils';
+import { extractDisplayName, extractProjectName } from '../utils/projectPaths';
+import {
+  clearAutosaveFilePath,
+  createAutosaveRuntimeState,
+  finishAutosaveRecovery,
+  getAutosaveFilePath,
+  resetAutosaveRuntimeState,
+  scheduleAutosaveTimer,
+  setAutosaveFilePath,
+  startAutosaveRecovery,
+  stopAutosaveTimer,
+} from './projectAutosaveRuntime';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
-let autosaveTimerId: number | null = null;
-let autosaveFilePath: string | null = null;
-let isRecoveringAutosave = false;
+const autosaveRuntime = createAutosaveRuntimeState();
 
 /** テスト用: モジュールレベル変数をリセットする */
 export function _resetAutosaveState(): void {
-  if (autosaveTimerId !== null) {
-    clearTimeout(autosaveTimerId);
-  }
-  autosaveTimerId = null;
-  autosaveFilePath = null;
-  isRecoveringAutosave = false;
+  resetAutosaveRuntimeState(autosaveRuntime);
 }
 
 export const AUTOSAVE_DEBOUNCE_MS = 5 * 1000; // 編集操作後5秒で自動保存
@@ -67,21 +73,17 @@ export interface ProjectState {
 
   // 最近のプロジェクト
   loadRecentProjects: () => Promise<void>;
-  addRecentProject: (name: string, path: string) => Promise<void>;
+  addRecentProject: (name: string, path: string, timestamp?: number) => Promise<void>;
   removeRecentProject: (path: string) => Promise<void>;
   clearRecentProjects: () => Promise<void>;
 }
 
-function buildProjectFile(projectName: string): ProjectFile {
-  const timeline = useTimelineStore.getState();
-  const exportSettings = useExportStore.getState().settings;
-
-  const tracks: ProjectTrack[] = timeline.tracks.map((track) => ({
-    ...track,
-    clips: track.clips.map((clip) => ({ ...clip })),
-  }));
-
-  const now = new Date().toISOString();
+export function buildProjectFile(
+  projectName: string,
+  tracks: ProjectTrack[],
+  exportSettings: ExportSettings,
+  now: string = new Date().toISOString(),
+): ProjectFile {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     appVersion: '0.1.0',
@@ -90,24 +92,47 @@ function buildProjectFile(projectName: string): ProjectFile {
     metadata: {
       name: projectName,
     },
-    timeline: {
-      tracks,
-    },
-    exportSettings,
+    timeline: JSON.parse(JSON.stringify({ tracks })),
+    exportSettings: JSON.parse(JSON.stringify(exportSettings)),
   };
 }
 
+function mapProjectClipPaths(
+  projectFile: ProjectFile,
+  mapPath: (filePath: string) => string,
+): ProjectFile {
+  return {
+    ...projectFile,
+    timeline: {
+      ...projectFile.timeline,
+      tracks: projectFile.timeline.tracks.map((track) => ({
+        ...track,
+        clips: track.clips.map((clip) => (
+          clip.filePath
+            ? { ...clip, filePath: mapPath(clip.filePath) }
+            : { ...clip }
+        )),
+      })),
+    },
+  };
+}
+
+export function withRelativeProjectClipPaths(projectFile: ProjectFile, projectDir: string): ProjectFile {
+  return mapProjectClipPaths(projectFile, (filePath) => toRelativePath(filePath, projectDir));
+}
+
+export function withResolvedProjectClipPaths(projectFile: ProjectFile, projectDir: string): ProjectFile {
+  return mapProjectClipPaths(projectFile, (filePath) => resolveRelativePath(filePath, projectDir));
+}
+
 async function writeProjectFile(path: string, projectName: string): Promise<void> {
-  const projectFile = buildProjectFile(projectName);
-  // 保存先ディレクトリを基準に素材パスを相対パスに変換
+  const timeline = useTimelineStore.getState();
+  const exportSettings = useExportStore.getState().settings;
   const projectDir = getDirectoryPath(path);
-  for (const track of projectFile.timeline.tracks) {
-    for (const clip of track.clips) {
-      if (clip.filePath) {
-        clip.filePath = toRelativePath(clip.filePath, projectDir);
-      }
-    }
-  }
+  const projectFile = withRelativeProjectClipPaths(
+    buildProjectFile(projectName, timeline.tracks, exportSettings),
+    projectDir,
+  );
   const content = JSON.stringify(projectFile, null, 2);
   await invoke('save_project', { path, content });
 }
@@ -285,24 +310,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const content = await invoke<string>('read_project', { path });
       const parsed = JSON.parse(content);
       const project = validateProjectFile(parsed);
-
-      // 相対パスを絶対パスに解決（後方互換: 絶対パスはそのまま）
       const projectDir = getDirectoryPath(path);
-      for (const track of project.timeline.tracks) {
-        for (const clip of track.clips) {
-          if (clip.filePath) {
-            clip.filePath = resolveRelativePath(clip.filePath, projectDir);
-          }
-        }
-      }
+      const resolvedProject = withResolvedProjectClipPaths(project, projectDir);
 
-      const missing = await checkMissingFiles(project);
+      const missing = await checkMissingFiles(resolvedProject);
 
-      applyProjectToStores(project);
+      applyProjectToStores(resolvedProject);
 
-      const name = path.split('/').pop()?.replace(/\.qcut$/, '')
-        ?? path.split('\\').pop()?.replace(/\.qcut$/, '')
-        ?? project.metadata.name;
+      const name = extractProjectName(path, project.metadata.name);
 
       set({
         projectFilePath: path,
@@ -344,21 +359,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   stopAutosave: () => {
-    if (autosaveTimerId !== null) {
-      clearTimeout(autosaveTimerId);
-      autosaveTimerId = null;
-    }
+    stopAutosaveTimer(autosaveRuntime);
   },
 
   scheduleAutosave: () => {
-    // 既存のタイマーをリセットしてデバウンス
-    if (autosaveTimerId !== null) {
-      clearTimeout(autosaveTimerId);
-    }
-    autosaveTimerId = window.setTimeout(() => {
-      autosaveTimerId = null;
-      useProjectStore.getState().performAutosave();
-    }, AUTOSAVE_DEBOUNCE_MS);
+    scheduleAutosaveTimer(
+      autosaveRuntime,
+      (callback, delayMs) => window.setTimeout(callback, delayMs),
+      clearTimeout,
+      () => {
+        useProjectStore.getState().performAutosave();
+      },
+      AUTOSAVE_DEBOUNCE_MS,
+    );
   },
 
   performAutosave: async () => {
@@ -367,10 +380,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
     try {
       // 初回は UUID パスを生成、以降は同じパスに上書き
+      let autosaveFilePath = getAutosaveFilePath(autosaveRuntime);
       if (!autosaveFilePath) {
         autosaveFilePath = await invoke<string>('get_autosave_path');
+        setAutosaveFilePath(autosaveRuntime, autosaveFilePath);
       }
-      const projectFile = buildProjectFile(projectName);
+      const timeline = useTimelineStore.getState();
+      const exportSettings = useExportStore.getState().settings;
+      const projectFile = buildProjectFile(projectName, timeline.tracks, exportSettings);
       // 元のプロジェクトファイルパスを metadata に記録（復旧時に使用）
       if (projectFilePath) {
         projectFile.metadata.originalPath = projectFilePath;
@@ -385,8 +402,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   checkAndRecoverAutosave: async () => {
     // React StrictMode による二重実行を防止
-    if (isRecoveringAutosave) return;
-    isRecoveringAutosave = true;
+    if (!startAutosaveRecovery(autosaveRuntime)) return;
 
     try {
       const autosaveFiles = await invoke<string[]>('list_autosaves');
@@ -399,9 +415,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           const project = validateProjectFile(parsed);
 
           const originalPath = project.metadata.originalPath;
-          const displayName = originalPath
-            ? (originalPath.split('/').pop() ?? originalPath.split('\\').pop() ?? project.metadata.name)
-            : project.metadata.name;
+          const displayName = extractDisplayName(originalPath, project.metadata.name);
 
           const recover = await ask(
             i18n.t('project.autosaveRecover', { name: displayName }),
@@ -412,13 +426,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
             // loadStatus を 'loading' にして subscriber が autosave をスケジュールしないようにする
             set({ loadStatus: 'loading' });
 
-            applyProjectToStores(project);
+            const projectDir = originalPath ? getDirectoryPath(originalPath) : '';
+            applyProjectToStores(withResolvedProjectClipPaths(project, projectDir));
 
-            const name = originalPath
-              ? (originalPath.split('/').pop()?.replace(/\.qcut$/, '')
-                ?? originalPath.split('\\').pop()?.replace(/\.qcut$/, '')
-                ?? project.metadata.name)
-              : project.metadata.name;
+            const name = extractProjectName(originalPath, project.metadata.name);
 
             set({
               projectFilePath: originalPath ?? null,
@@ -449,15 +460,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     } catch (e) {
       console.error('[autosave] 復旧チェックに失敗:', e);
     } finally {
-      isRecoveringAutosave = false;
+      finishAutosaveRecovery(autosaveRuntime);
     }
   },
 
   deleteAutosave: async () => {
+    const autosaveFilePath = getAutosaveFilePath(autosaveRuntime);
     if (!autosaveFilePath) return;
     try {
       await invoke('delete_file', { path: autosaveFilePath });
-      autosaveFilePath = null;
+      clearAutosaveFilePath(autosaveRuntime);
     } catch (e) {
       console.error('[autosave] 削除に失敗:', e);
     }
@@ -488,11 +500,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
-  addRecentProject: async (name: string, path: string) => {
+  addRecentProject: async (name: string, path: string, timestamp: number = Date.now()) => {
     const { recentProjects } = get();
     const filtered = recentProjects.filter((p) => p.path !== path);
     const updated: RecentProject[] = [
-      { name, path, lastOpened: Date.now(), exists: true },
+      { name, path, lastOpened: timestamp, exists: true },
       ...filtered,
     ].slice(0, MAX_RECENT_PROJECTS);
 

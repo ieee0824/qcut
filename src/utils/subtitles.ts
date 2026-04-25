@@ -1,5 +1,6 @@
 import type { Track, Clip, TextProperties } from '../store/timelineStore';
 import { DEFAULT_TEXT_PROPERTIES } from '../store/timelineStore';
+import { generateId } from './idGenerator';
 
 export interface SubtitleEntry {
   startTime: number;
@@ -150,9 +151,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 // --- Track conversion ---
 
-export function subtitlesToTrack(entries: SubtitleEntry[], trackName = 'Subtitle'): Track {
-  const clips: Clip[] = entries.map((entry, i) => ({
-    id: `text-${Date.now()}-${i}`,
+export function subtitlesToTrack(
+  entries: SubtitleEntry[],
+  trackName = 'Subtitle',
+  idGenerator: (prefix: string) => string = generateId,
+): Track {
+  const clips: Clip[] = entries.map((entry) => ({
+    id: idGenerator('text'),
     name: entry.text.substring(0, 20),
     startTime: entry.startTime,
     duration: entry.endTime - entry.startTime,
@@ -168,7 +173,7 @@ export function subtitlesToTrack(entries: SubtitleEntry[], trackName = 'Subtitle
   }));
 
   return {
-    id: `track-text-${Date.now()}`,
+    id: idGenerator('track-text'),
     type: 'text',
     name: trackName,
     clips,

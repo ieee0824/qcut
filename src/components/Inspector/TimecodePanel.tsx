@@ -211,7 +211,7 @@ export const TimecodePanel: React.FC<TimecodePanelProps> = ({ timecodeOverlay, f
 
           {/* リセット */}
           <button
-            onClick={() => onChange({ ...DEFAULT_TIMECODE_OVERLAY, enabled: true })}
+            onClick={() => onChange({ ...DEFAULT_TIMECODE_OVERLAY, enabled: true, startDateTime: Date.now() })}
             style={{
               width: '100%',
               padding: '4px',
