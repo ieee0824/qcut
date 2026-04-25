@@ -10,6 +10,7 @@ import {
   moveKeyframeTime,
   mapClipKeyframes,
   compactClipKeyframes,
+  updateClipInTracks,
 } from '../../utils/clipOperations';
 
 type Set = StoreApi<TimelineState>['setState'];
@@ -52,33 +53,14 @@ export const createClipSlice = (set: Set, get: Get) => ({
   updateClip: (trackId: string, clipId: string, updates: Partial<Clip>) => {
     logAction('updateClip', `track=${trackId} clip=${clipId} keys=${Object.keys(updates).join(',')}`);
     set((state) => {
-      const newTracks = state.tracks.map(track =>
-        track.id === trackId
-          ? {
-              ...track,
-              clips: track.clips.map(clip =>
-                clip.id === clipId ? { ...clip, ...updates } : clip
-              ),
-            }
-          : track
-      );
+      const newTracks = updateClipInTracks(state.tracks, trackId, clipId, clip => ({ ...clip, ...updates }));
       return withHistory(state, newTracks);
     });
   },
 
-  updateClipSilent: (trackId: string, clipId: string, updates: Partial<Clip>) => set((state) => {
-    const newTracks = state.tracks.map(track =>
-      track.id === trackId
-        ? {
-            ...track,
-            clips: track.clips.map(clip =>
-              clip.id === clipId ? { ...clip, ...updates } : clip
-            ),
-          }
-        : track
-    );
-    return { tracks: newTracks };
-  }),
+  updateClipSilent: (trackId: string, clipId: string, updates: Partial<Clip>) => set((state) => ({
+    tracks: updateClipInTracks(state.tracks, trackId, clipId, clip => ({ ...clip, ...updates })),
+  })),
 
   splitClipAtTime: (trackId: string, clipId: string, splitTime: number) => {
     const track = get().tracks.find(t => t.id === trackId);
@@ -135,16 +117,7 @@ export const createClipSlice = (set: Set, get: Get) => ({
   setTransition: (trackId: string, clipId: string, transition: ClipTransition) => {
     logAction('setTransition', `track=${trackId} clip=${clipId} type=${transition.type}`);
     set((state) => {
-      const newTracks = state.tracks.map(track =>
-        track.id === trackId
-          ? {
-              ...track,
-              clips: track.clips.map(clip =>
-                clip.id === clipId ? { ...clip, transition } : clip
-              ),
-            }
-          : track
-      );
+      const newTracks = updateClipInTracks(state.tracks, trackId, clipId, clip => ({ ...clip, transition }));
       return withHistory(state, newTracks);
     });
   },
@@ -152,16 +125,7 @@ export const createClipSlice = (set: Set, get: Get) => ({
   removeTransition: (trackId: string, clipId: string) => {
     logAction('removeTransition', `track=${trackId} clip=${clipId}`);
     set((state) => {
-      const newTracks = state.tracks.map(track =>
-        track.id === trackId
-          ? {
-              ...track,
-              clips: track.clips.map(clip =>
-                clip.id === clipId ? { ...clip, transition: undefined } : clip
-              ),
-            }
-          : track
-      );
+      const newTracks = updateClipInTracks(state.tracks, trackId, clipId, clip => ({ ...clip, transition: undefined }));
       return withHistory(state, newTracks);
     });
   },
@@ -169,22 +133,11 @@ export const createClipSlice = (set: Set, get: Get) => ({
   addKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, keyframe: Keyframe) => {
     logAction('addKeyframe', `track=${trackId} clip=${clipId} key=${effectKey} time=${keyframe.time.toFixed(2)}`);
     set((state) => {
-      const newTracks = state.tracks.map(track =>
-        track.id === trackId
-          ? {
-              ...track,
-              clips: track.clips.map(clip => {
-                if (clip.id !== clipId) return clip;
-                const existing = clip.keyframes?.[effectKey] ?? [];
-                const updated = upsertKeyframe(existing, keyframe);
-                return {
-                  ...clip,
-                  keyframes: { ...clip.keyframes, [effectKey]: updated },
-                };
-              }),
-            }
-          : track
-      );
+      const newTracks = updateClipInTracks(state.tracks, trackId, clipId, clip => {
+        const existing = clip.keyframes?.[effectKey] ?? [];
+        const updated = upsertKeyframe(existing, keyframe);
+        return { ...clip, keyframes: { ...clip.keyframes, [effectKey]: updated } };
+      });
       return withHistory(state, newTracks);
     });
   },
@@ -192,22 +145,14 @@ export const createClipSlice = (set: Set, get: Get) => ({
   removeKeyframe: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number) => {
     logAction('removeKeyframe', `track=${trackId} clip=${clipId} key=${effectKey} time=${time.toFixed(2)}`);
     set((state) => {
-      const newTracks = state.tracks.map(track =>
-        track.id === trackId
-          ? {
-              ...track,
-              clips: track.clips.map(clip => {
-                if (clip.id !== clipId) return clip;
-                const existing = clip.keyframes?.[effectKey] ?? [];
-                const updated = removeKeyframeAtTime(existing, time);
-                const newKeyframes = { ...clip.keyframes, [effectKey]: updated };
-                if (updated.length === 0) delete newKeyframes[effectKey];
-                const hasKeys = Object.keys(newKeyframes).length > 0;
-                return { ...clip, keyframes: hasKeys ? newKeyframes : undefined };
-              }),
-            }
-          : track
-      );
+      const newTracks = updateClipInTracks(state.tracks, trackId, clipId, clip => {
+        const existing = clip.keyframes?.[effectKey] ?? [];
+        const updated = removeKeyframeAtTime(existing, time);
+        const newKeyframes = { ...clip.keyframes, [effectKey]: updated };
+        if (updated.length === 0) delete newKeyframes[effectKey];
+        const hasKeys = Object.keys(newKeyframes).length > 0;
+        return { ...clip, keyframes: hasKeys ? newKeyframes : undefined };
+      });
       return withHistory(state, newTracks);
     });
   },
@@ -215,19 +160,11 @@ export const createClipSlice = (set: Set, get: Get) => ({
   updateKeyframeEasing: (trackId: string, clipId: string, effectKey: keyof ClipEffects, time: number, easing: EasingType) => {
     logAction('updateKeyframeEasing', `track=${trackId} clip=${clipId} key=${effectKey} time=${time.toFixed(2)} easing=${easing}`);
     set((state) => {
-      const newTracks = state.tracks.map(track =>
-        track.id === trackId
-          ? {
-              ...track,
-              clips: track.clips.map(clip => {
-                if (clip.id !== clipId) return clip;
-                const existing = clip.keyframes?.[effectKey] ?? [];
-                const updated = updateKeyframeEasingAtTime(existing, time, easing);
-                return { ...clip, keyframes: { ...clip.keyframes, [effectKey]: updated } };
-              }),
-            }
-          : track
-      );
+      const newTracks = updateClipInTracks(state.tracks, trackId, clipId, clip => {
+        const existing = clip.keyframes?.[effectKey] ?? [];
+        const updated = updateKeyframeEasingAtTime(existing, time, easing);
+        return { ...clip, keyframes: { ...clip.keyframes, [effectKey]: updated } };
+      });
       return withHistory(state, newTracks);
     });
   },
@@ -235,18 +172,10 @@ export const createClipSlice = (set: Set, get: Get) => ({
   moveKeyframes: (trackId: string, clipId: string, fromTime: number, toTime: number) => {
     logAction('moveKeyframes', `track=${trackId} clip=${clipId} from=${fromTime.toFixed(2)} to=${toTime.toFixed(2)}`);
     set((state) => {
-      const newTracks = state.tracks.map(track =>
-        track.id === trackId
-          ? {
-              ...track,
-              clips: track.clips.map(clip => {
-                if (clip.id !== clipId || !clip.keyframes) return clip;
-                const newKeyframes = mapClipKeyframes(clip.keyframes, kfs => moveKeyframeTime(kfs, fromTime, toTime));
-                return { ...clip, keyframes: newKeyframes };
-              }),
-            }
-          : track
-      );
+      const newTracks = updateClipInTracks(state.tracks, trackId, clipId, clip => {
+        if (!clip.keyframes) return clip;
+        return { ...clip, keyframes: mapClipKeyframes(clip.keyframes, kfs => moveKeyframeTime(kfs, fromTime, toTime)) };
+      });
       return withHistory(state, newTracks);
     });
   },
@@ -254,18 +183,10 @@ export const createClipSlice = (set: Set, get: Get) => ({
   deleteKeyframesAtTime: (trackId: string, clipId: string, time: number) => {
     logAction('deleteKeyframesAtTime', `track=${trackId} clip=${clipId} time=${time.toFixed(2)}`);
     set((state) => {
-      const newTracks = state.tracks.map(track =>
-        track.id === trackId
-          ? {
-              ...track,
-              clips: track.clips.map(clip => {
-                if (clip.id !== clipId || !clip.keyframes) return clip;
-                const newKeyframes = compactClipKeyframes(clip.keyframes, kfs => removeKeyframeAtTime(kfs, time));
-                return { ...clip, keyframes: newKeyframes };
-              }),
-            }
-          : track
-      );
+      const newTracks = updateClipInTracks(state.tracks, trackId, clipId, clip => {
+        if (!clip.keyframes) return clip;
+        return { ...clip, keyframes: compactClipKeyframes(clip.keyframes, kfs => removeKeyframeAtTime(kfs, time)) };
+      });
       return withHistory(state, newTracks);
     });
   },
@@ -273,19 +194,10 @@ export const createClipSlice = (set: Set, get: Get) => ({
   addToneCurveKeyframe: (trackId: string, clipId: string, keyframe: ToneCurveKeyframe) => {
     logAction('addToneCurveKeyframe', `track=${trackId} clip=${clipId} time=${keyframe.time.toFixed(2)}`);
     set((state) => {
-      const newTracks = state.tracks.map(track =>
-        track.id === trackId
-          ? {
-              ...track,
-              clips: track.clips.map(clip => {
-                if (clip.id !== clipId) return clip;
-                const existing = clip.toneCurveKeyframes ?? [];
-                const updated = upsertKeyframe(existing, keyframe);
-                return { ...clip, toneCurveKeyframes: updated };
-              }),
-            }
-          : track
-      );
+      const newTracks = updateClipInTracks(state.tracks, trackId, clipId, clip => {
+        const existing = clip.toneCurveKeyframes ?? [];
+        return { ...clip, toneCurveKeyframes: upsertKeyframe(existing, keyframe) };
+      });
       return withHistory(state, newTracks);
     });
   },
@@ -293,19 +205,11 @@ export const createClipSlice = (set: Set, get: Get) => ({
   removeToneCurveKeyframe: (trackId: string, clipId: string, time: number) => {
     logAction('removeToneCurveKeyframe', `track=${trackId} clip=${clipId} time=${time.toFixed(2)}`);
     set((state) => {
-      const newTracks = state.tracks.map(track =>
-        track.id === trackId
-          ? {
-              ...track,
-              clips: track.clips.map(clip => {
-                if (clip.id !== clipId) return clip;
-                const existing = clip.toneCurveKeyframes ?? [];
-                const updated = removeKeyframeAtTime(existing, time);
-                return { ...clip, toneCurveKeyframes: updated.length > 0 ? updated : undefined };
-              }),
-            }
-          : track
-      );
+      const newTracks = updateClipInTracks(state.tracks, trackId, clipId, clip => {
+        const existing = clip.toneCurveKeyframes ?? [];
+        const updated = removeKeyframeAtTime(existing, time);
+        return { ...clip, toneCurveKeyframes: updated.length > 0 ? updated : undefined };
+      });
       return withHistory(state, newTracks);
     });
   },
@@ -313,19 +217,10 @@ export const createClipSlice = (set: Set, get: Get) => ({
   updateToneCurveKeyframeEasing: (trackId: string, clipId: string, time: number, easing: EasingType) => {
     logAction('updateToneCurveKeyframeEasing', `track=${trackId} clip=${clipId} time=${time.toFixed(2)} easing=${easing}`);
     set((state) => {
-      const newTracks = state.tracks.map(track =>
-        track.id === trackId
-          ? {
-              ...track,
-              clips: track.clips.map(clip => {
-                if (clip.id !== clipId) return clip;
-                const existing = clip.toneCurveKeyframes ?? [];
-                const updated = updateKeyframeEasingAtTime(existing, time, easing);
-                return { ...clip, toneCurveKeyframes: updated };
-              }),
-            }
-          : track
-      );
+      const newTracks = updateClipInTracks(state.tracks, trackId, clipId, clip => {
+        const existing = clip.toneCurveKeyframes ?? [];
+        return { ...clip, toneCurveKeyframes: updateKeyframeEasingAtTime(existing, time, easing) };
+      });
       return withHistory(state, newTracks);
     });
   },
