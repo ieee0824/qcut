@@ -4,7 +4,8 @@
  */
 export function extractDisplayName(path: string | undefined, fallback: string): string {
   if (!path) return fallback;
-  return path.split('/').pop()?.split('\\').pop() ?? fallback;
+  const filename = path.split('/').pop()?.split('\\').pop();
+  return filename || fallback;
 }
 
 /**
@@ -15,5 +16,6 @@ export function extractProjectName(path: string | undefined | null, fallback: st
   if (!path) return fallback;
   const filename = path.split('/').pop()?.split('\\').pop();
   if (!filename) return fallback;
-  return filename.replace(/\.qcut$/, '');
+  const name = filename.replace(/\.qcut$/, '');
+  return name || fallback;
 }
